@@ -352,13 +352,13 @@ x-market-sui/
 
 ## 9. 开放问题
 
-1. Move 定点数库选型：自建 vs 社区 `fixed_point32`
-2. Normal CDF 方案：math-spec 对齐后压测 Gas
+1. Move 定点数库选型：自建 vs 社区 `fixed_point32` -> **已解决**：选择了自建 `math_fixed_point.move`（U128 缩放，精度 $10^{-9}$），为了避免引入不必要的外部依赖，并精确适配概率引擎（泰勒展开、LUT）的数值边界。
+2. Normal CDF 方案：math-spec 对齐后压测 Gas -> **已解决**：采用了有界 erf 多项式近似（`math_normal.move`）。在 Sui Testnet 实测执行单笔期权买入交易 Gas 消耗极低且高度平稳，验证了纯链上计算 CDF 的工程可行性。
 3. Position 是否允许 secondary transfer -> **已解决**：已移除对象内部的冗余 `owner` 字段，现在完全依靠 Sui 原生所有权机制，支持通过原生 `sui client transfer` 或 PTB 无缝实现二级市场转让。
-4. Tier 2 ZK：Axiom vs Brevis
-5. Normal/Poisson 追加 LP 浓度参数公式
-6. Opening Auction 尾盘操纵缓解：TWAP / 冻结 / 单笔上限
-7. **动态费率与虚拟流动性：** 检测窗口、衰减曲线（见 docs/qa.md §LP 防守）
+4. Tier 2 ZK：Axiom vs Brevis -> **已决议**：Phase 3 优先接入 **Brevis**。Brevis 在 Sui 生态（及 Move 架构）上支持度更高，能完美契合结构化票据对链上历史状态证明与异步密集计算的需求。
+5. Normal/Poisson 追加 LP 浓度参数公式 -> **已解决**：采用**资金比例缩放（Proportional Scaling）**。Dirichlet 在申购时按新旧 Vault 比例等比放大 $\alpha$；Normal/Poisson 则通过 `nav` 及代币发行量折算，保持分布参数无损。
+6. Opening Auction 尾盘操纵缓解：TWAP / 冻结 / 单笔上限 -> **已解决（策略敲定）**：实施**时间冻结（Time Freeze）+ 单笔硬顶**机制。在竞价截止前的一段窗口内禁止大额新增 Bid，且限制单笔注资占比，防止抢跑巨鲸在最后一秒篡改开盘概率。
+7. **动态费率与虚拟流动性：** 检测窗口、衰减曲线（见 docs/qa.md §LP 防守） -> **已解决**：采用**链下观测 + 链上更新**的混合 PID 控制方案。Indexer 实时监测近期交易量 EMA 与偏度风险，调用 `set_lp_guard_params` 来动态拉高费率乘数和虚拟波动率 $\sigma$，并在风险褪去后平滑衰减，省去了高昂的链上时间加权计算。
 
 ---
 
