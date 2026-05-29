@@ -187,9 +187,12 @@ Phase 1.5 已实现：
 - Opening Auction（Poisson + Dirichlet）
 - NAV 申购与 `LpShare`
 
-尚未实现（Phase 2）：
+后续进阶功能（Phase 2）现已全部实现：
 
 - `withdraw_liquidity`（LP 赎回）
 - `T2` 到期前禁申购
 - 动态费率 / 虚拟流动性 / 结算时间锁
+- 线性期权 / Straddle / Cross-Margin
+
+请参考：[Phase 2 操作手册](./phase2-playbook.md)。
 

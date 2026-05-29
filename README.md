@@ -105,4 +105,5 @@ Dev 币种：`x_market::usdc::USDC`（包 `init`）；主网改用 Circle 官方
 - [PRD.md](./PRD.md)
 - [docs/qa.md](./docs/qa.md)
 - [docs/phase1.5-playbook.md](./docs/phase1.5-playbook.md)
+- [docs/phase2-playbook.md](./docs/phase2-playbook.md)
 - [math-spec/SPEC.md](./math-spec/SPEC.md)
