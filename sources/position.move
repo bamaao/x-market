@@ -4,6 +4,12 @@ module x_market::position;
 const CONTRACT_INTERVAL: u8 = 0;
 /// Digital: exact k (Poisson), category i (Dirichlet), or threshold (Normal).
 const CONTRACT_DIGITAL: u8 = 1;
+/// Linear Call: max(X-K, 0), approximated on discrete slots.
+const CONTRACT_LINEAR_CALL: u8 = 2;
+/// Linear Put: max(K-X, 0), approximated on discrete slots.
+const CONTRACT_LINEAR_PUT: u8 = 3;
+/// Straddle: |X-K|, approximated on discrete slots.
+const CONTRACT_STRADDLE: u8 = 4;
 
 public struct Position has key, store {
     id: UID,
@@ -65,6 +71,29 @@ public(package) fun new_digital(
     }
 }
 
+public(package) fun new_linear(
+    owner: address,
+    market_id: ID,
+    contract_kind: u8,
+    strike_slot: u8,
+    stake_usdc: u64,
+    ctx: &mut TxContext,
+): Position {
+    Position {
+        id: object::new(ctx),
+        owner,
+        market_id,
+        contract_kind,
+        interval_a: strike_slot,
+        interval_b: strike_slot,
+        stake_usdc,
+        // linear products do not use probability quote at claim stage
+        entry_prob_ppb: 1_000_000_000,
+        settled: false,
+        claimed: false,
+    }
+}
+
 public fun owner(pos: &Position): address {
     pos.owner
 }
@@ -96,6 +125,22 @@ public fun interval_b(pos: &Position): u8 {
 public fun is_digital(pos: &Position): bool {
     pos.contract_kind == CONTRACT_DIGITAL
 }
+
+public fun is_linear_call(pos: &Position): bool {
+    pos.contract_kind == CONTRACT_LINEAR_CALL
+}
+
+public fun is_linear_put(pos: &Position): bool {
+    pos.contract_kind == CONTRACT_LINEAR_PUT
+}
+
+public fun is_straddle(pos: &Position): bool {
+    pos.contract_kind == CONTRACT_STRADDLE
+}
+
+public fun linear_call_kind(): u8 { CONTRACT_LINEAR_CALL }
+public fun linear_put_kind(): u8 { CONTRACT_LINEAR_PUT }
+public fun straddle_kind(): u8 { CONTRACT_STRADDLE }
 
 public fun is_claimed(pos: &Position): bool {
     pos.claimed

@@ -653,7 +653,153 @@ public entry fun buy_normal_digital(
     position::transfer_to_sender(pos, ctx);
 }
 
+public entry fun buy_normal_linear_call(
+    pool: &mut MarketPool,
+    payment: Coin<USDC>,
+    strike_units: u64,
+    clock: &Clock,
+    ctx: &mut TxContext,
+) {
+    buy_normal_linear(pool, payment, strike_units, position::linear_call_kind(), clock, ctx);
+}
+
+public entry fun buy_normal_linear_put(
+    pool: &mut MarketPool,
+    payment: Coin<USDC>,
+    strike_units: u64,
+    clock: &Clock,
+    ctx: &mut TxContext,
+) {
+    buy_normal_linear(pool, payment, strike_units, position::linear_put_kind(), clock, ctx);
+}
+
+public entry fun buy_normal_straddle(
+    pool: &mut MarketPool,
+    payment: Coin<USDC>,
+    strike_units: u64,
+    clock: &Clock,
+    ctx: &mut TxContext,
+) {
+    buy_normal_linear(pool, payment, strike_units, position::straddle_kind(), clock, ctx);
+}
+
 // --- internals ---
+
+fun buy_normal_linear(
+    pool: &mut MarketPool,
+    payment: Coin<USDC>,
+    strike_units: u64,
+    contract_kind: u8,
+    clock: &Clock,
+    ctx: &mut TxContext,
+) {
+    assert_normal_trading(pool);
+    let now = clock::timestamp_ms(clock) / 1000;
+    lp_guard::assert_buy_window_open(
+        now,
+        market_pool::maturity_ts(pool),
+        market_pool::resolution_window_ts(pool),
+    );
+    let strike_slot = strike_units as u8;
+    if ((strike_slot as u64) >= risk::outcome_slots()) {
+        abort errors::out_of_bounds()
+    };
+    let stake_raw = sui::coin::value(&payment);
+    if (stake_raw == 0) {
+        abort errors::out_of_bounds()
+    };
+    let fee_eff = lp_guard::effective_fee_bps(
+        market_pool::fee_bps(pool),
+        market_pool::fee_multiplier_bps(pool),
+    );
+    let stake = lp_guard::net_stake_after_fee(stake_raw, fee_eff);
+    let vault_usdc = market_pool::collateral_value(pool);
+    risk::assert_linear_max_loss_bounded(
+        market_pool::liability_by_k(pool),
+        contract_kind,
+        strike_slot,
+        stake,
+        vault_usdc,
+    );
+    coin_util::deposit_to_vault(pool, payment);
+    risk::add_linear_liability(
+        market_pool::liability_by_k_mut(pool),
+        contract_kind,
+        strike_slot,
+        stake,
+    );
+
+    let delta_fp = math_poisson::delta_prob_from_stake(stake, vault_usdc);
+    if (contract_kind == position::linear_call_kind()) {
+        let high = (risk::outcome_slots() - 1) as u64;
+        if (market_pool::uses_tenths(pool)) {
+            let new_mu = math_normal::update_mu_buy_tenths(
+                market_pool::mu_tenths(pool) as u64,
+                market_pool::sigma_tenths(pool) as u64,
+                strike_units,
+                false,
+                high,
+                false,
+                delta_fp,
+            );
+            market_pool::set_mu_tenths(pool, new_mu as u32);
+        } else {
+            let new_mu = math_normal::update_mu_buy(
+                market_pool::mu_units(pool),
+                market_pool::sigma_units(pool),
+                strike_units,
+                false,
+                high,
+                false,
+                delta_fp,
+            );
+            market_pool::set_mu_units(pool, new_mu);
+        };
+    } else if (contract_kind == position::linear_put_kind()) {
+        if (market_pool::uses_tenths(pool)) {
+            let new_mu = math_normal::update_mu_buy_tenths(
+                market_pool::mu_tenths(pool) as u64,
+                market_pool::sigma_tenths(pool) as u64,
+                0,
+                false,
+                strike_units,
+                false,
+                delta_fp,
+            );
+            market_pool::set_mu_tenths(pool, new_mu as u32);
+        } else {
+            let new_mu = math_normal::update_mu_buy(
+                market_pool::mu_units(pool),
+                market_pool::sigma_units(pool),
+                0,
+                false,
+                strike_units,
+                false,
+                delta_fp,
+            );
+            market_pool::set_mu_units(pool, new_mu);
+        };
+    } else {
+        if (market_pool::uses_tenths(pool)) {
+            let sigma = market_pool::sigma_tenths(pool);
+            market_pool::set_sigma_tenths(pool, sigma + 1);
+        } else {
+            let sigma = market_pool::sigma_units(pool);
+            market_pool::set_sigma_units(pool, sigma + 1);
+        };
+    };
+
+    let market_id = market_pool::pool_id(pool);
+    let pos = position::new_linear(
+        ctx.sender(),
+        market_id,
+        contract_kind,
+        strike_slot,
+        stake,
+        ctx,
+    );
+    position::transfer_to_sender(pos, ctx);
+}
 
 fun assert_poisson_trading(pool: &MarketPool) {
     if (market_pool::is_paused(pool)) {

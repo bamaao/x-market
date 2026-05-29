@@ -3,12 +3,53 @@
 import { useCurrentAccount, useSuiClientQuery } from "@mysten/dapp-kit";
 import { PACKAGE_ID, SEED_MARKETS } from "@/lib/markets";
 import { PositionCard } from "@/components/PositionCard";
+import { formatUsdcBaseUnits } from "@/lib/usdc";
 
 function parseFields(content: unknown): Record<string, unknown> | undefined {
   if (!content || typeof content !== "object") return undefined;
   const c = content as { dataType?: string; fields?: Record<string, unknown> };
   if (c.dataType === "moveObject" && c.fields) return c.fields;
   return undefined;
+}
+
+const LINEAR_CALL_KIND = 2;
+const LINEAR_PUT_KIND = 3;
+const STRADDLE_KIND = 4;
+const OUTCOME_SLOTS = 15;
+
+function estimateCrossMargin(
+  positions: Array<{
+    contract_kind: number;
+    interval_a: number;
+    interval_b: number;
+    stake_usdc: bigint;
+    entry_prob_ppb: bigint;
+  }>,
+): bigint {
+  let worst = 0n;
+  for (let slot = 0; slot < OUTCOME_SLOTS; slot += 1) {
+    let scenario = 0n;
+    for (const p of positions) {
+      if (p.contract_kind === LINEAR_CALL_KIND) {
+        const diff = BigInt(Math.max(slot - p.interval_a, 0));
+        scenario += (p.stake_usdc * diff) / 10n;
+      } else if (p.contract_kind === LINEAR_PUT_KIND) {
+        const diff = BigInt(Math.max(p.interval_a - slot, 0));
+        scenario += (p.stake_usdc * diff) / 10n;
+      } else if (p.contract_kind === STRADDLE_KIND) {
+        const diff = BigInt(Math.abs(slot - p.interval_a));
+        scenario += (p.stake_usdc * diff) / 10n;
+      } else if (p.entry_prob_ppb > 0n) {
+        // interval / digital legacy products
+        const inRange = slot >= p.interval_a && slot <= p.interval_b;
+        if (inRange) {
+          scenario += (p.stake_usdc * 1_000_000_000n) / p.entry_prob_ppb;
+        }
+      }
+    }
+    if (scenario > worst) worst = scenario;
+  }
+  return worst;
 }
 
 export default function PositionsPage() {
@@ -23,6 +64,39 @@ export default function PositionsPage() {
       options: { showContent: true, showType: true },
     },
     { enabled: !!account?.address && PACKAGE_ID !== "0x0" },
+  );
+
+  const parsedPositions =
+    data?.data
+      ?.map((obj) => {
+        const raw = parseFields(obj.data?.content);
+        if (!raw) return null;
+        const stake =
+          typeof raw.stake_usdc === "string" || typeof raw.stake_usdc === "number"
+            ? BigInt(String(raw.stake_usdc))
+            : 0n;
+        const entry =
+          typeof raw.entry_prob_ppb === "string" ||
+          typeof raw.entry_prob_ppb === "number"
+            ? BigInt(String(raw.entry_prob_ppb))
+            : 0n;
+        return {
+          contract_kind: Number(raw.contract_kind ?? 0),
+          interval_a: Number(raw.interval_a ?? 0),
+          interval_b: Number(raw.interval_b ?? 0),
+          stake_usdc: stake,
+          entry_prob_ppb: entry,
+        };
+      })
+      .filter(Boolean) ?? [];
+  const crossMarginVar = estimateCrossMargin(
+    parsedPositions as Array<{
+      contract_kind: number;
+      interval_a: number;
+      interval_b: number;
+      stake_usdc: bigint;
+      entry_prob_ppb: bigint;
+    }>,
   );
 
   return (
@@ -44,6 +118,11 @@ export default function PositionsPage() {
         </button>
       )}
       {isPending && account && <p className="hint">加载中…</p>}
+      {account && !isPending && (
+        <p className="hint">
+          Cross-Margin VaR(估算): {formatUsdcBaseUnits(crossMarginVar)} USDC
+        </p>
+      )}
       <div className="grid">
         {data?.data?.map((obj) => {
           const raw = parseFields(obj.data?.content);

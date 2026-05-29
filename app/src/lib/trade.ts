@@ -2,7 +2,12 @@ import type { Transaction } from "@mysten/sui/transactions";
 import type { MarketKind } from "./markets";
 import { PACKAGE_ID } from "./markets";
 
-export type ContractMode = "interval" | "digital";
+export type ContractMode =
+  | "interval"
+  | "digital"
+  | "linear_call"
+  | "linear_put"
+  | "straddle";
 export const SUI_CLOCK_ID = process.env.NEXT_PUBLIC_SUI_CLOCK ?? "0x6";
 
 export interface TradeParams {
@@ -18,6 +23,7 @@ export interface TradeParams {
   normalA?: number;
   normalB?: number;
   normalThreshold?: number;
+  normalStrike?: number;
 }
 
 export function appendBuyMoveCall(
@@ -69,6 +75,24 @@ export function appendBuyMoveCall(
       target: `${pkg}::pool::buy_normal_digital`,
       arguments: [pool, payment, tx.pure.u64(t), tx.object(SUI_CLOCK_ID)],
     });
+  } else if (params.mode === "linear_call") {
+    const strike = params.normalStrike ?? 25;
+    tx.moveCall({
+      target: `${pkg}::pool::buy_normal_linear_call`,
+      arguments: [pool, payment, tx.pure.u64(strike), tx.object(SUI_CLOCK_ID)],
+    });
+  } else if (params.mode === "linear_put") {
+    const strike = params.normalStrike ?? 25;
+    tx.moveCall({
+      target: `${pkg}::pool::buy_normal_linear_put`,
+      arguments: [pool, payment, tx.pure.u64(strike), tx.object(SUI_CLOCK_ID)],
+    });
+  } else if (params.mode === "straddle") {
+    const strike = params.normalStrike ?? 25;
+    tx.moveCall({
+      target: `${pkg}::pool::buy_normal_straddle`,
+      arguments: [pool, payment, tx.pure.u64(strike), tx.object(SUI_CLOCK_ID)],
+    });
   } else {
     const a = params.normalA ?? 25;
     const b = params.normalB ?? 27;
@@ -97,7 +121,9 @@ export function defaultTradeParams(
   if (kind === "dirichlet") {
     return { dirichletOutcome: 0 };
   }
-  return mode === "digital"
-    ? { normalThreshold: 30 }
-    : { normalA: 25, normalB: 27 };
+  if (mode === "digital") return { normalThreshold: 30 };
+  if (mode === "linear_call" || mode === "linear_put" || mode === "straddle") {
+    return { normalStrike: 25 };
+  }
+  return { normalA: 25, normalB: 27 };
 }

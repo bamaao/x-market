@@ -108,6 +108,14 @@ public fun set_mu_units(pool: &mut MarketPool, mu: u64) {
     pool.mu_units = mu;
 }
 
+public fun set_sigma_tenths(pool: &mut MarketPool, sigma: u32) {
+    pool.sigma_tenths = sigma;
+}
+
+public fun set_sigma_units(pool: &mut MarketPool, sigma: u64) {
+    pool.sigma_units = sigma;
+}
+
 public fun status(pool: &MarketPool): u8 {
     pool.status
 }

@@ -4,6 +4,10 @@ module x_market::risk;
 use x_market::errors;
 
 const OUTCOME_SLOTS: u64 = 15;
+const LINEAR_PAYOUT_DIVISOR: u64 = 10;
+const LINEAR_CALL_KIND: u8 = 2;
+const LINEAR_PUT_KIND: u8 = 3;
+const STRADDLE_KIND: u8 = 4;
 
 public fun outcome_slots(): u64 {
     OUTCOME_SLOTS
@@ -116,4 +120,74 @@ public fun zero_liability(): vector<u64> {
         i = i + 1;
     };
     v
+}
+
+public fun linear_payout_usdc(
+    contract_kind: u8,
+    strike_slot: u8,
+    resolved_slot: u8,
+    stake_usdc: u64,
+): u64 {
+    let diff = if (contract_kind == LINEAR_CALL_KIND) {
+        if (resolved_slot > strike_slot) {
+            (resolved_slot - strike_slot) as u64
+        } else {
+            0
+        }
+    } else if (contract_kind == LINEAR_PUT_KIND) {
+        if (resolved_slot < strike_slot) {
+            (strike_slot - resolved_slot) as u64
+        } else {
+            0
+        }
+    } else if (contract_kind == STRADDLE_KIND) {
+        if (resolved_slot >= strike_slot) {
+            (resolved_slot - strike_slot) as u64
+        } else {
+            (strike_slot - resolved_slot) as u64
+        }
+    } else {
+        0
+    };
+    ((stake_usdc as u128) * (diff as u128) / (LINEAR_PAYOUT_DIVISOR as u128)) as u64
+}
+
+public fun add_linear_liability(
+    liability_by_k: &mut vector<u64>,
+    contract_kind: u8,
+    strike_slot: u8,
+    stake_usdc: u64,
+) {
+    let mut k = 0u8;
+    while ((k as u64) < vector::length(liability_by_k)) {
+        let add = linear_payout_usdc(contract_kind, strike_slot, k, stake_usdc);
+        if (add > 0) {
+            let slot = vector::borrow_mut(liability_by_k, k as u64);
+            *slot = *slot + add;
+        };
+        k = k + 1;
+    };
+}
+
+public fun assert_linear_max_loss_bounded(
+    liability_by_k: &vector<u64>,
+    contract_kind: u8,
+    strike_slot: u8,
+    stake_usdc: u64,
+    vault_usdc: u64,
+) {
+    let mut max_liab = 0u64;
+    let mut k = 0u8;
+    while ((k as u64) < vector::length(liability_by_k)) {
+        let cur = *vector::borrow(liability_by_k, k as u64);
+        let add = linear_payout_usdc(contract_kind, strike_slot, k, stake_usdc);
+        let total = cur + add;
+        if (total > max_liab) {
+            max_liab = total;
+        };
+        k = k + 1;
+    };
+    if (max_liab > (vault_usdc + stake_usdc)) {
+        abort errors::max_loss_exceeded()
+    };
 }

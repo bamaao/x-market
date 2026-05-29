@@ -34,7 +34,16 @@ export function PositionCard({ objectId, fields }: Props) {
     fields?.stake_usdc != null
       ? formatUsdcBaseUnits(BigInt(String(fields.stake_usdc)))
       : "—";
-  const isDigital = fields?.contract_kind === 1;
+  const kindLabel =
+    fields?.contract_kind === 1
+      ? "Digital"
+      : fields?.contract_kind === 2
+        ? "Linear Call"
+        : fields?.contract_kind === 3
+          ? "Linear Put"
+          : fields?.contract_kind === 4
+            ? "Straddle"
+            : "Interval";
   const claimed = fields?.claimed === true;
 
   const claim = () => {
@@ -59,7 +68,7 @@ export function PositionCard({ objectId, fields }: Props) {
 
   return (
     <article className="card">
-      <span className="badge">{isDigital ? "Digital" : "Interval"}</span>
+      <span className="badge">{kindLabel}</span>
       <p className="mono">{objectId.slice(0, 18)}…</p>
       <ul className="pos-meta">
         <li>Stake: {stake} USDC</li>

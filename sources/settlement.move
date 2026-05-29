@@ -24,10 +24,23 @@ public entry fun claim_position(
     if (!is_winner(pool, &pos)) {
         abort errors::not_winner()
     };
-    let payout = risk::position_payout_usdc(
-        position::stake_usdc(&pos),
-        position::entry_prob_ppb(&pos),
-    );
+    let payout = if (
+        position::is_linear_call(&pos) ||
+            position::is_linear_put(&pos) ||
+            position::is_straddle(&pos)
+    ) {
+        risk::linear_payout_usdc(
+            position::contract_kind(&pos),
+            position::interval_a(&pos),
+            market_pool::resolved_value(pool) as u8,
+            position::stake_usdc(&pos),
+        )
+    } else {
+        risk::position_payout_usdc(
+            position::stake_usdc(&pos),
+            position::entry_prob_ppb(&pos),
+        )
+    };
     let vault = market_pool::collateral_value(pool);
     if (payout > vault) {
         abort errors::max_loss_exceeded()
@@ -51,7 +64,13 @@ fun is_winner(pool: &MarketPool, pos: &Position): bool {
         (rv as u8) == position::interval_a(pos)
     } else if (market_pool::is_normal(pool)) {
         let v = rv;
-        if (position::is_digital(pos)) {
+        if (
+            position::is_linear_call(pos) ||
+                position::is_linear_put(pos) ||
+                position::is_straddle(pos)
+        ) {
+            true
+        } else if (position::is_digital(pos)) {
             v >= (position::interval_a(pos) as u64)
         } else {
             v >= (position::interval_a(pos) as u64) && v <= (position::interval_b(pos) as u64)

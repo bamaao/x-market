@@ -37,6 +37,7 @@ export function TradePanel({ market }: Props) {
   const [normalA, setNormalA] = useState("25");
   const [normalB, setNormalB] = useState("27");
   const [normalThreshold, setNormalThreshold] = useState("30");
+  const [normalStrike, setNormalStrike] = useState("25");
 
   const buildBuyTx = async () => {
     if (!account?.address) {
@@ -68,6 +69,7 @@ export function TradePanel({ market }: Props) {
         normalA: Number(normalA),
         normalB: Number(normalB),
         normalThreshold: Number(normalThreshold),
+        normalStrike: Number(normalStrike),
       });
 
       signAndExecute(
@@ -117,6 +119,13 @@ export function TradePanel({ market }: Props) {
           >
             <option value="interval">区间合约</option>
             <option value="digital">数字期权</option>
+            {market.kind === "normal" && (
+              <>
+                <option value="linear_call">线性 Call</option>
+                <option value="linear_put">线性 Put</option>
+                <option value="straddle">Straddle</option>
+              </>
+            )}
           </select>
         </>
       )}
@@ -175,6 +184,16 @@ export function TradePanel({ market }: Props) {
           />
         </>
       )}
+      {market.kind === "normal" &&
+        (mode === "linear_call" || mode === "linear_put" || mode === "straddle") && (
+          <>
+            <label>执行价 K (tenths)</label>
+            <input
+              value={normalStrike}
+              onChange={(e) => setNormalStrike(e.target.value)}
+            />
+          </>
+        )}
 
       <label>Stake (USDC)</label>
       <input
