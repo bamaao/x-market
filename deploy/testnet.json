@@ -1,0 +1,36 @@
+{
+  "network": "testnet",
+  "deployer": "0x87e487cd6b1c7a53f91999eb3a5372ced201b614b26924ba4cc1d282a2240c07",
+  "publishedAt": "2026-05-27",
+  "packageId": "0xe6be1520c8f4753928b8daf5e45ca485b3c67cd0ab136874b5705bcf24eac8c1",
+  "publishTx": "5PbS2YHpTXtuj4Mm1v5iTVz4gVFA8RbKmEHGq6kjRpSZ",
+  "globalConfig": "0x6f5590350079a39c2ee8639d02c297835c2f07ce343c8baf5e8138271b6162ff",
+  "adminCap": "0xfba8d4081f560322175ea3a4fdc3250c690da29ae588586dbe379363178f01c3",
+  "treasuryCapUsdc": "0x665f9aa32bbb18a65749b7fee38be8499d87fe0ddcdb8e8bbf738f4129975eaf",
+  "upgradeCap": "0xd05b2761eedaa252acef48145b40a22ed386091155ccf00a1b599a84a25e31b0",
+  "maturityTs": 1782458763,
+  "seedMarkets": {
+    "poisson_goals": {
+      "poolId": "0x858f4b3c22aa5add2053895e6d5246ded7aa7361356313eca3a8a30c060d9c71",
+      "createTx": "J7Y6etfgF6sAnr5KfDepaXp5fqTGqZcJ2r45Aaxt5yig",
+      "lambdaTenths": 25
+    },
+    "dirichlet_wdl": {
+      "poolId": "0xf5d1283915bc14e54b016cd1df263cb6f0775b84b40f2aff3262005300446dae",
+      "createTx": "CLJUqPTDBARzzaToJqUaVvsXM4dsA1e2VdaQ23nFd6cK",
+      "alphas": [10, 10, 10]
+    },
+    "normal_cpi": {
+      "poolId": "0x694b31b28219505e1c92f628132eec7b63694f688da8ede7d3a2d136941931cf",
+      "createTx": "8xjFRxvgpkbNuxYgWktntg5nj1dStH9YNTqjNRg4ix7j",
+      "muTenths": 25,
+      "sigmaTenths": 4
+    }
+  },
+  "faucetPackageId": "0x70bb4f8ed11991f79dbafef255ad1881d169bb1e337b69b129d997dd4216ebf0",
+  "faucetPublishTx": "CVXUnZe8aWd398RKhr75wSttqe7tz2ksHZs3gFPqYG6a",
+  "explorer": {
+    "package": "https://testnet.suivision.xyz/package/0xe6be1520c8f4753928b8daf5e45ca485b3c67cd0ab136874b5705bcf24eac8c1",
+    "faucet": "https://testnet.suivision.xyz/package/0x70bb4f8ed11991f79dbafef255ad1881d169bb1e337b69b129d997dd4216ebf0"
+  }
+}

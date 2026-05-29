@@ -25,6 +25,7 @@ app/node_modules/
 app/.next/
 app/out/
 app/.turbo/
+*.tsbuildinfo
 
 # Rust / Python cache
 target/
