@@ -102,6 +102,10 @@ public fun market_id(pos: &Position): ID {
     pos.market_id
 }
 
+public fun position_id(pos: &Position): ID {
+    object::id(pos)
+}
+
 public fun stake_usdc(pos: &Position): u64 {
     pos.stake_usdc
 }
