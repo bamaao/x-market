@@ -13,7 +13,6 @@ const CONTRACT_STRADDLE: u8 = 4;
 
 public struct Position has key, store {
     id: UID,
-    owner: address,
     market_id: ID,
     contract_kind: u8,
     /// Poisson/Normal interval low; Dirichlet category; digital strike k/index.
@@ -27,7 +26,6 @@ public struct Position has key, store {
 }
 
 public(package) fun new_interval(
-    owner: address,
     market_id: ID,
     interval_a: u8,
     interval_b: u8,
@@ -37,7 +35,6 @@ public(package) fun new_interval(
 ): Position {
     Position {
         id: object::new(ctx),
-        owner,
         market_id,
         contract_kind: CONTRACT_INTERVAL,
         interval_a,
@@ -50,7 +47,6 @@ public(package) fun new_interval(
 }
 
 public(package) fun new_digital(
-    owner: address,
     market_id: ID,
     outcome: u8,
     stake_usdc: u64,
@@ -59,7 +55,6 @@ public(package) fun new_digital(
 ): Position {
     Position {
         id: object::new(ctx),
-        owner,
         market_id,
         contract_kind: CONTRACT_DIGITAL,
         interval_a: outcome,
@@ -72,7 +67,6 @@ public(package) fun new_digital(
 }
 
 public(package) fun new_linear(
-    owner: address,
     market_id: ID,
     contract_kind: u8,
     strike_slot: u8,
@@ -81,7 +75,6 @@ public(package) fun new_linear(
 ): Position {
     Position {
         id: object::new(ctx),
-        owner,
         market_id,
         contract_kind,
         interval_a: strike_slot,
@@ -92,10 +85,6 @@ public(package) fun new_linear(
         settled: false,
         claimed: false,
     }
-}
-
-public fun owner(pos: &Position): address {
-    pos.owner
 }
 
 public fun market_id(pos: &Position): ID {

@@ -12,9 +12,6 @@ public entry fun claim_position(
     mut pos: Position,
     ctx: &mut TxContext,
 ) {
-    if (position::owner(&pos) != ctx.sender()) {
-        abort errors::out_of_bounds()
-    };
     if (position::is_claimed(&pos)) {
         abort errors::already_claimed()
     };

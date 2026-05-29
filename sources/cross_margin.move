@@ -8,7 +8,6 @@ use x_market::risk;
 
 public struct MarginAccount has key, store {
     id: UID,
-    owner: address,
     market_id: ID,
     liability_by_slot: vector<u64>,
     gross_stake_usdc: u64,
@@ -18,7 +17,6 @@ public struct MarginAccount has key, store {
 public entry fun open_account(pool: &MarketPool, ctx: &mut TxContext) {
     let account = MarginAccount {
         id: object::new(ctx),
-        owner: ctx.sender(),
         market_id: market_pool::pool_id(pool),
         liability_by_slot: risk::zero_liability(),
         gross_stake_usdc: 0,
@@ -31,10 +29,8 @@ public entry fun register_position(
     account: &mut MarginAccount,
     pool: &MarketPool,
     pos: &Position,
-    ctx: &TxContext,
+    _ctx: &TxContext,
 ) {
-    assert_owner(account, ctx.sender());
-    assert_position_owner(pos, ctx.sender());
     assert_market_match(account, pos, pool);
 
     let pid = position::position_id(pos);
@@ -51,10 +47,8 @@ public entry fun unregister_position(
     account: &mut MarginAccount,
     pool: &MarketPool,
     pos: &Position,
-    ctx: &TxContext,
+    _ctx: &TxContext,
 ) {
-    assert_owner(account, ctx.sender());
-    assert_position_owner(pos, ctx.sender());
     assert_market_match(account, pos, pool);
 
     let pid = position::position_id(pos);
@@ -66,10 +60,6 @@ public entry fun unregister_position(
     apply_position_liability(&mut account.liability_by_slot, pool, pos, false);
     account.gross_stake_usdc = account.gross_stake_usdc - position::stake_usdc(pos);
     let _ = vector::remove(&mut account.linked_positions, idx);
-}
-
-public fun owner(account: &MarginAccount): address {
-    account.owner
 }
 
 public fun market_id(account: &MarginAccount): ID {
@@ -100,18 +90,6 @@ public fun max_liability_from_slots(slots: &vector<u64>): u64 {
         i = i + 1;
     };
     max_v
-}
-
-fun assert_owner(account: &MarginAccount, sender: address) {
-    if (account.owner != sender) {
-        abort errors::not_authority()
-    };
-}
-
-fun assert_position_owner(pos: &Position, sender: address) {
-    if (position::owner(pos) != sender) {
-        abort errors::out_of_bounds()
-    };
 }
 
 fun assert_market_match(account: &MarginAccount, pos: &Position, pool: &MarketPool) {

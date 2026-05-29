@@ -8,7 +8,6 @@ public struct LpShare has key, store {
 }
 
 public(package) fun mint(
-    _owner: address,
     market_id: ID,
     shares: u64,
     ctx: &mut TxContext,

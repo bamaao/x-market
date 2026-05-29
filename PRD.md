@@ -354,7 +354,7 @@ x-market-sui/
 
 1. Move 定点数库选型：自建 vs 社区 `fixed_point32`
 2. Normal CDF 方案：math-spec 对齐后压测 Gas
-3. Position 是否允许 secondary transfer
+3. Position 是否允许 secondary transfer -> **已解决**：已移除对象内部的冗余 `owner` 字段，现在完全依靠 Sui 原生所有权机制，支持通过原生 `sui client transfer` 或 PTB 无缝实现二级市场转让。
 4. Tier 2 ZK：Axiom vs Brevis
 5. Normal/Poisson 追加 LP 浓度参数公式
 6. Opening Auction 尾盘操纵缓解：TWAP / 冻结 / 单笔上限

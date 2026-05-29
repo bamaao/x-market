@@ -257,7 +257,7 @@ public entry fun deposit_liquidity(
     };
     market_pool::add_lp_shares(pool, mint_shares);
     let market_id = market_pool::pool_id(pool);
-    let lp = lp_token::mint(ctx.sender(), market_id, mint_shares, ctx);
+    let lp = lp_token::mint(market_id, mint_shares, ctx);
     lp_token::transfer_to_sender(lp, ctx);
 }
 
@@ -469,7 +469,6 @@ public entry fun buy_dirichlet_outcome(
     );
     let market_id = market_pool::pool_id(pool);
     let pos = position::new_digital(
-        ctx.sender(),
         market_id,
         outcome,
         stake,
@@ -573,7 +572,6 @@ public entry fun buy_normal_interval(
     );
     let market_id = market_pool::pool_id(pool);
     let pos = position::new_interval(
-        ctx.sender(),
         market_id,
         (a_units as u8),
         (b_units as u8),
@@ -643,7 +641,6 @@ public entry fun buy_normal_digital(
     );
     let market_id = market_pool::pool_id(pool);
     let pos = position::new_digital(
-        ctx.sender(),
         market_id,
         slot,
         stake,
@@ -791,7 +788,6 @@ fun buy_normal_linear(
 
     let market_id = market_pool::pool_id(pool);
     let pos = position::new_linear(
-        ctx.sender(),
         market_id,
         contract_kind,
         strike_slot,
@@ -880,7 +876,6 @@ fun execute_poisson_buy(
     let market_id = market_pool::pool_id(pool);
     let pos = if (interval_a == interval_b) {
         position::new_digital(
-            ctx.sender(),
             market_id,
             interval_a,
             stake,
@@ -889,7 +884,6 @@ fun execute_poisson_buy(
         )
     } else {
         position::new_interval(
-            ctx.sender(),
             market_id,
             interval_a,
             interval_b,
