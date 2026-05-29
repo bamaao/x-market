@@ -1,0 +1,9 @@
+[package]
+name = "x_market_faucet"
+edition = "2024.beta"
+
+[dependencies]
+x_market = { local = "..", published-at = "0xe6be1520c8f4753928b8daf5e45ca485b3c67cd0ab136874b5705bcf24eac8c1" }
+
+[addresses]
+x_market_faucet = "0x0"

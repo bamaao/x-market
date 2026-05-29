@@ -1,0 +1,6 @@
+[package]
+name = "x_market"
+edition = "2024.beta"
+
+[addresses]
+x_market = "0x0"

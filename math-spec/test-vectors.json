@@ -1,0 +1,186 @@
+{
+  "$schema": "x-market-math-spec/v1",
+  "version": "1.0.0",
+  "fixed_point": {
+    "scale": 4294967296,
+    "scale_bits": 32,
+    "tolerance_abs_prob": 1e-9,
+    "tolerance_ulp": 1
+  },
+  "constants": {
+    "LAMBDA_MAX": 8.0,
+    "K_MAX": 14,
+    "FACTORIAL": [
+      1,
+      1,
+      2,
+      6,
+      24,
+      120,
+      720,
+      5040,
+      40320,
+      362880,
+      3628800,
+      39916800,
+      479001600,
+      6227020800,
+      87178291200
+    ],
+    "SQRT2": 1.4142135623730951,
+    "E": 2.718281828459045,
+    "EXP_NEG_LUT": {
+      "method": "lut",
+      "steps": 801,
+      "step_size": 0.01,
+      "lambda_max": 8.0,
+      "verify_tolerance": 5e-4
+    }
+  },
+  "poisson_pmf": [
+    { "lambda": 0.0, "k": 0, "expected": 1.0 },
+    { "lambda": 0.0, "k": 1, "expected": 0.0 },
+    { "lambda": 1.0, "k": 0, "expected": 0.36787944117144233 },
+    { "lambda": 1.0, "k": 1, "expected": 0.36787944117144233 },
+    { "lambda": 1.0, "k": 2, "expected": 0.18393972058572117 },
+    { "lambda": 2.5, "k": 0, "expected": 0.08208499862386716 },
+    { "lambda": 2.5, "k": 1, "expected": 0.2052124965596679 },
+    { "lambda": 2.5, "k": 2, "expected": 0.2565156206995849 },
+    { "lambda": 2.5, "k": 3, "expected": 0.21376301724965408 },
+    { "lambda": 2.5, "k": 4, "expected": 0.1336018857810338 },
+    { "lambda": 5.0, "k": 5, "expected": 0.17546736905182706 },
+    { "lambda": 8.0, "k": 0, "expected": 0.0003354626279025118 },
+    { "lambda": 8.0, "k": 8, "expected": 0.13958653195059692 },
+    { "lambda": 8.0, "k": 14, "expected": 0.01692371139585289 }
+  ],
+  "poisson_interval": [
+    { "lambda": 2.5, "a": 0, "b": 1, "expected": 0.28729749527893306 },
+    { "lambda": 2.5, "a": 2, "b": 3, "expected": 0.470278637949239 },
+    { "lambda": 2.5, "a": 0, "b": 3, "expected": 0.757576133828572 },
+    { "lambda": 2.5, "a": 4, "b": 14, "expected": 0.24242379771379535 },
+    { "lambda": 3.0, "a": 0, "b": 2, "expected": 0.42319008112684353 },
+    { "lambda": 3.0, "a": 3, "b": 14, "expected": 0.5768092484872452 },
+    { "lambda": 1.0, "a": 0, "b": 14, "expected": 1.0 },
+    { "lambda": 0.5, "a": 0, "b": 0, "expected": 0.6065306597126332 }
+  ],
+  "poisson_tail": [
+    { "lambda": 2.5, "k_min": 3, "expected": 0.4561868841166705 },
+    { "lambda": 2.5, "k_min": 4, "expected": 0.24242386617142803 },
+    { "lambda": 3.0, "k_min": 4, "expected": 0.35276811121776874 }
+  ],
+  "exp_neg": [
+    { "lambda": 0.0, "expected": 1.0 },
+    { "lambda": 1.0, "expected": 0.36787944117144233 },
+    { "lambda": 2.5, "expected": 0.08208499862386716 },
+    { "lambda": 5.0, "expected": 0.006737946999085467 },
+    { "lambda": 8.0, "expected": 0.0003354626279025118 }
+  ],
+  "dirichlet_prob": [
+    {
+      "alphas": [10, 10, 10],
+      "i": 0,
+      "expected": 0.3333333333333333
+    },
+    {
+      "alphas": [20, 10, 10],
+      "i": 0,
+      "expected": 0.5
+    },
+    {
+      "alphas": [20, 10, 10],
+      "i": 1,
+      "expected": 0.25
+    },
+    {
+      "alphas": [1, 1, 1, 1],
+      "i": 2,
+      "expected": 0.25
+    },
+    {
+      "alphas": [100, 50, 50],
+      "i": 0,
+      "expected": 0.5
+    }
+  ],
+  "dirichlet_update": [
+    {
+      "description": "buy win with stake 10 on equal prior",
+      "alphas_before": [10, 10, 10],
+      "buy_index": 0,
+      "stake": 10,
+      "alphas_after": [20, 10, 10],
+      "prob_after_i0": 0.5
+    }
+  ],
+  "normal_interval": [
+    {
+      "mu": 5000,
+      "sigma": 1000,
+      "a": 4000,
+      "b": 6000,
+      "expected": 0.6826894921370859,
+      "note": "68% one-sigma interval"
+    },
+    {
+      "mu": 2.5,
+      "sigma": 0.4,
+      "a": 2.5,
+      "b": 2.7,
+      "expected": 0.19146246127401323,
+      "note": "CPI-like narrow band"
+    },
+    {
+      "mu": 0,
+      "sigma": 1,
+      "a": -1,
+      "b": 1,
+      "expected": 0.6826894921370859
+    },
+    {
+      "mu": 100,
+      "sigma": 10,
+      "a": 100,
+      "b": 200,
+      "expected": 0.5,
+      "note": "half-plane approximation check"
+    }
+  ],
+  "update_lambda_buy": [
+    {
+      "description": "small prob bump on [3,14]",
+      "lambda_before": 2.5,
+      "a": 3,
+      "b": 14,
+      "delta_prob": 0.05,
+      "lambda_after_approx": 2.85,
+      "lambda_after_tolerance": 0.05
+    }
+  ],
+  "boundary_reverts": [
+    { "fn": "poisson_pmf", "lambda": 8.1, "k": 0, "should_revert": true },
+    { "fn": "poisson_pmf", "lambda": 2.5, "k": 15, "should_revert": true },
+    { "fn": "dirichlet_prob", "alphas": [0, 0, 0], "i": 0, "should_revert": true },
+    { "fn": "normal_interval", "mu": 0, "sigma": 0, "a": -1, "b": 1, "should_revert": true }
+  ],
+  "cross_chain_cases": [
+    {
+      "id": "cc-001",
+      "fn": "poisson_interval",
+      "input": { "lambda": 2.5, "a": 2, "b": 3 },
+      "expected": 0.470278637949239
+    },
+    {
+      "id": "cc-002",
+      "fn": "dirichlet_prob",
+      "input": { "alphas": [20, 10, 10], "i": 0 },
+      "expected": 0.5
+    },
+    {
+      "id": "cc-003",
+      "fn": "exp_neg_lut",
+      "input": { "lambda": 2.5 },
+      "expected": 0.08208499862386716,
+      "tolerance": 5e-4
+    }
+  ]
+}
