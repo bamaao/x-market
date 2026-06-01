@@ -66,18 +66,19 @@ NEXT_PUBLIC_SUI_CLOCK=0x6
 
 ---
 
-## 4. ZK 协处理接口（链上）
+## 4. ZK 协处理接口（链上，Phase 3.1 增强）
 
 模块：`x_market::zk_coprocessor`
 
-> 当前版本为 **Attestation 过渡层**：链上记录 proof hash 与管理员验证状态，尚未在合约内执行通用密码学证明验证电路。
+> 当前版本为 **Attestation + 挑战约束过渡层**：链上仍不直接执行 Groth16/Plonk 数学验算，
+> 但已支持 `proof_scheme_code`、验证委员会阈值确认、挑战证据哈希与挑战裁决流程。
 
 ### 4.1 提交证明哈希
 
 - 入口：`submit_proof(pool, proof_hash, clock)`
 - 结果：用户钱包收到 `ZkProofTicket`（owned object）
 
-### 4.2 管理员验证证明
+### 4.2 管理员验证证明（兼容路径）
 
 - 入口：`verify_proof(config, cap, pool, ticket, status_code, clock)`
 - `status_code`：
@@ -86,16 +87,38 @@ NEXT_PUBLIC_SUI_CLOCK=0x6
   - `3` = challenged
 - 结果：生成共享对象 `ZkVerification`（初始为 `finalized=false`，默认挑战窗口 3600 秒）
 
+### 4.2.1 委员会阈值验证（推荐）
+
+- 初始化策略：`init_verifier_policy(config, cap, signers, threshold, ctx)`
+- 更新策略：`update_verifier_policy(config, cap, policy, signers, threshold, ctx)`
+- 首次验证：`verify_proof_with_policy(policy, pool, ticket, status_code, proof_scheme_code, public_inputs_hash, clock, ctx)`
+- 附加见证：`attest_verification(policy, verification, ctx)`
+- 说明：
+  - `proof_scheme_code` 当前约定：`1=Groth16, 2=Plonk, 3=STARK`
+  - 仅当见证数达到 `required_approvals` 才可最终 finalize
+
 ### 4.3 挑战窗口内发起挑战
 
-- 入口：`challenge_verification(pool, verification, clock, ctx)`
+- 入口：`challenge_verification(pool, verification, evidence_hash, clock, ctx)`
 - 约束：仅在挑战窗口内可调用，窗口到期后不可再挑战
-- 结果：`ZkVerification.status_code` 置为 `3`（challenged）
+- 结果：
+  - `ZkVerification.status_code` 置为 `3`（challenged）
+  - 记录挑战证据哈希 `challenge_evidence_hash`
+  - 未裁决前禁止 finalize
+
+### 4.3.1 管理员挑战裁决
+
+- 入口：`resolve_challenge(config, cap, verification, resolved_status_code, ctx)`
+- 约束：`resolved_status_code` 仅允许 `accepted/rejected`
+- 结果：挑战状态关闭，可进入后续 finalize 判定
 
 ### 4.4 挑战窗口后最终确认
 
 - 入口：`finalize_verification(config, cap, verification, clock, ctx)`
-- 约束：仅管理员可调用，且必须在挑战窗口到期后
+- 约束：仅管理员可调用，且必须同时满足：
+  - 挑战窗口到期
+  - 阈值见证已满足
+  - 无未裁决挑战
 - 结果：`ZkVerification.finalized=true`
 
 ---
