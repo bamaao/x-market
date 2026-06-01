@@ -116,6 +116,17 @@ NEXT_PUBLIC_SUI_CLOCK=0x6
   - 周期累计 slash 上限：当前 slash 周期基准抵押的 50%
   - 生成共享对象 `SlashRecord`
 
+### 5.1.1 多签执行通道（可选）
+
+- 初始化治理对象：`init_slash_governance(config, cap, signers, threshold, ctx)`
+- 提案：`propose_slash_request(gov, pool, amount_usdc, reason_code, recipient, clock, ctx)`
+- 批准：`approve_slash_request(gov, request, clock, ctx)`
+- 达阈值执行：`execute_slash_request(gov, pool, request, clock, ctx)`
+- 说明：
+  - 每个提案带有效期（当前 86400 秒）
+  - 只统计当前 signer 集合中的有效批准
+  - 保留 `slash_pool(...)` 作为管理员应急单签路径
+
 ### 5.2 恢复市场
 
 - 入口：`unslash_resume_pool(config, cap, pool, clock)`

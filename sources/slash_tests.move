@@ -25,3 +25,18 @@ fun bps_limit_checks() {
     assert!(!slash::within_bps_limit(501, 1_000, slash::slash_max_cycle_bps()), 3);
     assert!(!slash::within_bps_limit(1, 0, slash::slash_max_single_bps()), 4);
 }
+
+#[test]
+fun threshold_validation_checks() {
+    assert!(slash::is_valid_threshold(1, 1), 0);
+    assert!(slash::is_valid_threshold(2, 3), 1);
+    assert!(!slash::is_valid_threshold(0, 3), 2);
+    assert!(!slash::is_valid_threshold(4, 3), 3);
+}
+
+#[test]
+fun quorum_reached_checks() {
+    assert!(slash::quorum_reached(2, 2), 0);
+    assert!(slash::quorum_reached(3, 2), 1);
+    assert!(!slash::quorum_reached(1, 2), 2);
+}
