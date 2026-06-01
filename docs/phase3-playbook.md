@@ -172,3 +172,4 @@ Phase 3 已补齐核心协议能力接口与产品形态；主网前仍建议继
 - 审计与安全演练
 - 风险参数基线（各票据的默认 K/C/L/U/B）
 - 自动化告警与治理流程（配合 `SlashRecord` 与 `ZkVerification`）
+- 执行主网上线前清单：`docs/mainnet-readiness-checklist.md`
