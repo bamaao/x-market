@@ -27,7 +27,7 @@ public entry fun open_account(pool: &MarketPool, ctx: &mut TxContext) {
 
 public entry fun register_position(
     account: &mut MarginAccount,
-    pool: &MarketPool,
+    pool: &mut MarketPool,
     pos: &Position,
     _ctx: &TxContext,
 ) {
@@ -37,15 +37,19 @@ public entry fun register_position(
     if (contains_position(&account.linked_positions, pid)) {
         abort errors::out_of_bounds()
     };
+    if (market_pool::is_margin_position_locked(pool, pid)) {
+        abort errors::out_of_bounds()
+    };
 
     apply_position_liability(&mut account.liability_by_slot, pool, pos, true);
     account.gross_stake_usdc = account.gross_stake_usdc + position::stake_usdc(pos);
     vector::push_back(&mut account.linked_positions, pid);
+    market_pool::lock_margin_position(pool, pid);
 }
 
 public entry fun unregister_position(
     account: &mut MarginAccount,
-    pool: &MarketPool,
+    pool: &mut MarketPool,
     pos: &Position,
     _ctx: &TxContext,
 ) {
@@ -60,6 +64,7 @@ public entry fun unregister_position(
     apply_position_liability(&mut account.liability_by_slot, pool, pos, false);
     account.gross_stake_usdc = account.gross_stake_usdc - position::stake_usdc(pos);
     let _ = vector::remove(&mut account.linked_positions, idx);
+    market_pool::unlock_margin_position(pool, pid);
 }
 
 public fun market_id(account: &MarginAccount): ID {

@@ -29,6 +29,7 @@ public struct MarketPool has key {
     liability_by_k: vector<u64>,
     auction_end_ts: u64,
     auction_buckets: vector<u64>,
+    margin_locked_positions: vector<ID>,
     lp_shares: u64,
     created_ts: u64,
     maturity_ts: u64,
@@ -254,6 +255,7 @@ public(package) fun new_poisson_trading(
         liability_by_k: risk::zero_liability(),
         auction_end_ts: 0,
         auction_buckets: vector[0, 0, 0],
+        margin_locked_positions: vector[],
         lp_shares: 0,
         created_ts: 0,
         maturity_ts,
@@ -297,6 +299,7 @@ public(package) fun new_dirichlet_trading(
         liability_by_k: risk::zero_liability(),
         auction_end_ts: 0,
         auction_buckets: vector[0, 0, 0],
+        margin_locked_positions: vector[],
         lp_shares: 0,
         created_ts: 0,
         maturity_ts,
@@ -337,6 +340,7 @@ public(package) fun new_normal_trading_wide(
         liability_by_k: risk::zero_liability(),
         auction_end_ts: 0,
         auction_buckets: vector[0, 0, 0],
+        margin_locked_positions: vector[],
         lp_shares: 0,
         created_ts: 0,
         maturity_ts,
@@ -377,6 +381,7 @@ public(package) fun new_normal_trading(
         liability_by_k: risk::zero_liability(),
         auction_end_ts: 0,
         auction_buckets: vector[0, 0, 0],
+        margin_locked_positions: vector[],
         lp_shares: 0,
         created_ts: 0,
         maturity_ts,
@@ -416,6 +421,7 @@ public(package) fun new_poisson_auction(
         liability_by_k: risk::zero_liability(),
         auction_end_ts,
         auction_buckets: vector[0, 0, 0],
+        margin_locked_positions: vector[],
         lp_shares: 0,
         created_ts: auction_end_ts,
         maturity_ts,
@@ -463,6 +469,7 @@ public(package) fun new_dirichlet_auction(
         liability_by_k: risk::zero_liability(),
         auction_end_ts,
         auction_buckets: vector[0, 0, 0],
+        margin_locked_positions: vector[],
         lp_shares: 0,
         created_ts: auction_end_ts,
         maturity_ts,
@@ -523,10 +530,51 @@ public fun dirichlet_alphas(pool: &MarketPool): &vector<u32> {
     &pool.dirichlet_alphas
 }
 
+public(package) fun is_margin_position_locked(pool: &MarketPool, position_id: ID): bool {
+    contains_id(&pool.margin_locked_positions, position_id)
+}
+
+public(package) fun lock_margin_position(pool: &mut MarketPool, position_id: ID) {
+    if (contains_id(&pool.margin_locked_positions, position_id)) {
+        abort x_market::errors::out_of_bounds()
+    };
+    vector::push_back(&mut pool.margin_locked_positions, position_id);
+}
+
+public(package) fun unlock_margin_position(pool: &mut MarketPool, position_id: ID) {
+    let idx = find_id_index(&pool.margin_locked_positions, position_id);
+    if (idx == 18446744073709551615) {
+        abort x_market::errors::out_of_bounds()
+    };
+    let _ = vector::remove(&mut pool.margin_locked_positions, idx);
+}
+
 public fun dirichlet_len(pool: &MarketPool): u8 {
     pool.dirichlet_len
 }
 
 public fun pool_id(pool: &MarketPool): ID {
     object::id(pool)
+}
+
+fun contains_id(v: &vector<ID>, target: ID): bool {
+    let mut i = 0u64;
+    while (i < vector::length(v)) {
+        if (*vector::borrow(v, i) == target) {
+            return true
+        };
+        i = i + 1;
+    };
+    false
+}
+
+fun find_id_index(v: &vector<ID>, target: ID): u64 {
+    let mut i = 0u64;
+    while (i < vector::length(v)) {
+        if (*vector::borrow(v, i) == target) {
+            return i
+        };
+        i = i + 1;
+    };
+    18446744073709551615
 }
