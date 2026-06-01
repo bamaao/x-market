@@ -111,12 +111,18 @@ NEXT_PUBLIC_SUI_CLOCK=0x6
   - 从 `MarketPool.vault` 扣减 `amount_usdc`
   - 转账到 `recipient`
   - 自动将市场 `paused = true`
+  - 设置治理恢复 timelock（当前 1800 秒）
+  - 单次 slash 上限：当前 slash 周期基准抵押的 30%
+  - 周期累计 slash 上限：当前 slash 周期基准抵押的 50%
   - 生成共享对象 `SlashRecord`
 
 ### 5.2 恢复市场
 
-- 入口：`unslash_resume_pool(config, cap, pool)`
-- 行为：将 `paused = false`
+- 入口：`unslash_resume_pool(config, cap, pool, clock)`
+- 行为：
+  - 仅管理员可调用
+  - 必须达到 timelock 截止时间后才可恢复
+  - 恢复后将 `paused = false` 并重置本轮 slash 状态
 
 ---
 

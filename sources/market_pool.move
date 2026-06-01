@@ -30,6 +30,9 @@ public struct MarketPool has key {
     auction_end_ts: u64,
     auction_buckets: vector<u64>,
     margin_locked_positions: vector<ID>,
+    slash_cycle_base_collateral_usdc: u64,
+    slash_cycle_total_usdc: u64,
+    slash_resume_after_ts: u64,
     lp_shares: u64,
     created_ts: u64,
     maturity_ts: u64,
@@ -185,6 +188,35 @@ public(package) fun set_paused(pool: &mut MarketPool, paused: bool) {
     pool.paused = paused;
 }
 
+public(package) fun slash_cycle_base_collateral_usdc(pool: &MarketPool): u64 {
+    pool.slash_cycle_base_collateral_usdc
+}
+
+public(package) fun slash_cycle_total_usdc(pool: &MarketPool): u64 {
+    pool.slash_cycle_total_usdc
+}
+
+public(package) fun slash_resume_after_ts(pool: &MarketPool): u64 {
+    pool.slash_resume_after_ts
+}
+
+public(package) fun set_slash_state(
+    pool: &mut MarketPool,
+    base_collateral_usdc: u64,
+    cycle_total_usdc: u64,
+    resume_after_ts: u64,
+) {
+    pool.slash_cycle_base_collateral_usdc = base_collateral_usdc;
+    pool.slash_cycle_total_usdc = cycle_total_usdc;
+    pool.slash_resume_after_ts = resume_after_ts;
+}
+
+public(package) fun reset_slash_state(pool: &mut MarketPool) {
+    pool.slash_cycle_base_collateral_usdc = 0;
+    pool.slash_cycle_total_usdc = 0;
+    pool.slash_resume_after_ts = 0;
+}
+
 public(package) fun set_lp_guard_params(
     pool: &mut MarketPool,
     fee_multiplier_bps: u16,
@@ -256,6 +288,9 @@ public(package) fun new_poisson_trading(
         auction_end_ts: 0,
         auction_buckets: vector[0, 0, 0],
         margin_locked_positions: vector[],
+        slash_cycle_base_collateral_usdc: 0,
+        slash_cycle_total_usdc: 0,
+        slash_resume_after_ts: 0,
         lp_shares: 0,
         created_ts: 0,
         maturity_ts,
@@ -300,6 +335,9 @@ public(package) fun new_dirichlet_trading(
         auction_end_ts: 0,
         auction_buckets: vector[0, 0, 0],
         margin_locked_positions: vector[],
+        slash_cycle_base_collateral_usdc: 0,
+        slash_cycle_total_usdc: 0,
+        slash_resume_after_ts: 0,
         lp_shares: 0,
         created_ts: 0,
         maturity_ts,
@@ -341,6 +379,9 @@ public(package) fun new_normal_trading_wide(
         auction_end_ts: 0,
         auction_buckets: vector[0, 0, 0],
         margin_locked_positions: vector[],
+        slash_cycle_base_collateral_usdc: 0,
+        slash_cycle_total_usdc: 0,
+        slash_resume_after_ts: 0,
         lp_shares: 0,
         created_ts: 0,
         maturity_ts,
@@ -382,6 +423,9 @@ public(package) fun new_normal_trading(
         auction_end_ts: 0,
         auction_buckets: vector[0, 0, 0],
         margin_locked_positions: vector[],
+        slash_cycle_base_collateral_usdc: 0,
+        slash_cycle_total_usdc: 0,
+        slash_resume_after_ts: 0,
         lp_shares: 0,
         created_ts: 0,
         maturity_ts,
@@ -422,6 +466,9 @@ public(package) fun new_poisson_auction(
         auction_end_ts,
         auction_buckets: vector[0, 0, 0],
         margin_locked_positions: vector[],
+        slash_cycle_base_collateral_usdc: 0,
+        slash_cycle_total_usdc: 0,
+        slash_resume_after_ts: 0,
         lp_shares: 0,
         created_ts: auction_end_ts,
         maturity_ts,
@@ -470,6 +517,9 @@ public(package) fun new_dirichlet_auction(
         auction_end_ts,
         auction_buckets: vector[0, 0, 0],
         margin_locked_positions: vector[],
+        slash_cycle_base_collateral_usdc: 0,
+        slash_cycle_total_usdc: 0,
+        slash_resume_after_ts: 0,
         lp_shares: 0,
         created_ts: auction_end_ts,
         maturity_ts,
