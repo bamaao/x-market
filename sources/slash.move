@@ -80,6 +80,29 @@ public fun quorum_reached(approval_count: u64, threshold: u8): bool {
     approval_count >= (threshold as u64)
 }
 
+public fun request_is_live(executed: bool, now: u64, expires_at: u64): bool {
+    !executed && now <= expires_at
+}
+
+public fun can_approve_request(
+    executed: bool,
+    now: u64,
+    expires_at: u64,
+    already_approved: bool,
+): bool {
+    request_is_live(executed, now, expires_at) && !already_approved
+}
+
+public fun can_execute_request(
+    approval_count: u64,
+    threshold: u8,
+    executed: bool,
+    now: u64,
+    expires_at: u64,
+): bool {
+    request_is_live(executed, now, expires_at) && quorum_reached(approval_count, threshold)
+}
+
 /// Slash collateral and transfer to `recipient`.
 /// reason_code is an opaque number for off-chain governance mapping.
 public entry fun slash_pool(
@@ -173,8 +196,9 @@ public entry fun approve_slash_request(
     ctx: &TxContext,
 ) {
     assert_signer(gov, ctx.sender());
-    assert_request_live(req, clock::timestamp_ms(clock) / 1000);
-    if (contains_address(&req.approvals, ctx.sender())) {
+    let now = clock::timestamp_ms(clock) / 1000;
+    let already_approved = contains_address(&req.approvals, ctx.sender());
+    if (!can_approve_request(req.executed, now, req.expires_at, already_approved)) {
         abort errors::out_of_bounds()
     };
     vector::push_back(&mut req.approvals, ctx.sender());
@@ -188,12 +212,21 @@ public entry fun execute_slash_request(
     ctx: &mut TxContext,
 ) {
     assert_signer(gov, ctx.sender());
-    assert_request_live(req, clock::timestamp_ms(clock) / 1000);
+    let now = clock::timestamp_ms(clock) / 1000;
+    if (!request_is_live(req.executed, now, req.expires_at)) {
+        abort errors::out_of_bounds()
+    };
     if (req.market_id != market_pool::pool_id(pool)) {
         abort errors::lp_market_mismatch()
     };
     let approvals = active_approval_count(gov, req);
-    if (!quorum_reached(approvals, req.required_approvals)) {
+    if (!can_execute_request(
+        approvals,
+        req.required_approvals,
+        req.executed,
+        now,
+        req.expires_at,
+    )) {
         abort errors::out_of_bounds()
     };
     execute_slash(
@@ -275,12 +308,6 @@ public entry fun unslash_resume_pool(
 fun assert_signer(gov: &SlashGovernance, signer: address) {
     if (!contains_address(&gov.signers, signer)) {
         abort errors::not_admin()
-    };
-}
-
-fun assert_request_live(req: &SlashRequest, now: u64) {
-    if (req.executed || now > req.expires_at) {
-        abort errors::out_of_bounds()
     };
 }
 

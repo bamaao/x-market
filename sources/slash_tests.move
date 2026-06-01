@@ -40,3 +40,28 @@ fun quorum_reached_checks() {
     assert!(slash::quorum_reached(3, 2), 1);
     assert!(!slash::quorum_reached(1, 2), 2);
 }
+
+#[test]
+fun request_lifecycle_guards() {
+    assert!(slash::request_is_live(false, 100, 100), 0);
+    assert!(slash::request_is_live(false, 100, 101), 1);
+    assert!(!slash::request_is_live(false, 102, 101), 2);
+    assert!(!slash::request_is_live(true, 100, 101), 3);
+}
+
+#[test]
+fun approve_request_guards() {
+    assert!(slash::can_approve_request(false, 100, 101, false), 0);
+    assert!(!slash::can_approve_request(false, 102, 101, false), 1);
+    assert!(!slash::can_approve_request(true, 100, 101, false), 2);
+    assert!(!slash::can_approve_request(false, 100, 101, true), 3);
+}
+
+#[test]
+fun execute_request_guards() {
+    assert!(slash::can_execute_request(2, 2, false, 100, 101), 0);
+    assert!(slash::can_execute_request(3, 2, false, 100, 101), 1);
+    assert!(!slash::can_execute_request(1, 2, false, 100, 101), 2);
+    assert!(!slash::can_execute_request(2, 2, true, 100, 101), 3);
+    assert!(!slash::can_execute_request(2, 2, false, 102, 101), 4);
+}
