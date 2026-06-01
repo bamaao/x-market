@@ -1,6 +1,7 @@
 /// Phase 3 Tier-2 ZK coprocessor integration surface.
-/// This module keeps the on-chain interface minimal: users submit proof digests,
-/// and admin/verifier accounts attest those proofs for a specific market.
+/// IMPORTANT: current implementation is attestation-only.
+/// It records admin verification status for proof hashes but does NOT execute
+/// cryptographic proof verification on-chain yet.
 module x_market::zk_coprocessor;
 
 use sui::clock::{Self, Clock};
@@ -31,6 +32,11 @@ public fun is_valid_status_code(status_code: u8): bool {
     status_code > 0 && status_code <= 3
 }
 
+public fun is_valid_proof_hash_len(len: u64): bool {
+    // Keep hash payload bounded for storage/gas predictability.
+    len >= 32 && len <= 128
+}
+
 /// Submit a proof hash for a market.
 public entry fun submit_proof(
     pool: &MarketPool,
@@ -38,7 +44,7 @@ public entry fun submit_proof(
     clock: &Clock,
     ctx: &mut TxContext,
 ) {
-    if (vector::length(&proof_hash) == 0) {
+    if (!is_valid_proof_hash_len(vector::length(&proof_hash))) {
         abort errors::out_of_bounds()
     };
     let ticket = ZkProofTicket {
@@ -74,6 +80,9 @@ public entry fun verify_proof(
         proof_hash,
         submitted_at: _,
     } = ticket;
+    if (!is_valid_proof_hash_len(vector::length(&proof_hash))) {
+        abort errors::out_of_bounds()
+    };
     object::delete(id);
 
     if (market_id != market_pool::pool_id(pool)) {

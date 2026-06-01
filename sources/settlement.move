@@ -21,6 +21,7 @@ public entry fun claim_position(
     if (!is_winner(pool, &pos)) {
         abort errors::not_winner()
     };
+    let resolved_slot = resolved_slot_checked(pool);
     let payout = if (
         position::is_linear_call(&pos) ||
             position::is_linear_put(&pos) ||
@@ -34,7 +35,7 @@ public entry fun claim_position(
             position::contract_kind(&pos),
             position::interval_a(&pos),
             position::interval_b(&pos),
-            market_pool::resolved_value(pool) as u8,
+            resolved_slot,
             position::stake_usdc(&pos),
         )
     } else {
@@ -53,9 +54,20 @@ public entry fun claim_position(
     transfer::public_transfer(coin, ctx.sender());
 }
 
+fun resolved_slot_checked(pool: &MarketPool): u8 {
+    let rv = market_pool::resolved_value(pool);
+    if (!risk::is_valid_slot(rv)) {
+        abort errors::out_of_bounds()
+    };
+    rv as u8
+}
+
 fun is_winner(pool: &MarketPool, pos: &Position): bool {
     let rv = market_pool::resolved_value(pool);
     if (market_pool::is_poisson(pool)) {
+        if (!risk::is_valid_slot(rv)) {
+            abort errors::out_of_bounds()
+        };
         let k = rv as u8;
         if (position::is_digital(pos)) {
             k == position::interval_a(pos)
@@ -63,6 +75,9 @@ fun is_winner(pool: &MarketPool, pos: &Position): bool {
             k >= position::interval_a(pos) && k <= position::interval_b(pos)
         }
     } else if (market_pool::is_dirichlet(pool)) {
+        if (!risk::is_valid_slot(rv)) {
+            abort errors::out_of_bounds()
+        };
         (rv as u8) == position::interval_a(pos)
     } else if (market_pool::is_normal(pool)) {
         let v = rv;

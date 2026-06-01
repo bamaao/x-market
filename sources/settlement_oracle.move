@@ -5,6 +5,7 @@ use sui::clock::Clock;
 use x_market::config::{Self, AdminCap, GlobalConfig};
 use x_market::errors;
 use x_market::market_pool::{Self, MarketPool};
+use x_market::risk;
 
 /// Posted settlement value for a market at maturity.
 public struct MarketResolution has key {
@@ -28,6 +29,9 @@ public entry fun report_resolution(
         abort errors::out_of_bounds()
     };
     if (market_pool::is_resolved(pool)) {
+        abort errors::out_of_bounds()
+    };
+    if (!risk::is_valid_slot(resolved_value)) {
         abort errors::out_of_bounds()
     };
     market_pool::set_resolution(pool, resolved_value);

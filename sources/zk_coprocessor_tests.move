@@ -16,3 +16,13 @@ fun invalid_status_codes() {
     assert!(!zk_coprocessor::is_valid_status_code(4), 1);
     assert!(!zk_coprocessor::is_valid_status_code(255), 2);
 }
+
+#[test]
+fun valid_proof_hash_length_bounds() {
+    assert!(!zk_coprocessor::is_valid_proof_hash_len(0), 0);
+    assert!(!zk_coprocessor::is_valid_proof_hash_len(31), 1);
+    assert!(zk_coprocessor::is_valid_proof_hash_len(32), 2);
+    assert!(zk_coprocessor::is_valid_proof_hash_len(64), 3);
+    assert!(zk_coprocessor::is_valid_proof_hash_len(128), 4);
+    assert!(!zk_coprocessor::is_valid_proof_hash_len(129), 5);
+}

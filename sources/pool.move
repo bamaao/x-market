@@ -498,6 +498,11 @@ public entry fun buy_normal_interval(
     if (a_units > b_units) {
         abort errors::invalid_interval()
     };
+    if (!risk::is_valid_slot(b_units)) {
+        abort errors::out_of_bounds()
+    };
+    let a_slot = a_units as u8;
+    let b_slot = b_units as u8;
     let stake_raw = sui::coin::value(&payment);
     if (stake_raw == 0) {
         abort errors::out_of_bounds()
@@ -532,8 +537,8 @@ public entry fun buy_normal_interval(
     let vault_usdc = market_pool::collateral_value(pool);
     risk::assert_max_loss_bounded(
         market_pool::liability_by_k(pool),
-        (a_units as u8),
-        (b_units as u8),
+        a_slot,
+        b_slot,
         stake,
         entry_prob_ppb,
         vault_usdc,
@@ -566,15 +571,15 @@ public entry fun buy_normal_interval(
     let payout = risk::position_payout_usdc(stake, entry_prob_ppb);
     risk::add_position_liability(
         market_pool::liability_by_k_mut(pool),
-        (a_units as u8),
-        (b_units as u8),
+        a_slot,
+        b_slot,
         payout,
     );
     let market_id = market_pool::pool_id(pool);
     let pos = position::new_interval(
         market_id,
-        (a_units as u8),
-        (b_units as u8),
+        a_slot,
+        b_slot,
         stake,
         entry_prob_ppb,
         ctx,
@@ -624,7 +629,10 @@ public entry fun buy_normal_digital(
     };
     let entry_prob_ppb = prob_to_ppb(entry_prob);
     let vault_usdc = market_pool::collateral_value(pool);
-    let slot = (threshold_units as u8);
+    if (!risk::is_valid_slot(threshold_units)) {
+        abort errors::out_of_bounds()
+    };
+    let slot = threshold_units as u8;
     risk::assert_dirichlet_max_loss_bounded(
         market_pool::liability_by_k(pool),
         slot,
@@ -705,14 +713,15 @@ public entry fun buy_normal_structured_note(
         market_pool::maturity_ts(pool),
         market_pool::resolution_window_ts(pool),
     );
-    let strike_slot = strike_units as u8;
-    let cap_slot = cap_units as u8;
     if (
-        cap_slot <= strike_slot ||
-            (cap_slot as u64) >= risk::outcome_slots()
+        !risk::is_valid_slot(strike_units) ||
+            !risk::is_valid_slot(cap_units) ||
+            cap_units <= strike_units
     ) {
         abort errors::out_of_bounds()
     };
+    let strike_slot = strike_units as u8;
+    let cap_slot = cap_units as u8;
     let stake_raw = sui::coin::value(&payment);
     if (stake_raw == 0) {
         abort errors::out_of_bounds()
@@ -785,14 +794,15 @@ public entry fun buy_normal_range_note(
         market_pool::maturity_ts(pool),
         market_pool::resolution_window_ts(pool),
     );
-    let lower_slot = lower_units as u8;
-    let upper_slot = upper_units as u8;
     if (
-        upper_slot < lower_slot ||
-            (upper_slot as u64) >= risk::outcome_slots()
+        !risk::is_valid_slot(lower_units) ||
+            !risk::is_valid_slot(upper_units) ||
+            upper_units < lower_units
     ) {
         abort errors::out_of_bounds()
     };
+    let lower_slot = lower_units as u8;
+    let upper_slot = upper_units as u8;
     let stake_raw = sui::coin::value(&payment);
     if (stake_raw == 0) {
         abort errors::out_of_bounds()
@@ -864,10 +874,10 @@ public entry fun buy_normal_barrier_note(
         market_pool::maturity_ts(pool),
         market_pool::resolution_window_ts(pool),
     );
-    let barrier_slot = barrier_units as u8;
-    if ((barrier_slot as u64) >= risk::outcome_slots()) {
+    if (!risk::is_valid_slot(barrier_units)) {
         abort errors::out_of_bounds()
     };
+    let barrier_slot = barrier_units as u8;
     let stake_raw = sui::coin::value(&payment);
     if (stake_raw == 0) {
         abort errors::out_of_bounds()
@@ -943,10 +953,10 @@ fun buy_normal_linear(
         market_pool::maturity_ts(pool),
         market_pool::resolution_window_ts(pool),
     );
-    let strike_slot = strike_units as u8;
-    if ((strike_slot as u64) >= risk::outcome_slots()) {
+    if (!risk::is_valid_slot(strike_units)) {
         abort errors::out_of_bounds()
     };
+    let strike_slot = strike_units as u8;
     let stake_raw = sui::coin::value(&payment);
     if (stake_raw == 0) {
         abort errors::out_of_bounds()

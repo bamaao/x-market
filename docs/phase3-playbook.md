@@ -70,6 +70,8 @@ NEXT_PUBLIC_SUI_CLOCK=0x6
 
 模块：`x_market::zk_coprocessor`
 
+> 当前版本为 **Attestation 过渡层**：链上记录 proof hash 与管理员验证状态，尚未在合约内执行通用密码学证明验证电路。
+
 ### 4.1 提交证明哈希
 
 - 入口：`submit_proof(pool, proof_hash, clock)`

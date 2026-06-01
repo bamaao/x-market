@@ -17,6 +17,10 @@ public fun outcome_slots(): u64 {
     OUTCOME_SLOTS
 }
 
+public fun is_valid_slot(slot: u64): bool {
+    slot < OUTCOME_SLOTS
+}
+
 public fun position_payout_usdc(stake: u64, entry_prob_ppb: u64): u64 {
     if (entry_prob_ppb == 0) {
         abort errors::out_of_bounds()
