@@ -24,11 +24,16 @@ public entry fun claim_position(
     let payout = if (
         position::is_linear_call(&pos) ||
             position::is_linear_put(&pos) ||
-            position::is_straddle(&pos)
+            position::is_straddle(&pos) ||
+            position::is_variance_swap(&pos) ||
+            position::is_structured_note(&pos) ||
+            position::is_range_note(&pos) ||
+            position::is_barrier_note(&pos)
     ) {
-        risk::linear_payout_usdc(
+        risk::derivative_payout_usdc(
             position::contract_kind(&pos),
             position::interval_a(&pos),
+            position::interval_b(&pos),
             market_pool::resolved_value(pool) as u8,
             position::stake_usdc(&pos),
         )
@@ -64,7 +69,11 @@ fun is_winner(pool: &MarketPool, pos: &Position): bool {
         if (
             position::is_linear_call(pos) ||
                 position::is_linear_put(pos) ||
-                position::is_straddle(pos)
+                position::is_straddle(pos) ||
+                position::is_variance_swap(pos) ||
+                position::is_structured_note(pos) ||
+                position::is_range_note(pos) ||
+                position::is_barrier_note(pos)
         ) {
             true
         } else if (position::is_digital(pos)) {

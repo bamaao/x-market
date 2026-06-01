@@ -102,6 +102,58 @@
 | 盈亏平衡 | 净收益 ≈ 交易量 × 滑点率 − 知情套利；示例需 **>500k** USDC 成交量（100k 池、2% 滑点） |
 | 运营 | 优先高换手事件；冷门池配合 §2.9 |
 
+### 2.8.1 足球进球区间结算示例（Poisson）
+
+足球总进球是离散整数（0,1,2,3...），系统使用 Poisson 参数 `lambda` 定价区间合约。  
+区间合约在结算时遵循二元规则：
+
+- 命中区间：每份头寸按 1 USDC 兑付
+- 未命中区间：头寸归零
+
+示例（买入 `[2,6]`）：
+
+- 下单时估计 `lambda = 3.0`
+- 区间理论概率（价格）约 `0.65`
+- 大额买盘导致参数拨动与滑点后，平均成交价约 `0.70`
+- 用户投入 1000 USDC，可获得头寸数量 `1000 / 0.70 = 1428.57`
+
+若最终赛果总进球 `X = 5`：
+
+- 因为 `5 ∈ [2,6]`，结算兑付 = `1428.57 * 1 = 1428.57 USDC`
+- 净利润 = `1428.57 - 1000 = +428.57 USDC`
+- ROI = `42.857%`
+
+对比：
+
+- 若 `X = 2`：同样命中 `[2,6]`，收益与上例一致
+- 若 `X = 1` 或 `X >= 7`：未命中，头寸归零，亏损 1000 USDC
+
+关键点：中间交易过程中的参数更新（`lambda` 变化）影响买入成本和持仓数量；最终清算只看现实结果是否落入购买区间。
+
+### 2.8.2 宽区间（如 `[1,7]`）与 LP 风险画像
+
+“宽区间中奖率高”不等于“对交易者长期有利”。  
+原因是区间越宽，入场价格越高，交易者常见的是“高胜率、低赔率”结构。
+
+示例（`lambda = 3.0`）：
+
+- `[1,7]` 理论概率约 95%，价格接近 0.95
+- 考虑滑点后平均成本约 0.97
+- 投入 1000 USDC，获得 `1000 / 0.97 = 1030.93` 份头寸
+
+两种结局：
+
+- 常态（约 95%）：命中后总兑付 1030.93，净赚 30.93（ROI 约 3.09%）
+- 尾部（约 5%）：未命中则头寸归零，单次亏损 1000
+
+这类仓位的本质是“高频小赚 + 低频大亏”。  
+对 LP 来说，对应的是“高频小赔 + 低频大赚”，最终长期盈亏取决于：
+
+- 滑点与费率带来的溢价
+- 事件池的交易换手率
+- 尾部结果出现频率
+- 风险参数（见 §2.9）对逆向选择的抑制效果
+
 ### 2.9 LP 工程防守（Sui 实现）
 
 > 总纲 [PRD §4.8](../x-market/PRD.md) · 调研 [docs/qa.md](./docs/qa.md)「顶级工程防守」。
@@ -288,40 +340,40 @@ x-market-sui/
 
 ### Phase 0（Week 1–4）
 
-- [ ] Move 包初始化、MarketPool 骨架
-- [ ] **Tier 1 链上数学引擎 PoC**：`poisson.move` + `dirichlet.move`
-- [ ] Gas 基准：单笔 Poisson 区间买入（目标可接受范围内）
-- [ ] Testnet 部署 + math 测试向量
+- [x] Move 包初始化、MarketPool 骨架
+- [x] **Tier 1 链上数学引擎 PoC**：`poisson.move` + `dirichlet.move`
+- [x] Gas 基准：单笔 Poisson 区间买入（目标可接受范围内）
+- [x] Testnet 部署 + math 测试向量
 
 ### Phase 1 — MVP（Week 5–12）
 
-- [ ] Tier 1 全模板：Poisson / Dirichlet / Normal（有界）
-- [ ] 数字期权 + 区间合约（链上原子）
-- [ ] USDC Vault + **Max-Loss Bounded Checking**
-- [ ] **结算专用** Oracle（不参与 Prior）
-- [ ] Next.js 前端
-- [ ] 3 个 Testnet 种子市场
+- [x] Tier 1 全模板：Poisson / Dirichlet / Normal（有界）
+- [x] 数字期权 + 区间合约（链上原子）
+- [x] USDC Vault + **Max-Loss Bounded Checking**
+- [x] **结算专用** Oracle（不参与 Prior）
+- [x] Next.js 前端
+- [x] 3 个 Testnet 种子市场
 
 ### Phase 1.5 — 冷启动与 LP（Week 12–14）
 
-- [ ] **Opening Auction**：`start_auction` / `auction_bid` / `finalize_auction`
-- [ ] **NAV 申购**：`deposit_liquidity` 按 `nav_pre` 铸 `lp_shares` + 全局等比缩放 α
-- [ ] 市场状态机 `Auction` → `Trading`
+- [x] **Opening Auction**：`start_auction` / `auction_bid` / `finalize_auction`
+- [x] **NAV 申购**：`deposit_liquidity` 按 `nav_pre` 铸 `lp_shares` + 全局等比缩放 α
+- [x] 市场状态机 `Auction` → `Trading`
 
 ### Phase 2（Week 13–20）
 
-- [ ] 线性期权、Straddle
-- [ ] IV 面板
-- [ ] Cross-Margin
-- [ ] **LP 防守：** 动态费率 + 虚拟 σ/浓度 + 结算时间锁（`lp_guard.move`）
-- [ ] **NAV 赎回**：`withdraw_liquidity`；$T_2$ 末期禁申购
-- [ ] Normal CDF 精度压测
+- [x] 线性期权、Straddle
+- [x] IV 面板
+- [x] Cross-Margin
+- [x] **LP 防守：** 动态费率 + 虚拟 σ/浓度 + 结算时间锁（`lp_guard.move`）
+- [x] **NAV 赎回**：`withdraw_liquidity`；$T_2$ 末期禁申购
+- [x] Normal CDF 精度压测
 
 ### Phase 3（Week 21–28）
 
-- [ ] Tier 2 ZK Coprocessor
-- [ ] Variance Swap、结构化票据
-- [ ] Slash + 审计 + 主网
+- [x] Tier 2 ZK Coprocessor（接口与对象流已实现）
+- [x] Variance Swap、结构化票据（Structured / Range / Barrier）
+- [ ] Slash + 审计 + 主网（Slash 已实现；审计与主网发布待完成）
 
 ---
 

@@ -24,3 +24,45 @@ fun straddle_payout_is_symmetric() {
     let down = risk::linear_payout_usdc(position::straddle_kind(), 7, 4, 1_500_000);
     assert!(up == down, 0);
 }
+
+#[test]
+fun variance_swap_payout_grows_quadratically() {
+    let near = risk::linear_payout_usdc(position::variance_swap_kind(), 5, 7, 1_000_000);
+    let far = risk::linear_payout_usdc(position::variance_swap_kind(), 5, 11, 1_000_000);
+    // (2^2)/10 vs (6^2)/10
+    assert!(near == 400_000, 0);
+    assert!(far == 3_600_000, 0);
+    assert!(far > near, 0);
+}
+
+#[test]
+fun structured_note_payout_is_capped() {
+    // Strike=5, Cap=9 => max diff is 4.
+    let below = risk::derivative_payout_usdc(position::structured_note_kind(), 5, 9, 4, 1_000_000);
+    let mid = risk::derivative_payout_usdc(position::structured_note_kind(), 5, 9, 7, 1_000_000);
+    let above = risk::derivative_payout_usdc(position::structured_note_kind(), 5, 9, 12, 1_000_000);
+    assert!(below == 0, 0);
+    assert!(mid == 200_000, 1);
+    assert!(above == 400_000, 2);
+}
+
+#[test]
+fun range_note_payout_only_inside_band() {
+    // Range [4, 8], full coupon when inside.
+    let low = risk::derivative_payout_usdc(position::range_note_kind(), 4, 8, 3, 1_000_000);
+    let mid = risk::derivative_payout_usdc(position::range_note_kind(), 4, 8, 6, 1_000_000);
+    let high = risk::derivative_payout_usdc(position::range_note_kind(), 4, 8, 10, 1_000_000);
+    assert!(low == 0, 0);
+    assert!(mid == 1_000_000, 1);
+    assert!(high == 0, 2);
+}
+
+#[test]
+fun barrier_note_payout_only_above_barrier() {
+    let below = risk::derivative_payout_usdc(position::barrier_note_kind(), 6, 6, 4, 1_000_000);
+    let at = risk::derivative_payout_usdc(position::barrier_note_kind(), 6, 6, 6, 1_000_000);
+    let above = risk::derivative_payout_usdc(position::barrier_note_kind(), 6, 6, 12, 1_000_000);
+    assert!(below == 0, 0);
+    assert!(at == 1_000_000, 1);
+    assert!(above == 1_000_000, 2);
+}

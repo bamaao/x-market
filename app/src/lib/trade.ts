@@ -7,7 +7,11 @@ export type ContractMode =
   | "digital"
   | "linear_call"
   | "linear_put"
-  | "straddle";
+  | "straddle"
+  | "variance_swap"
+  | "structured_note"
+  | "range_note"
+  | "barrier_note";
 export const SUI_CLOCK_ID = process.env.NEXT_PUBLIC_SUI_CLOCK ?? "0x6";
 
 export interface TradeParams {
@@ -24,6 +28,10 @@ export interface TradeParams {
   normalB?: number;
   normalThreshold?: number;
   normalStrike?: number;
+  normalCap?: number;
+  normalLower?: number;
+  normalUpper?: number;
+  normalBarrier?: number;
 }
 
 export function appendBuyMoveCall(
@@ -93,6 +101,44 @@ export function appendBuyMoveCall(
       target: `${pkg}::pool::buy_normal_straddle`,
       arguments: [pool, payment, tx.pure.u64(strike), tx.object(SUI_CLOCK_ID)],
     });
+  } else if (params.mode === "variance_swap") {
+    const strike = params.normalStrike ?? 25;
+    tx.moveCall({
+      target: `${pkg}::pool::buy_normal_variance_swap`,
+      arguments: [pool, payment, tx.pure.u64(strike), tx.object(SUI_CLOCK_ID)],
+    });
+  } else if (params.mode === "structured_note") {
+    const strike = params.normalStrike ?? 25;
+    const cap = params.normalCap ?? 30;
+    tx.moveCall({
+      target: `${pkg}::pool::buy_normal_structured_note`,
+      arguments: [
+        pool,
+        payment,
+        tx.pure.u64(strike),
+        tx.pure.u64(cap),
+        tx.object(SUI_CLOCK_ID),
+      ],
+    });
+  } else if (params.mode === "range_note") {
+    const lower = params.normalLower ?? 24;
+    const upper = params.normalUpper ?? 28;
+    tx.moveCall({
+      target: `${pkg}::pool::buy_normal_range_note`,
+      arguments: [
+        pool,
+        payment,
+        tx.pure.u64(lower),
+        tx.pure.u64(upper),
+        tx.object(SUI_CLOCK_ID),
+      ],
+    });
+  } else if (params.mode === "barrier_note") {
+    const barrier = params.normalBarrier ?? 26;
+    tx.moveCall({
+      target: `${pkg}::pool::buy_normal_barrier_note`,
+      arguments: [pool, payment, tx.pure.u64(barrier), tx.object(SUI_CLOCK_ID)],
+    });
   } else {
     const a = params.normalA ?? 25;
     const b = params.normalB ?? 27;
@@ -122,8 +168,16 @@ export function defaultTradeParams(
     return { dirichletOutcome: 0 };
   }
   if (mode === "digital") return { normalThreshold: 30 };
-  if (mode === "linear_call" || mode === "linear_put" || mode === "straddle") {
+  if (
+    mode === "linear_call" ||
+    mode === "linear_put" ||
+    mode === "straddle" ||
+    mode === "variance_swap"
+  ) {
     return { normalStrike: 25 };
   }
+  if (mode === "structured_note") return { normalStrike: 25, normalCap: 30 };
+  if (mode === "range_note") return { normalLower: 24, normalUpper: 28 };
+  if (mode === "barrier_note") return { normalBarrier: 26 };
   return { normalA: 25, normalB: 27 };
 }

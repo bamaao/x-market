@@ -43,6 +43,14 @@ export function PositionCard({ objectId, fields }: Props) {
           ? "Linear Put"
           : fields?.contract_kind === 4
             ? "Straddle"
+            : fields?.contract_kind === 5
+              ? "Variance Swap"
+              : fields?.contract_kind === 6
+                ? "Structured Note"
+                : fields?.contract_kind === 7
+                  ? "Range Note"
+                  : fields?.contract_kind === 8
+                    ? "Barrier Note"
             : "Interval";
   const claimed = fields?.claimed === true;
 

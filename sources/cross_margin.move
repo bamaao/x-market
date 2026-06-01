@@ -159,9 +159,19 @@ fun liability_for_slot(
     if (
         position::is_linear_call(pos) ||
             position::is_linear_put(pos) ||
-            position::is_straddle(pos)
+            position::is_straddle(pos) ||
+            position::is_variance_swap(pos) ||
+            position::is_structured_note(pos) ||
+            position::is_range_note(pos) ||
+            position::is_barrier_note(pos)
     ) {
-        return risk::linear_payout_usdc(kind, position::interval_a(pos), slot, stake)
+        return risk::derivative_payout_usdc(
+            kind,
+            position::interval_a(pos),
+            position::interval_b(pos),
+            slot,
+            stake,
+        )
     };
 
     let payout = risk::position_payout_usdc(stake, position::entry_prob_ppb(pos));

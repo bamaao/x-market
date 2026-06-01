@@ -15,6 +15,10 @@ function parseFields(content: unknown): Record<string, unknown> | undefined {
 const LINEAR_CALL_KIND = 2;
 const LINEAR_PUT_KIND = 3;
 const STRADDLE_KIND = 4;
+const VARIANCE_SWAP_KIND = 5;
+const STRUCTURED_NOTE_KIND = 6;
+const RANGE_NOTE_KIND = 7;
+const BARRIER_NOTE_KIND = 8;
 const OUTCOME_SLOTS = 15;
 
 function estimateCrossMargin(
@@ -39,6 +43,22 @@ function estimateCrossMargin(
       } else if (p.contract_kind === STRADDLE_KIND) {
         const diff = BigInt(Math.abs(slot - p.interval_a));
         scenario += (p.stake_usdc * diff) / 10n;
+      } else if (p.contract_kind === VARIANCE_SWAP_KIND) {
+        const d = BigInt(Math.abs(slot - p.interval_a));
+        scenario += (p.stake_usdc * d * d) / 10n;
+      } else if (p.contract_kind === STRUCTURED_NOTE_KIND) {
+        const uncapped = BigInt(Math.max(slot - p.interval_a, 0));
+        const cap = BigInt(Math.max(p.interval_b - p.interval_a, 0));
+        const diff = uncapped > cap ? cap : uncapped;
+        scenario += (p.stake_usdc * diff) / 10n;
+      } else if (p.contract_kind === RANGE_NOTE_KIND) {
+        if (slot >= p.interval_a && slot <= p.interval_b) {
+          scenario += p.stake_usdc;
+        }
+      } else if (p.contract_kind === BARRIER_NOTE_KIND) {
+        if (slot >= p.interval_a) {
+          scenario += p.stake_usdc;
+        }
       } else if (p.entry_prob_ppb > 0n) {
         // interval / digital legacy products
         const inRange = slot >= p.interval_a && slot <= p.interval_b;

@@ -8,6 +8,10 @@ const LINEAR_PAYOUT_DIVISOR: u64 = 10;
 const LINEAR_CALL_KIND: u8 = 2;
 const LINEAR_PUT_KIND: u8 = 3;
 const STRADDLE_KIND: u8 = 4;
+const VARIANCE_SWAP_KIND: u8 = 5;
+const STRUCTURED_NOTE_KIND: u8 = 6;
+const RANGE_NOTE_KIND: u8 = 7;
+const BARRIER_NOTE_KIND: u8 = 8;
 
 public fun outcome_slots(): u64 {
     OUTCOME_SLOTS
@@ -128,28 +132,115 @@ public fun linear_payout_usdc(
     resolved_slot: u8,
     stake_usdc: u64,
 ): u64 {
+    derivative_payout_usdc(contract_kind, strike_slot, strike_slot, resolved_slot, stake_usdc)
+}
+
+public fun derivative_payout_usdc(
+    contract_kind: u8,
+    param_a: u8,
+    param_b: u8,
+    resolved_slot: u8,
+    stake_usdc: u64,
+): u64 {
     let diff = if (contract_kind == LINEAR_CALL_KIND) {
-        if (resolved_slot > strike_slot) {
-            (resolved_slot - strike_slot) as u64
+        if (resolved_slot > param_a) {
+            (resolved_slot - param_a) as u64
         } else {
             0
         }
     } else if (contract_kind == LINEAR_PUT_KIND) {
-        if (resolved_slot < strike_slot) {
-            (strike_slot - resolved_slot) as u64
+        if (resolved_slot < param_a) {
+            (param_a - resolved_slot) as u64
         } else {
             0
         }
     } else if (contract_kind == STRADDLE_KIND) {
-        if (resolved_slot >= strike_slot) {
-            (resolved_slot - strike_slot) as u64
+        if (resolved_slot >= param_a) {
+            (resolved_slot - param_a) as u64
         } else {
-            (strike_slot - resolved_slot) as u64
+            (param_a - resolved_slot) as u64
+        }
+    } else if (contract_kind == VARIANCE_SWAP_KIND) {
+        let d = if (resolved_slot >= param_a) {
+            (resolved_slot - param_a) as u64
+        } else {
+            (param_a - resolved_slot) as u64
+        };
+        d * d
+    } else if (contract_kind == STRUCTURED_NOTE_KIND) {
+        if (param_b <= param_a) {
+            0
+        } else {
+            let uncapped = if (resolved_slot > param_a) {
+                (resolved_slot - param_a) as u64
+            } else {
+                0
+            };
+            let cap = (param_b - param_a) as u64;
+            if (uncapped > cap) cap else uncapped
+        }
+    } else if (contract_kind == RANGE_NOTE_KIND) {
+        // Fixed coupon note: full payout when resolved slot lies in [L, U].
+        if (param_b < param_a) {
+            0
+        } else if (resolved_slot >= param_a && resolved_slot <= param_b) {
+            LINEAR_PAYOUT_DIVISOR
+        } else {
+            0
+        }
+    } else if (contract_kind == BARRIER_NOTE_KIND) {
+        // Digital barrier note: full coupon when resolved slot >= barrier.
+        if (resolved_slot >= param_a) {
+            LINEAR_PAYOUT_DIVISOR
+        } else {
+            0
         }
     } else {
         0
     };
     ((stake_usdc as u128) * (diff as u128) / (LINEAR_PAYOUT_DIVISOR as u128)) as u64
+}
+
+public fun add_structured_liability(
+    liability_by_k: &mut vector<u64>,
+    contract_kind: u8,
+    param_a: u8,
+    param_b: u8,
+    stake_usdc: u64,
+) {
+    let mut k = 0u8;
+    while ((k as u64) < vector::length(liability_by_k)) {
+        let add = derivative_payout_usdc(contract_kind, param_a, param_b, k, stake_usdc);
+        if (add > 0) {
+            let slot = vector::borrow_mut(liability_by_k, k as u64);
+            *slot = *slot + add;
+        };
+        k = k + 1;
+    };
+}
+
+public fun assert_structured_max_loss_bounded(
+    liability_by_k: &vector<u64>,
+    contract_kind: u8,
+    param_a: u8,
+    param_b: u8,
+    stake_usdc: u64,
+    vault_usdc: u64,
+) {
+    let mut max_liab = 0u64;
+    let mut k = 0u8;
+    while ((k as u64) < vector::length(liability_by_k)) {
+        let cur = *vector::borrow(liability_by_k, k as u64);
+        let add = derivative_payout_usdc(contract_kind, param_a, param_b, k, stake_usdc);
+        let total = cur + add;
+        if (total > max_liab) {
+            max_liab = total;
+        };
+        k = k + 1;
+    };
+    if (max_liab > (vault_usdc + stake_usdc)) {
+        abort errors::max_loss_exceeded()
+    };
 }
 
 public fun add_linear_liability(

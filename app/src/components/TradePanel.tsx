@@ -38,6 +38,26 @@ export function TradePanel({ market }: Props) {
   const [normalB, setNormalB] = useState("27");
   const [normalThreshold, setNormalThreshold] = useState("30");
   const [normalStrike, setNormalStrike] = useState("25");
+  const [normalCap, setNormalCap] = useState("30");
+  const [normalLower, setNormalLower] = useState("24");
+  const [normalUpper, setNormalUpper] = useState("28");
+  const [normalBarrier, setNormalBarrier] = useState("26");
+
+  const modeHint = (() => {
+    if (market.kind !== "normal") return null;
+    if (mode === "linear_call") return "Linear Call：收益随 X 高于 K 的幅度线性增加。";
+    if (mode === "linear_put") return "Linear Put：收益随 X 低于 K 的幅度线性增加。";
+    if (mode === "straddle") return "Straddle：双向波动受益，|X-K| 越大，收益越高。";
+    if (mode === "variance_swap")
+      return "Variance Swap：收益与 (X-K)^2 相关，尾部波动最敏感。";
+    if (mode === "structured_note")
+      return "Structured Note：封顶看涨，收益 = min(max(X-K,0), C-K)。请保证 C > K。";
+    if (mode === "range_note")
+      return "Range Note：到期结果落在 [L,U] 才有固定票息。请保证 U >= L。";
+    if (mode === "barrier_note")
+      return "Barrier Note：到期结果达到阈值 B（X>=B）即触发固定票息。";
+    return null;
+  })();
 
   const buildBuyTx = async () => {
     if (!account?.address) {
@@ -47,6 +67,18 @@ export function TradePanel({ market }: Props) {
     if (!poolId) {
       setStatus("请填写 Pool 对象 ID");
       return;
+    }
+    if (market.kind === "normal" && mode === "structured_note") {
+      if (Number(normalCap) <= Number(normalStrike)) {
+        setStatus("参数错误：Structured Note 需要 C > K");
+        return;
+      }
+    }
+    if (market.kind === "normal" && mode === "range_note") {
+      if (Number(normalUpper) < Number(normalLower)) {
+        setStatus("参数错误：Range Note 需要 U >= L");
+        return;
+      }
     }
     try {
       const { parseUsdcAmount } = await import("@/lib/usdc");
@@ -70,6 +102,10 @@ export function TradePanel({ market }: Props) {
         normalB: Number(normalB),
         normalThreshold: Number(normalThreshold),
         normalStrike: Number(normalStrike),
+        normalCap: Number(normalCap),
+        normalLower: Number(normalLower),
+        normalUpper: Number(normalUpper),
+        normalBarrier: Number(normalBarrier),
       });
 
       signAndExecute(
@@ -96,6 +132,7 @@ export function TradePanel({ market }: Props) {
       {!account && (
         <p className="hint">请先连接 Sui 钱包（页眉 Connect）。</p>
       )}
+      {modeHint && <p className="hint">{modeHint}</p>}
       {account && (
         <>
           <UsdcBalance key={balanceKey} />
@@ -124,6 +161,10 @@ export function TradePanel({ market }: Props) {
                 <option value="linear_call">线性 Call</option>
                 <option value="linear_put">线性 Put</option>
                 <option value="straddle">Straddle</option>
+                <option value="variance_swap">Variance Swap</option>
+                <option value="structured_note">Structured Note（封顶看涨）</option>
+                <option value="range_note">Range Note（区间票息）</option>
+                <option value="barrier_note">Barrier Note（障碍票息）</option>
               </>
             )}
           </select>
@@ -185,7 +226,10 @@ export function TradePanel({ market }: Props) {
         </>
       )}
       {market.kind === "normal" &&
-        (mode === "linear_call" || mode === "linear_put" || mode === "straddle") && (
+        (mode === "linear_call" ||
+          mode === "linear_put" ||
+          mode === "straddle" ||
+          mode === "variance_swap") && (
           <>
             <label>执行价 K (tenths)</label>
             <input
@@ -194,6 +238,42 @@ export function TradePanel({ market }: Props) {
             />
           </>
         )}
+      {market.kind === "normal" && mode === "structured_note" && (
+        <div className="field-row">
+          <div>
+            <label>执行价 K (tenths)</label>
+            <input
+              value={normalStrike}
+              onChange={(e) => setNormalStrike(e.target.value)}
+            />
+          </div>
+          <div>
+            <label>封顶价 C (tenths)</label>
+            <input value={normalCap} onChange={(e) => setNormalCap(e.target.value)} />
+          </div>
+        </div>
+      )}
+      {market.kind === "normal" && mode === "range_note" && (
+        <div className="field-row">
+          <div>
+            <label>区间下界 L (tenths)</label>
+            <input value={normalLower} onChange={(e) => setNormalLower(e.target.value)} />
+          </div>
+          <div>
+            <label>区间上界 U (tenths)</label>
+            <input value={normalUpper} onChange={(e) => setNormalUpper(e.target.value)} />
+          </div>
+        </div>
+      )}
+      {market.kind === "normal" && mode === "barrier_note" && (
+        <>
+          <label>障碍位 B (tenths，X≥B 生效)</label>
+          <input
+            value={normalBarrier}
+            onChange={(e) => setNormalBarrier(e.target.value)}
+          />
+        </>
+      )}
 
       <label>Stake (USDC)</label>
       <input

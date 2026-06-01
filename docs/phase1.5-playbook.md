@@ -180,7 +180,7 @@ npm run dev
 
 ---
 
-## 8. 当前边界（Phase 1.5 vs Phase 2）
+## 8. 当前边界（Phase 1.5 vs Phase 2 / Phase 3）
 
 Phase 1.5 已实现：
 
@@ -194,5 +194,14 @@ Phase 1.5 已实现：
 - 动态费率 / 虚拟流动性 / 结算时间锁
 - 线性期权 / Straddle / Cross-Margin
 
-请参考：[Phase 2 操作手册](./phase2-playbook.md)。
+后续扩展能力（Phase 3）现已实现核心协议形态：
+
+- Tier-2 ZK 协处理接口（`zk_coprocessor`）
+- Slash 风控处置（`slash`）
+- 高级波动率与票据篮子：Variance Swap / Structured Note / Range Note / Barrier Note
+
+请参考：
+
+- [Phase 2 操作手册](./phase2-playbook.md)
+- [Phase 3 操作手册](./phase3-playbook.md)
 

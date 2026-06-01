@@ -10,6 +10,14 @@ const CONTRACT_LINEAR_CALL: u8 = 2;
 const CONTRACT_LINEAR_PUT: u8 = 3;
 /// Straddle: |X-K|, approximated on discrete slots.
 const CONTRACT_STRADDLE: u8 = 4;
+/// Variance Swap: (X-K)^2, approximated on discrete slots.
+const CONTRACT_VARIANCE_SWAP: u8 = 5;
+/// Structured Note: capped call payoff min(max(X-K, 0), C-K).
+const CONTRACT_STRUCTURED_NOTE: u8 = 6;
+/// Structured Note: range note pays fixed coupon if X in [L, U].
+const CONTRACT_RANGE_NOTE: u8 = 7;
+/// Structured Note: digital barrier note pays fixed coupon if X >= B.
+const CONTRACT_BARRIER_NOTE: u8 = 8;
 
 public struct Position has key, store {
     id: UID,
@@ -87,6 +95,65 @@ public(package) fun new_linear(
     }
 }
 
+public(package) fun new_structured_note(
+    market_id: ID,
+    strike_slot: u8,
+    cap_slot: u8,
+    stake_usdc: u64,
+    ctx: &mut TxContext,
+): Position {
+    Position {
+        id: object::new(ctx),
+        market_id,
+        contract_kind: CONTRACT_STRUCTURED_NOTE,
+        interval_a: strike_slot,
+        interval_b: cap_slot,
+        stake_usdc,
+        entry_prob_ppb: 1_000_000_000,
+        settled: false,
+        claimed: false,
+    }
+}
+
+public(package) fun new_range_note(
+    market_id: ID,
+    lower_slot: u8,
+    upper_slot: u8,
+    stake_usdc: u64,
+    ctx: &mut TxContext,
+): Position {
+    Position {
+        id: object::new(ctx),
+        market_id,
+        contract_kind: CONTRACT_RANGE_NOTE,
+        interval_a: lower_slot,
+        interval_b: upper_slot,
+        stake_usdc,
+        entry_prob_ppb: 1_000_000_000,
+        settled: false,
+        claimed: false,
+    }
+}
+
+public(package) fun new_barrier_note(
+    market_id: ID,
+    barrier_slot: u8,
+    stake_usdc: u64,
+    ctx: &mut TxContext,
+): Position {
+    Position {
+        id: object::new(ctx),
+        market_id,
+        contract_kind: CONTRACT_BARRIER_NOTE,
+        interval_a: barrier_slot,
+        interval_b: barrier_slot,
+        stake_usdc,
+        entry_prob_ppb: 1_000_000_000,
+        settled: false,
+        claimed: false,
+    }
+}
+
 public fun market_id(pos: &Position): ID {
     pos.market_id
 }
@@ -131,9 +198,29 @@ public fun is_straddle(pos: &Position): bool {
     pos.contract_kind == CONTRACT_STRADDLE
 }
 
+public fun is_variance_swap(pos: &Position): bool {
+    pos.contract_kind == CONTRACT_VARIANCE_SWAP
+}
+
+public fun is_structured_note(pos: &Position): bool {
+    pos.contract_kind == CONTRACT_STRUCTURED_NOTE
+}
+
+public fun is_range_note(pos: &Position): bool {
+    pos.contract_kind == CONTRACT_RANGE_NOTE
+}
+
+public fun is_barrier_note(pos: &Position): bool {
+    pos.contract_kind == CONTRACT_BARRIER_NOTE
+}
+
 public fun linear_call_kind(): u8 { CONTRACT_LINEAR_CALL }
 public fun linear_put_kind(): u8 { CONTRACT_LINEAR_PUT }
 public fun straddle_kind(): u8 { CONTRACT_STRADDLE }
+public fun variance_swap_kind(): u8 { CONTRACT_VARIANCE_SWAP }
+public fun structured_note_kind(): u8 { CONTRACT_STRUCTURED_NOTE }
+public fun range_note_kind(): u8 { CONTRACT_RANGE_NOTE }
+public fun barrier_note_kind(): u8 { CONTRACT_BARRIER_NOTE }
 
 public fun is_claimed(pos: &Position): bool {
     pos.claimed
