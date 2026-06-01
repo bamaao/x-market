@@ -84,7 +84,19 @@ NEXT_PUBLIC_SUI_CLOCK=0x6
   - `1` = accepted
   - `2` = rejected
   - `3` = challenged
-- 结果：生成共享对象 `ZkVerification`
+- 结果：生成共享对象 `ZkVerification`（初始为 `finalized=false`，默认挑战窗口 3600 秒）
+
+### 4.3 挑战窗口内发起挑战
+
+- 入口：`challenge_verification(pool, verification, clock, ctx)`
+- 约束：仅在挑战窗口内可调用，窗口到期后不可再挑战
+- 结果：`ZkVerification.status_code` 置为 `3`（challenged）
+
+### 4.4 挑战窗口后最终确认
+
+- 入口：`finalize_verification(config, cap, verification, clock, ctx)`
+- 约束：仅管理员可调用，且必须在挑战窗口到期后
+- 结果：`ZkVerification.finalized=true`
 
 ---
 
