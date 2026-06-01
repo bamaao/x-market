@@ -56,6 +56,7 @@
 - [ ] 演练 C：多签提案 `propose -> approve -> execute`
 - [ ] 演练 D：`ZkVerification` challenge + delayed finalization
 - [ ] 所有演练生成交易哈希与截图归档
+- [ ] 按模板输出演练报告：`docs/mainnet-drill-record-template.md`
 
 ---
 
