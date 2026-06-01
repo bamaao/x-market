@@ -371,9 +371,11 @@ x-market-sui/
 
 ### Phase 3（Week 21–28）
 
-- [x] Tier 2 ZK Coprocessor（接口与对象流已实现）
+- [x] Tier 2 ZK Coprocessor（接口 + challenge period + 延迟 finalization）
 - [x] Variance Swap、结构化票据（Structured / Range / Barrier）
-- [ ] Slash + 审计 + 主网（Slash 已实现；审计与主网发布待完成）
+- [x] Slash 治理增强（timelock + 单次/周期限额 + 多签执行通道）
+- [x] 安全修复批次（`u64->u8` 窄化防护、结算值边界校验、Cross-Margin 全局仓位锁）
+- [ ] 外部审计报告收敛 + 主网发布（进行中）
 
 ---
 
