@@ -61,6 +61,8 @@ export function defaultPoolId(marketId: string): string {
 
 export const PACKAGE_ID =
   process.env.NEXT_PUBLIC_PACKAGE_ID ?? "0x0";
+export const GLOBAL_CONFIG_ID =
+  process.env.NEXT_PUBLIC_GLOBAL_CONFIG ?? "";
 export const NETWORK =
   (process.env.NEXT_PUBLIC_SUI_NETWORK as "testnet" | "devnet" | "mainnet") ??
   "testnet";

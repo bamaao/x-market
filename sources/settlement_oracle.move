@@ -1,11 +1,13 @@
 /// Settlement-only oracle relay (PRD §3.5). Does not update λ/μ/σ priors.
+/// Production path: `macro_oracle` optimistic propose → finalize → `set_resolution`.
+/// This admin entry remains for testnet fast-path drills.
 module x_market::settlement_oracle;
 
 use sui::clock::Clock;
 use x_market::config::{Self, AdminCap, GlobalConfig};
 use x_market::errors;
+use x_market::macro_oracle;
 use x_market::market_pool::{Self, MarketPool};
-use x_market::risk;
 
 /// Posted settlement value for a market at maturity.
 public struct MarketResolution has key {
@@ -31,9 +33,7 @@ public entry fun report_resolution(
     if (market_pool::is_resolved(pool)) {
         abort errors::out_of_bounds()
     };
-    if (!risk::is_valid_slot(resolved_value)) {
-        abort errors::out_of_bounds()
-    };
+    macro_oracle::assert_valid_resolution(pool, resolved_value);
     market_pool::set_resolution(pool, resolved_value);
     let resolution = MarketResolution {
         id: object::new(ctx),

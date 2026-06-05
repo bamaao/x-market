@@ -22,6 +22,19 @@ const E_NOT_AUTHORITY: u64 = 18;
 const E_LP_MARKET_MISMATCH: u64 = 19;
 const E_DEPOSIT_WINDOW_CLOSED: u64 = 20;
 const E_BUY_WINDOW_CLOSED: u64 = 21;
+const E_NOT_FINALIZED: u64 = 22;
+const E_ALREADY_FINALIZED: u64 = 23;
+const E_ASSERTION_ACTIVE: u64 = 24;
+const E_NOT_DISPUTED: u64 = 25;
+const E_DISPUTED: u64 = 26;
+const E_LIVENESS_ACTIVE: u64 = 27;
+const E_BOND_TOO_LOW: u64 = 28;
+const E_EVENT_NOT_OCCURRED: u64 = 29;
+const E_FEED_NULLIFIED: u64 = 30;
+const E_NOT_ARBITRATOR: u64 = 31;
+const E_NOT_COMMITTEE: u64 = 32;
+const E_CASE_EXECUTED: u64 = 33;
+const E_VERDICT_MISMATCH: u64 = 34;
 
 public fun math_overflow(): u64 { E_MATH_OVERFLOW }
 public fun div_by_zero(): u64 { E_DIV_BY_ZERO }
@@ -44,3 +57,16 @@ public fun not_authority(): u64 { E_NOT_AUTHORITY }
 public fun lp_market_mismatch(): u64 { E_LP_MARKET_MISMATCH }
 public fun deposit_window_closed(): u64 { E_DEPOSIT_WINDOW_CLOSED }
 public fun buy_window_closed(): u64 { E_BUY_WINDOW_CLOSED }
+public fun not_finalized(): u64 { E_NOT_FINALIZED }
+public fun already_finalized(): u64 { E_ALREADY_FINALIZED }
+public fun assertion_active(): u64 { E_ASSERTION_ACTIVE }
+public fun not_disputed(): u64 { E_NOT_DISPUTED }
+public fun disputed(): u64 { E_DISPUTED }
+public fun liveness_active(): u64 { E_LIVENESS_ACTIVE }
+public fun bond_too_low(): u64 { E_BOND_TOO_LOW }
+public fun event_not_occurred(): u64 { E_EVENT_NOT_OCCURRED }
+public fun feed_nullified(): u64 { E_FEED_NULLIFIED }
+public fun not_arbitrator(): u64 { E_NOT_ARBITRATOR }
+public fun not_committee(): u64 { E_NOT_COMMITTEE }
+public fun case_executed(): u64 { E_CASE_EXECUTED }
+public fun verdict_mismatch(): u64 { E_VERDICT_MISMATCH }
