@@ -91,7 +91,7 @@ npm run dev
 | Tier 1：Poisson / Dirichlet / Normal | ✅ |
 | 区间 + 数字期权入口 | ✅ `buy_*_interval` / `buy_*_digital` |
 | USDC Vault + Max-Loss | ✅ |
-| 结算 Oracle（Admin 上报，不参与定价） | ✅ `settlement_oracle` + `settlement` |
+| 结算 Oracle（乐观提议 + 争议期 + finalize） | ✅ `macro_oracle` + `settlement`；Admin 快路径 `settlement_oracle` |
 | Next.js 前端 + 3 种子市场配置 | ✅ `app/` + `scripts/seed-testnet.ps1` |
 
 ## Vault
@@ -110,4 +110,5 @@ Dev 币种：`x_market::usdc::USDC`（包 `init`）；主网改用 Circle 官方
 - [docs/phase3-playbook.md](./docs/phase3-playbook.md)
 - [docs/mainnet-readiness-checklist.md](./docs/mainnet-readiness-checklist.md)
 - [docs/mainnet-drill-record-template.md](./docs/mainnet-drill-record-template.md)
-- [math-spec/SPEC.md](./math-spec/SPEC.md)
+- [docs/oracle-playbook.md](./docs/oracle-playbook.md)
+- [Macro_Data_Oracle.md](./Macro_Data_Oracle.md)
