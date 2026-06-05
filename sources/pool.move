@@ -6,6 +6,7 @@ use sui::coin::Coin;
 
 use x_market::coin_util;
 use x_market::errors;
+use x_market::macro_oracle::{Self, FeedRegistry, OracleConfig};
 use x_market::market_pool::{Self, MarketPool};
 use x_market::math_dirichlet;
 use x_market::math_fixed_point as fp;
@@ -111,6 +112,112 @@ public entry fun create_pool(
     ctx: &mut TxContext,
 ) {
     create_poisson_pool(lambda_tenths, maturity_ts, fee_bps, ctx);
+}
+
+// --- Pool + Oracle feed (auto-register, same PTB) ---
+
+public entry fun create_poisson_pool_with_feed(
+    oracle: &OracleConfig,
+    registry: &mut FeedRegistry,
+    lambda_tenths: u16,
+    maturity_ts: u64,
+    fee_bps: u16,
+    identifier: vector<u8>,
+    ancillary_data: vector<u8>,
+    ctx: &mut TxContext,
+) {
+    if (lambda_tenths > 80) {
+        abort errors::out_of_bounds()
+    };
+    let pool = market_pool::new_poisson_trading(
+        ctx.sender(),
+        lambda_tenths,
+        maturity_ts,
+        fee_bps,
+        ctx,
+    );
+    macro_oracle::register_feed_for_pool(
+        oracle,
+        registry,
+        &pool,
+        identifier,
+        maturity_ts,
+        0,
+        0,
+        ancillary_data,
+        ctx,
+    );
+    market_pool::share_pool(pool);
+}
+
+public entry fun create_dirichlet_pool_with_feed(
+    oracle: &OracleConfig,
+    registry: &mut FeedRegistry,
+    alpha0: u32,
+    alpha1: u32,
+    alpha2: u32,
+    maturity_ts: u64,
+    fee_bps: u16,
+    identifier: vector<u8>,
+    ancillary_data: vector<u8>,
+    ctx: &mut TxContext,
+) {
+    let alphas = vector[alpha0, alpha1, alpha2];
+    let pool = market_pool::new_dirichlet_trading(
+        ctx.sender(),
+        alphas,
+        maturity_ts,
+        fee_bps,
+        ctx,
+    );
+    macro_oracle::register_feed_for_pool(
+        oracle,
+        registry,
+        &pool,
+        identifier,
+        maturity_ts,
+        0,
+        0,
+        ancillary_data,
+        ctx,
+    );
+    market_pool::share_pool(pool);
+}
+
+public entry fun create_normal_pool_with_feed(
+    oracle: &OracleConfig,
+    registry: &mut FeedRegistry,
+    mu_tenths: u32,
+    sigma_tenths: u32,
+    maturity_ts: u64,
+    fee_bps: u16,
+    identifier: vector<u8>,
+    ancillary_data: vector<u8>,
+    ctx: &mut TxContext,
+) {
+    if (sigma_tenths == 0) {
+        abort errors::out_of_bounds()
+    };
+    let pool = market_pool::new_normal_trading(
+        ctx.sender(),
+        mu_tenths,
+        sigma_tenths,
+        maturity_ts,
+        fee_bps,
+        ctx,
+    );
+    macro_oracle::register_feed_for_pool(
+        oracle,
+        registry,
+        &pool,
+        identifier,
+        maturity_ts,
+        0,
+        0,
+        ancillary_data,
+        ctx,
+    );
+    market_pool::share_pool(pool);
 }
 
 // --- Opening Auction (Poisson) ---

@@ -5,6 +5,7 @@ module x_market::macro_oracle;
 use sui::balance::{Self, Balance};
 use sui::clock::{Self, Clock};
 use sui::coin::{Self, Coin};
+use sui::dynamic_field as df;
 use x_market::config::{Self, AdminCap, GlobalConfig};
 use x_market::errors;
 use x_market::market_pool::{Self, MarketPool};
@@ -29,10 +30,16 @@ const VERDICT_UNRESOLVED: u8 = 3;
 const MAX_IDENTIFIER_LEN: u64 = 64;
 const MAX_ANCILLARY_LEN: u64 = 512;
 
+/// Maps `market_id` (MarketPool) → `DataFeed` object id for O(1) on-chain discovery.
+public struct FeedRegistry has key {
+    id: UID,
+}
+
 public struct OracleConfig has key {
     id: UID,
     minimum_bond: u64,
     default_liveness_secs: u64,
+    feed_registry_id: ID,
     /// Authorized `OracleArbitrator` shared object (committee / pluggable DVM adapter).
     arbitrator_id: option::Option<ID>,
     treasury: Balance<USDC>,
@@ -152,14 +159,46 @@ public entry fun create_oracle_config(
     if (minimum_bond == 0 || default_liveness_secs == 0) {
         abort errors::out_of_bounds()
     };
+    let registry = FeedRegistry {
+        id: object::new(ctx),
+    };
+    let registry_id = object::id(&registry);
+    transfer::share_object(registry);
     let oracle = OracleConfig {
         id: object::new(ctx),
         minimum_bond,
         default_liveness_secs,
+        feed_registry_id: registry_id,
         arbitrator_id: option::none(),
         treasury: balance::zero(),
     };
     transfer::share_object(oracle);
+}
+
+public fun feed_registry_id(oracle: &OracleConfig): ID {
+    oracle.feed_registry_id
+}
+
+/// On-chain discovery: `market_id` → `DataFeed` id (PRD auto-register model).
+public fun lookup_feed_by_market(registry: &FeedRegistry, market_id: ID): option::Option<ID> {
+    if (df::exists(&registry.id, market_id)) {
+        option::some(*df::borrow(&registry.id, market_id))
+    } else {
+        option::none()
+    }
+}
+
+public fun has_feed_for_market(registry: &FeedRegistry, market_id: ID): bool {
+    df::exists(&registry.id, market_id)
+}
+
+/// Read-only entry for off-chain discovery (`devInspect`).
+public entry fun lookup_feed_entry(
+    registry: &FeedRegistry,
+    market_id: ID,
+    _ctx: &mut TxContext,
+): option::Option<ID> {
+    lookup_feed_by_market(registry, market_id)
 }
 
 public entry fun set_oracle_arbitrator(
@@ -177,10 +216,40 @@ public fun oracle_arbitrator_id(oracle: &OracleConfig): option::Option<ID> {
     oracle.arbitrator_id
 }
 
+/// Permissionless: pool creator registers settlement feed (one per market).
+public entry fun register_data_feed_for_pool(
+    oracle: &OracleConfig,
+    registry: &mut FeedRegistry,
+    pool: &MarketPool,
+    identifier: vector<u8>,
+    event_ts: u64,
+    liveness_secs: u64,
+    bond_required: u64,
+    ancillary_data: vector<u8>,
+    ctx: &mut TxContext,
+) {
+    if (ctx.sender() != market_pool::authority(pool)) {
+        abort errors::not_pool_authority()
+    };
+    register_feed_internal(
+        oracle,
+        registry,
+        pool,
+        identifier,
+        event_ts,
+        liveness_secs,
+        bond_required,
+        ancillary_data,
+        ctx,
+    );
+}
+
+/// Legacy admin path (governance override / migration).
 public entry fun register_data_feed(
     config: &GlobalConfig,
     cap: &AdminCap,
     oracle: &OracleConfig,
+    registry: &mut FeedRegistry,
     pool: &MarketPool,
     identifier: vector<u8>,
     event_ts: u64,
@@ -190,10 +259,72 @@ public entry fun register_data_feed(
     ctx: &mut TxContext,
 ) {
     config::assert_admin(config, cap, ctx.sender());
+    register_feed_internal(
+        oracle,
+        registry,
+        pool,
+        identifier,
+        event_ts,
+        liveness_secs,
+        bond_required,
+        ancillary_data,
+        ctx,
+    );
+}
+
+/// Called from `pool::create_*_with_feed` in the same PTB as `share_pool`.
+public(package) fun register_feed_for_pool(
+    oracle: &OracleConfig,
+    registry: &mut FeedRegistry,
+    pool: &MarketPool,
+    identifier: vector<u8>,
+    event_ts: u64,
+    liveness_secs: u64,
+    bond_required: u64,
+    ancillary_data: vector<u8>,
+    ctx: &mut TxContext,
+) {
+    register_feed_internal(
+        oracle,
+        registry,
+        pool,
+        identifier,
+        event_ts,
+        liveness_secs,
+        bond_required,
+        ancillary_data,
+        ctx,
+    );
+}
+
+fun register_feed_internal(
+    oracle: &OracleConfig,
+    registry: &mut FeedRegistry,
+    pool: &MarketPool,
+    identifier: vector<u8>,
+    event_ts: u64,
+    liveness_secs: u64,
+    bond_required: u64,
+    ancillary_data: vector<u8>,
+    ctx: &mut TxContext,
+) {
     if (!is_valid_identifier_len(vector::length(&identifier))) {
         abort errors::out_of_bounds()
     };
     if (!is_valid_ancillary_len(vector::length(&ancillary_data))) {
+        abort errors::out_of_bounds()
+    };
+    let market_id = market_pool::pool_id(pool);
+    if (df::exists(&registry.id, market_id)) {
+        abort errors::feed_already_exists()
+    };
+    let maturity = market_pool::maturity_ts(pool);
+    let event = if (event_ts == 0) {
+        maturity
+    } else {
+        event_ts
+    };
+    if (event < maturity) {
         abort errors::out_of_bounds()
     };
     let liveness = if (liveness_secs == 0) {
@@ -209,14 +340,11 @@ public entry fun register_data_feed(
     if (bond < oracle.minimum_bond) {
         abort errors::bond_too_low()
     };
-    if (event_ts < market_pool::maturity_ts(pool)) {
-        abort errors::out_of_bounds()
-    };
     let feed = DataFeed {
         id: object::new(ctx),
         identifier,
-        market_id: market_pool::pool_id(pool),
-        event_ts,
+        market_id,
+        event_ts: event,
         liveness_secs: liveness,
         bond_required: bond,
         ancillary_data,
@@ -224,7 +352,9 @@ public entry fun register_data_feed(
         finalized_value: 0,
         active_assertion: option::none(),
     };
+    let feed_id = object::id(&feed);
     transfer::share_object(feed);
+    df::add(&mut registry.id, market_id, feed_id);
 }
 
 public entry fun propose_data(

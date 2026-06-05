@@ -35,6 +35,8 @@ const E_NOT_ARBITRATOR: u64 = 31;
 const E_NOT_COMMITTEE: u64 = 32;
 const E_CASE_EXECUTED: u64 = 33;
 const E_VERDICT_MISMATCH: u64 = 34;
+const E_FEED_ALREADY_EXISTS: u64 = 35;
+const E_NOT_POOL_AUTHORITY: u64 = 36;
 
 public fun math_overflow(): u64 { E_MATH_OVERFLOW }
 public fun div_by_zero(): u64 { E_DIV_BY_ZERO }
@@ -70,3 +72,5 @@ public fun not_arbitrator(): u64 { E_NOT_ARBITRATOR }
 public fun not_committee(): u64 { E_NOT_COMMITTEE }
 public fun case_executed(): u64 { E_CASE_EXECUTED }
 public fun verdict_mismatch(): u64 { E_VERDICT_MISMATCH }
+public fun feed_already_exists(): u64 { E_FEED_ALREADY_EXISTS }
+public fun not_pool_authority(): u64 { E_NOT_POOL_AUTHORITY }

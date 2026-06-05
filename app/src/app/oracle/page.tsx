@@ -12,7 +12,7 @@ import {
   GLOBAL_CONFIG_ID,
   ORACLE_ARBITRATOR_ID,
   ORACLE_CONFIG_ID,
-  ORACLE_FEEDS,
+  ORACLE_MARKETS,
   VERDICT_DISPUTER_WINS,
   VERDICT_PROPOSER_WINS,
   VERDICT_UNRESOLVED,
@@ -23,13 +23,17 @@ import {
   appendNullifyFeed,
   appendProposeData,
   appendProposeVerdict,
+  appendRegisterDataFeedForPool,
   assertionStatusLabel,
+  bytesIdentifier,
   claimedValueHint,
   decodeBytes,
+  discoverFeedForPool,
   feedStatusLabel,
   formatCountdown,
   formatUnixTs,
   livenessRemainingSecs,
+  resolveFeedRegistryId,
   verdictLabel,
 } from "@/lib/oracle";
 import { PACKAGE_ID } from "@/lib/markets";
@@ -55,7 +59,13 @@ export default function OraclePage() {
   const account = useCurrentAccount();
   const client = useSuiClient();
   const { mutate: signAndExecute, isPending } = useSignAndExecuteTransaction();
-  const [selectedFeedId, setSelectedFeedId] = useState(ORACLE_FEEDS[0]?.feedId ?? "");
+  const marketsWithPool = ORACLE_MARKETS.filter((m) => m.poolId);
+  const [selectedPoolId, setSelectedPoolId] = useState(marketsWithPool[0]?.poolId ?? "");
+  const [selectedFeedId, setSelectedFeedId] = useState("");
+  const [registryId, setRegistryId] = useState("");
+  const [feedDiscovering, setFeedDiscovering] = useState(false);
+  const [feedIdentifier, setFeedIdentifier] = useState("EVENT_FEED");
+  const [ancillaryData, setAncillaryData] = useState("official first release only");
   const [assertionId, setAssertionId] = useState("");
   const [caseId, setCaseId] = useState("");
   const [claimedValue, setClaimedValue] = useState("7");
@@ -64,12 +74,37 @@ export default function OraclePage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [nowSec, setNowSec] = useState(() => Math.floor(Date.now() / 1000));
 
+  const marketMeta = marketsWithPool.find((m) => m.poolId === selectedPoolId);
+  const poolId = selectedPoolId;
+
   useEffect(() => {
     const id = setInterval(() => setNowSec(Math.floor(Date.now() / 1000)), 1000);
     return () => clearInterval(id);
   }, []);
 
-  const feedMeta = ORACLE_FEEDS.find((f) => f.feedId === selectedFeedId);
+  useEffect(() => {
+    if (!ORACLE_CONFIG_ID) return;
+    void resolveFeedRegistryId(client, ORACLE_CONFIG_ID).then((id) => {
+      if (id) setRegistryId(id);
+    });
+  }, [client]);
+
+  useEffect(() => {
+    if (!poolId) {
+      setSelectedFeedId("");
+      return;
+    }
+    let cancelled = false;
+    setFeedDiscovering(true);
+    void discoverFeedForPool(client, poolId, ORACLE_CONFIG_ID).then((feedId) => {
+      if (cancelled) return;
+      setSelectedFeedId(feedId ?? "");
+      setFeedDiscovering(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [client, poolId]);
 
   const { data: feedObj, refetch: refetchFeed } = useSuiClientQuery(
     "getObject",
@@ -105,8 +140,6 @@ export default function OraclePage() {
     { enabled: caseId.length > 0 },
   );
   const caseFields = parseMoveFields(caseObj?.data?.content);
-
-  const poolId = feedMeta?.poolId ?? parseObjectId(feedFields?.market_id);
 
   const { data: poolObj, refetch: refetchPool } = useSuiClientQuery(
     "getObject",
@@ -225,38 +258,102 @@ export default function OraclePage() {
     };
   }, [feedFields]);
 
-  const configuredFeeds = ORACLE_FEEDS.filter((f) => f.feedId);
+  const poolAuthority = String(poolFields?.authority ?? "");
+  const isPoolAuthority =
+    !!account?.address && poolAuthority === account.address;
+
+  const refreshFeedDiscovery = async () => {
+    if (!poolId) return;
+    setFeedDiscovering(true);
+    const feedId = await discoverFeedForPool(client, poolId, ORACLE_CONFIG_ID);
+    setSelectedFeedId(feedId ?? "");
+    setFeedDiscovering(false);
+    if (feedId) void refetchFeed();
+  };
 
   return (
     <>
       <h1>Oracle 结算</h1>
       <p className="sub">
-        乐观预言机：任何人提议 → 争议期 → 委员会终裁（有争议时）→ 市场结算
+        乐观预言机：建市场自动注册 Feed → 链上发现 → 提议 / 争议 / 委员会终裁
       </p>
 
       {!account && <p className="hint">连接钱包后参与提议/争议/委员会投票。</p>}
 
-      {configuredFeeds.length === 0 && (
+      {!ORACLE_CONFIG_ID && (
         <p className="hint">
-          未配置 Feed：请在 <code>app/.env</code> 设置{" "}
-          <code>NEXT_PUBLIC_ORACLE_FEED_*</code>、<code>ORACLE_CONFIG_ID</code>、
-          <code>ORACLE_ARBITRATOR_ID</code>。详见 <code>docs/oracle-playbook.md</code>。
+          请配置 <code>NEXT_PUBLIC_ORACLE_CONFIG_ID</code>（含 FeedRegistry）。
         </p>
       )}
 
       <div className="card panel">
-        <label>Data Feed</label>
+        <label>市场（按 Pool 链上发现 Feed）</label>
         <select
-          value={selectedFeedId}
-          onChange={(e) => setSelectedFeedId(e.target.value)}
+          value={selectedPoolId}
+          onChange={(e) => setSelectedPoolId(e.target.value)}
         >
-          <option value="">选择 Feed</option>
-          {configuredFeeds.map((f) => (
-            <option key={f.feedId} value={f.feedId}>
-              {f.title}
+          <option value="">选择市场</option>
+          {marketsWithPool.map((m) => (
+            <option key={m.poolId} value={m.poolId}>
+              {m.title}
             </option>
           ))}
         </select>
+
+        <p className="hint">
+          Feed:{" "}
+          {feedDiscovering
+            ? "链上查询中…"
+            : selectedFeedId
+              ? `${selectedFeedId.slice(0, 18)}…`
+              : "未注册（请用 create_*_with_feed 或下方补登记）"}
+        </p>
+
+        {!selectedFeedId && selectedPoolId && isPoolAuthority && registryId && (
+          <>
+            <label>补登记 Feed（市场创建者）</label>
+            <input
+              value={feedIdentifier}
+              onChange={(e) => setFeedIdentifier(e.target.value)}
+            />
+            <input
+              value={ancillaryData}
+              onChange={(e) => setAncillaryData(e.target.value)}
+            />
+            <button
+              type="button"
+              className="secondary"
+              disabled={!account || isPending}
+              onClick={() => {
+                const tx = new Transaction();
+                appendRegisterDataFeedForPool(
+                  tx,
+                  ORACLE_CONFIG_ID,
+                  registryId,
+                  poolId,
+                  bytesIdentifier(feedIdentifier),
+                  0n,
+                  0n,
+                  0n,
+                  bytesIdentifier(ancillaryData),
+                );
+                signAndExecute(
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  { transaction: tx as any },
+                  {
+                    onSuccess: (r) => {
+                      setMsg(`已注册 Feed: ${r.digest?.slice(0, 18)}…`);
+                      void refreshFeedDiscovery();
+                    },
+                    onError: (e) => setMsg(`失败: ${e.message}`),
+                  },
+                );
+              }}
+            >
+              注册结算 Feed
+            </button>
+          </>
+        )}
 
         {feedSummary && (
           <div className="hint">
@@ -277,8 +374,8 @@ export default function OraclePage() {
 
         <label>
           提议结果
-          {feedMeta && (
-            <span className="hint"> — {claimedValueHint(feedMeta.kind)}</span>
+          {marketMeta && (
+            <span className="hint"> — {claimedValueHint(marketMeta.kind)}</span>
           )}
         </label>
         <input value={claimedValue} onChange={(e) => setClaimedValue(e.target.value)} />
@@ -419,8 +516,8 @@ export default function OraclePage() {
         )}
         <label>
           挑战者胜诉时的采纳值
-          {feedMeta && (
-            <span className="hint"> — {claimedValueHint(feedMeta.kind)}</span>
+          {marketMeta && (
+            <span className="hint"> — {claimedValueHint(marketMeta.kind)}</span>
           )}
         </label>
         <input
@@ -546,9 +643,10 @@ export default function OraclePage() {
       {msg && <p className="hint">{msg}</p>}
 
       <p className="hint">
-        Feed 注册（<code>register_data_feed</code>）属协议运营配置，与委员会终裁无关。
-        有争议时仅授权 <code>OracleArbitrator</code> 委员会可回调{" "}
-        <code>callback_arbitration_result</code>。
+        新产品路径：<code>create_*_pool_with_feed</code> 同一 PTB 自动注册；
+        旧池可由创建者 <code>register_data_feed_for_pool</code> 补登。
+        Feed 通过 <code>FeedRegistry</code> 按 <code>market_id</code> 链上发现，无需{" "}
+        <code>ORACLE_FEED_*</code> env。
       </p>
     </>
   );

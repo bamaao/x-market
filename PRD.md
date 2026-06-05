@@ -1,6 +1,6 @@
 # X-Market on Sui — 产品需求文档
 
-> **版本：** v1.7  
+> **版本：** v1.8  
 > **日期：** 2026-06-05  
 > **链：** Sui  
 > **状态：** 草案  
@@ -236,7 +236,8 @@ $$\text{NAV} = \frac{\text{vault USDC 余额} - L_{\text{mtm}}}{\text{lp\_shares
 
 | 能力 | 模块 | 说明 |
 | --- | --- | --- |
-| 指标注册 | `macro_oracle::register_data_feed` | 运营配置；绑定 `EventRoot` / `MarketPool` |
+| Feed 自动注册 | `pool::create_*_with_feed` / `register_data_feed_for_pool` | 建市场同一 PTB；`FeedRegistry` 索引 |
+| Feed 链上发现 | `lookup_feed_by_market` / Indexer 扫 `market_id` | 前端无需 `ORACLE_FEED_*` env |
 | 乐观提议 | `propose_data` | 任何人搬运官方/赛果数据 |
 | 争议立案 | `dispute_and_request_arbitration` | 同一 PTB 创建 `ArbitrationCase` |
 | 委员会终裁 | `oracle_arbitrator` | 多签委员；**非 Admin 单方** |
@@ -599,6 +600,17 @@ public struct EventRoot has key {
 
 为防止对同一指标理解歧义，链上须对每条宏观数据进行标准化注册。
 
+**自动注册 + 链上发现（产品路径，v1.8+）：**
+
+| 路径 | 调用方 | 说明 |
+| --- | --- | --- |
+| **建市场即注册** | 市场创建者 | `create_poisson_pool_with_feed` 等：同一 PTB 内 `share_pool` 前写入 `DataFeed` |
+| **创建者补登** | `MarketPool.authority` | 旧池或未走 `_with_feed` 时：`register_data_feed_for_pool` |
+| **治理覆盖** | Admin | `register_data_feed`（迁移/异常修复） |
+| **发现** | 前端 / Indexer | `FeedRegistry` 按 `market_id` 查 `DataFeed`；禁止每市场写 `.env` |
+
+`create_oracle_config` 同时创建共享对象 **`FeedRegistry`**（`market_id` → `feed_id` 动态字段），并记录在 `OracleConfig.feed_registry_id`。
+
 **注册要素：**
 
 | 字段 | 说明 |
@@ -665,7 +677,8 @@ public struct EventRoot has key {
 
 | 角色 | 职责 | 是否 Admin |
 | --- | --- | --- |
-| **协议运营** | `register_data_feed`、绑定 `OracleArbitrator` | 仅基础设施配置 |
+| **协议运营** | `create_oracle_config`、绑定 `OracleArbitrator` | 仅全局基础设施 |
+| **市场创建者** | `create_*_with_feed` / `register_data_feed_for_pool` | 每市场 Feed，非 Admin |
 | **任何人** | `propose_data`、无争议 `finalize_assertion` | 否 |
 | **任何人** | `dispute_and_request_arbitration` | 否 |
 | **委员会委员** | `propose_verdict` / `approve_verdict` / `execute_arbitration` | 否（独立多签） |
@@ -796,7 +809,10 @@ enum AssertionState {
 
 | 阶段 | 函数 | 调用方 |
 | --- | --- | --- |
-| 注册 Feed | `register_data_feed(...)` | 协议运营（AdminCap，一次性配置） |
+| 建市场+Feed | `create_*_pool_with_feed(...)` | 市场创建者（推荐） |
+| 补登 Feed | `register_data_feed_for_pool(...)` | 市场创建者（`authority`） |
+| 治理补登 | `register_data_feed(...)` | Admin（迁移/修复） |
+| 发现 Feed | `lookup_feed_entry(registry, market_id)` | 链下 devInspect / Indexer |
 | 绑定委员会 | `set_oracle_arbitrator(arbitrator_id)` | 协议运营（AdminCap） |
 | 创建委员会 | `create_oracle_arbitrator(committee, threshold)` | 协议运营（AdminCap） |
 | 提议 | `propose_data(...)` | 任何人（Proposer） |
@@ -813,7 +829,10 @@ enum AssertionState {
 
 | PRD 概念 | 当前实现（Testnet） |
 | --- | --- |
-| DataFeed 注册（运营配置） | `macro_oracle::register_data_feed` |
+| Feed 自动注册 | `pool::create_*_with_feed` → `macro_oracle::register_feed_for_pool` |
+| FeedRegistry 发现 | `FeedRegistry` + `lookup_feed_by_market` |
+| 创建者补登 | `register_data_feed_for_pool` |
+| Admin 治理补登 | `register_data_feed`（遗留） |
 | 委员会创建与绑定 | `oracle_arbitrator::create_oracle_arbitrator` + `set_oracle_arbitrator` |
 | propose / dispute / finalize | `propose_data`, `dispute_and_request_arbitration`, `finalize_assertion` |
 | 委员会终裁 | `propose_verdict` → `approve_verdict` → `execute_arbitration` → `callback_arbitration_result` |
@@ -821,7 +840,7 @@ enum AssertionState {
 | 市场结算 | `finalize_*` / 仲裁回调 → `market_pool::set_resolution` → `settlement::claim_position` |
 | 联调快路径（非生产） | `settlement_oracle::report_resolution`（跳过乐观流程） |
 | 操作手册 | [docs/oracle-playbook.md](./docs/oracle-playbook.md) |
-| 前端 | `app/src/app/oracle/page.tsx` |
+| 前端 | `app/src/app/oracle/page.tsx`（按 `pool_id` 链上发现 Feed） |
 
 **待增强：** 外部 UMA DVM 适配器（替换 `OracleArbitrator` 为跨链回调）；$\gamma$ 抽成与 UMA 对齐（当前 Testnet 50/50）；Indexer 自动索引 `ArbitrationCase`。
 

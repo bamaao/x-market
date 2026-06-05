@@ -53,3 +53,10 @@ fun feed_status_constants() {
     assert!(macro_oracle::feed_finalized() == 1, 1);
     assert!(macro_oracle::feed_nullified() == 2, 2);
 }
+
+#[test]
+fun identifier_and_ancillary_bounds_for_auto_register() {
+    assert!(macro_oracle::is_valid_identifier_len(8), 0);
+    assert!(macro_oracle::is_valid_ancillary_len(0), 1);
+    assert!(macro_oracle::is_valid_ancillary_len(512), 2);
+}

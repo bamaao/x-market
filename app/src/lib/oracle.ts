@@ -1,5 +1,6 @@
 import { Transaction } from "@mysten/sui/transactions";
-import { PACKAGE_ID, GLOBAL_CONFIG_ID, SEED_MARKETS } from "./markets";
+import type { SuiClient } from "@mysten/sui/client";
+import { PACKAGE_ID, GLOBAL_CONFIG_ID, SEED_MARKETS, type MarketKind } from "./markets";
 import { SUI_CLOCK_ID } from "./trade";
 
 type TxCoin = ReturnType<Transaction["splitCoins"]>[number];
@@ -17,42 +18,121 @@ export const VERDICT_PROPOSER_WINS = 1;
 export const VERDICT_DISPUTER_WINS = 2;
 export const VERDICT_UNRESOLVED = 3;
 
-export interface OracleFeedRef {
+const DATA_FEED_TYPE = `${PACKAGE_ID}::macro_oracle::DataFeed`;
+
+export interface OracleMarketRef {
   id: string;
   title: string;
   poolId: string;
-  feedId: string;
-  kind: "poisson" | "dirichlet" | "normal";
+  kind: MarketKind;
 }
 
-const feedPoisson = process.env.NEXT_PUBLIC_ORACLE_FEED_POISSON ?? "";
-const feedDirichlet = process.env.NEXT_PUBLIC_ORACLE_FEED_DIRICHLET ?? "";
-const feedNormal = process.env.NEXT_PUBLIC_ORACLE_FEED_NORMAL ?? "";
+/** Markets with configured pool IDs — feeds discovered on-chain by `market_id`. */
+export const ORACLE_MARKETS: OracleMarketRef[] = SEED_MARKETS.map((m) => ({
+  id: m.id,
+  title: m.title,
+  poolId: String(m.params.poolId ?? ""),
+  kind: m.kind,
+}));
 
-/** Seed oracle feeds (register on-chain after deploy; set env feed object IDs). */
-export const ORACLE_FEEDS: OracleFeedRef[] = [
-  {
-    id: "US_GOALS_EVENT",
-    title: "足球总进球结算",
-    poolId: String(SEED_MARKETS[0]?.params.poolId ?? ""),
-    feedId: feedPoisson,
-    kind: "poisson",
-  },
-  {
-    id: "WDL_EVENT",
-    title: "胜平负结算",
-    poolId: String(SEED_MARKETS[1]?.params.poolId ?? ""),
-    feedId: feedDirichlet,
-    kind: "dirichlet",
-  },
-  {
-    id: "US_CPI_2026_M05",
-    title: "CPI 宏观数据结算",
-    poolId: String(SEED_MARKETS[2]?.params.poolId ?? ""),
-    feedId: feedNormal,
-    kind: "normal",
-  },
-];
+function parseMoveFields(content: unknown): Record<string, unknown> | undefined {
+  if (!content || typeof content !== "object") return undefined;
+  const c = content as { dataType?: string; fields?: Record<string, unknown> };
+  if (c.dataType === "moveObject" && c.fields) return c.fields;
+  return undefined;
+}
+
+function parseObjectId(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (value && typeof value === "object" && "id" in value) {
+    return String((value as { id: string }).id);
+  }
+  return "";
+}
+
+/** Resolve FeedRegistry id from OracleConfig (auto-created with config). */
+export async function resolveFeedRegistryId(
+  client: SuiClient,
+  oracleConfigId: string,
+): Promise<string | null> {
+  if (!oracleConfigId) return null;
+  const obj = await client.getObject({
+    id: oracleConfigId,
+    options: { showContent: true },
+  });
+  const fields = parseMoveFields(obj.data?.content);
+  return parseObjectId(fields?.feed_registry_id) || null;
+}
+
+/** O(1) lookup via FeedRegistry dynamic field (preferred). */
+export async function lookupFeedByMarket(
+  client: SuiClient,
+  registryId: string,
+  poolId: string,
+): Promise<string | null> {
+  const tx = new Transaction();
+  tx.moveCall({
+    target: `${PACKAGE_ID}::macro_oracle::lookup_feed_entry`,
+    arguments: [tx.object(registryId), tx.pure.id(poolId)],
+  });
+  const inspect = await client.devInspectTransactionBlock({
+    sender:
+      "0x0000000000000000000000000000000000000000000000000000000000000001",
+    transactionBlock: tx,
+  });
+  if (inspect.error) return null;
+  const raw = inspect.results?.[0]?.returnValues?.[0];
+  if (!raw) return null;
+  const [bytes] = raw;
+  if (!bytes?.length) return null;
+  const tag = bytes[0];
+  if (tag === 0) return null;
+  const idBytes = bytes.slice(1);
+  if (idBytes.length !== 32) return null;
+  const hex = Array.from(idBytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+  return `0x${hex}`;
+}
+
+/** Fallback: scan DataFeed objects and match `market_id` field. */
+export async function discoverFeedByMarketScan(
+  client: SuiClient,
+  poolId: string,
+): Promise<string | null> {
+  if (!poolId) return null;
+  let cursor: string | null | undefined = null;
+  for (;;) {
+    const page = await client.queryObjects({
+      filter: { StructType: DATA_FEED_TYPE },
+      options: { showContent: true },
+      cursor: cursor ?? undefined,
+    });
+    for (const item of page.data) {
+      const fields = parseMoveFields(item.content);
+      const marketId = parseObjectId(fields?.market_id);
+      if (marketId === poolId) return item.objectId;
+    }
+    if (!page.hasNextPage) break;
+    cursor = page.nextCursor;
+  }
+  return null;
+}
+
+/** Chain discovery: registry lookup → scan fallback. */
+export async function discoverFeedForPool(
+  client: SuiClient,
+  poolId: string,
+  oracleConfigId: string = ORACLE_CONFIG_ID,
+): Promise<string | null> {
+  if (!poolId) return null;
+  const registryId = await resolveFeedRegistryId(client, oracleConfigId);
+  if (registryId) {
+    const feedId = await lookupFeedByMarket(client, registryId, poolId);
+    if (feedId) return feedId;
+  }
+  return discoverFeedByMarketScan(client, poolId);
+}
 
 export function bytesIdentifier(label: string): number[] {
   return Array.from(new TextEncoder().encode(label));
@@ -107,7 +187,7 @@ export function verdictLabel(code: number): string {
   }
 }
 
-export function claimedValueHint(kind: OracleFeedRef["kind"]): string {
+export function claimedValueHint(kind: MarketKind): string {
   switch (kind) {
     case "poisson":
       return "总进球 slot 0–14";
@@ -173,11 +253,10 @@ export function appendSetOracleArbitrator(
   });
 }
 
-export function appendRegisterDataFeed(
+export function appendRegisterDataFeedForPool(
   tx: Transaction,
-  configId: string,
-  adminCapId: string,
   oracleConfigId: string,
+  registryId: string,
   poolId: string,
   identifier: number[],
   eventTs: bigint,
@@ -186,16 +265,39 @@ export function appendRegisterDataFeed(
   ancillaryData: number[],
 ) {
   tx.moveCall({
-    target: `${PACKAGE_ID}::macro_oracle::register_data_feed`,
+    target: `${PACKAGE_ID}::macro_oracle::register_data_feed_for_pool`,
     arguments: [
-      tx.object(configId),
-      tx.object(adminCapId),
       tx.object(oracleConfigId),
+      tx.object(registryId),
       tx.object(poolId),
       tx.pure.vector("u8", identifier),
       tx.pure.u64(eventTs),
       tx.pure.u64(livenessSecs),
       tx.pure.u64(bondRequired),
+      tx.pure.vector("u8", ancillaryData),
+    ],
+  });
+}
+
+export function appendCreatePoissonPoolWithFeed(
+  tx: Transaction,
+  oracleConfigId: string,
+  registryId: string,
+  lambdaTenths: number,
+  maturityTs: bigint,
+  feeBps: number,
+  identifier: number[],
+  ancillaryData: number[],
+) {
+  tx.moveCall({
+    target: `${PACKAGE_ID}::pool::create_poisson_pool_with_feed`,
+    arguments: [
+      tx.object(oracleConfigId),
+      tx.object(registryId),
+      tx.pure.u16(lambdaTenths),
+      tx.pure.u64(maturityTs),
+      tx.pure.u16(feeBps),
+      tx.pure.vector("u8", identifier),
       tx.pure.vector("u8", ancillaryData),
     ],
   });
@@ -220,7 +322,6 @@ export function appendProposeData(
   });
 }
 
-/** Dispute + open arbitration case in one PTB (PRD §10.3.3.2). */
 export function appendDisputeAndRequestArbitration(
   tx: Transaction,
   oracleConfigId: string,
@@ -322,25 +423,5 @@ export function appendNullifyFeed(tx: Transaction, feedId: string) {
   tx.moveCall({
     target: `${PACKAGE_ID}::macro_oracle::nullify_feed`,
     arguments: [tx.object(feedId), tx.object(SUI_CLOCK_ID)],
-  });
-}
-
-/** Legacy admin-only fast path (testnet drills only). */
-export function appendAdminReportResolution(
-  tx: Transaction,
-  configId: string,
-  adminCapId: string,
-  poolId: string,
-  resolvedValue: bigint,
-) {
-  tx.moveCall({
-    target: `${PACKAGE_ID}::settlement_oracle::report_resolution`,
-    arguments: [
-      tx.object(configId),
-      tx.object(adminCapId),
-      tx.object(poolId),
-      tx.pure.u64(resolvedValue),
-      tx.object(SUI_CLOCK_ID),
-    ],
   });
 }
