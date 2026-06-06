@@ -10,6 +10,7 @@
 | **排行榜页** | 同上 | **否（MVP）** | `/leaderboard` 直读链上 |
 | **订阅者 ROI 聚合** | 分散在 `PrivateProphecy` + 审计事件 | **建议 Indexer** | 非关键路径，可 Phase 4+ |
 | **Gas Station** | 无（赞助签名为链下） | **是** | 必须 Gas Payer 服务端 |
+| **LP Guard Keeper** | `MarketPool.fee_multiplier_bps` 等 | **否** | 动态费率自动调控；见 `services/lp-guard-keeper/` |
 | **EventRoot** | `event_root.move` shared object | **否** | 纯链上；迁移脚本链下一次性 |
 
 **原则：** 排行与战绩的**权威性**来自链上 `prophet_leaderboard`；本地服务只做**加速、聚合与体验**，不做第二真相源。
@@ -18,7 +19,7 @@
 
 ## EventRoot（L1 市场根）
 
-**模块：** `sources/event_root.move`（Phase 4 骨架）
+**模块：** `sources/event_root.move`（`create_and_link` 一键包装迁移）
 
 ```
 EventRoot (shared)
@@ -29,7 +30,7 @@ EventRoot (shared)
 
 **当前 Testnet 过渡：** `MarketPool` + `DataFeed.market_id` 充当事实根；新市场可逐步改用 `create_event_root` + `link_*`。
 
-**本地服务：** 仅需一次性迁移/包装脚本，非运行时依赖。
+**本地服务：** 仅需一次性迁移脚本 `scripts/wrap-event-roots-testnet.ps1`，非运行时依赖。
 
 ---
 
@@ -70,3 +71,9 @@ Indexer **不参与**付费开通判定；门槛由链上 `paid_unlock_eligible`
 - `score_bps >= 4000`（40/100）
 
 新预言家须先发布 **`unlock_price = 0`** 免费预测，经 Oracle 审计积累战绩后方可收费。
+
+### Testnet 已知问题（v2 链上字节码）
+
+当前 Testnet 包 v2 仍部署了旧版逻辑：`unlock_price == 0` 会 `abort code 3`（逻辑写反）。源码已修正，待 **package v3 upgrade**（`scripts/upgrade-testnet.ps1`，需约 2 SUI gas）。
+
+**临时联调：** 前端 `resolveCommitUnlockPrice()` 将 UI 中的 `0` 映射为 `1` USDC 最小单位（0.000001 USDC）；Gas Station 白名单允许 `unlock_price ∈ {0, 1}`。升级后可移除该 workaround。

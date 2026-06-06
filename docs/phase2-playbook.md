@@ -38,6 +38,29 @@ Phase 2 为 `MarketPool` 引入了多重防守参数，保护 LP 免受逆向选
 在前端市场页 `/markets/[id]`，现在包含一个 **"IV / LP Guard 面板"**。
 输入 Pool ID 即可实时观测当前池子的基础费率、有效费率、虚拟 $\sigma$ 等状态。
 
+### 1.3 自动动态费率（LP Guard Keeper）
+
+链上 `set_lp_guard_params` 已就绪；**自动检测单边砸盘并抬费**由链下 Keeper 完成：
+
+```bash
+cd services/lp-guard-keeper
+cp .env.example .env.local
+# 填写 LP_GUARD_POOL_IDS、LP_GUARD_KEEPER_SECRET_KEY（须为池 authority）
+npm install
+npm test
+npm run dev    # LP_GUARD_DRY_RUN=true 默认只观测
+```
+
+**行为摘要：**
+
+| 信号 | 权重 | 含义 |
+| --- | --- | --- |
+| 参数漂移 | 40% | 窗口内 μ / λ / α 变化幅度 |
+| 单边偏度 | 35% | 连续同向参数更新或 Dirichlet 集中度 |
+| 成交量冲击 | 25% | `collateral_usdc` 增量相对 EMA |
+
+风险升高 → `fee_multiplier_bps` 拉高（例：基础 200 bps → 有效 800 bps）；风险消退 → 乘数每 tick × `0.85` 衰减。详见 [services/lp-guard-keeper/README.md](../services/lp-guard-keeper/README.md)。
+
 ---
 
 ## 2. LP 赎回 (Withdraw Liquidity)

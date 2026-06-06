@@ -41,8 +41,26 @@ SPONSOR_RATE_LIMIT_PER_MIN=30
 
 ## 状态
 
-- [ ] HTTP API 实现（`src/server.ts`）
-- [ ] 前端 `useSponsoredTransaction` hook
-- [ ] Testnet Gas Payer 充值与监控
+- [x] HTTP API 实现（`src/server.ts` — `POST /v1/sponsor`）
+- [x] 前端 `useSponsoredTransaction` hook（`app/src/hooks/useSponsoredTransaction.ts`）
+- [ ] Testnet Gas Payer 充值与监控（部署时配置 `GAS_PAYER_PRIVATE_KEY`）
+
+## 本地启动
+
+```bash
+cd services/gas-station
+npm install
+# 从 sui keytool export 获取私钥
+export GAS_PAYER_PRIVATE_KEY=suiprivkey1...
+export PACKAGE_ID=<NEXT_PUBLIC_PACKAGE_ID>
+export SUI_RPC_URL=https://fullnode.testnet.sui.io
+npm run dev
+```
+
+前端在 `app/.env.local` 增加：
+
+```
+NEXT_PUBLIC_GAS_STATION_URL=http://localhost:8787
+```
 
 用户侧仅看到 USDC 变动；SUI Gas 由协议代付。

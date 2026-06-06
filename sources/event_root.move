@@ -2,6 +2,7 @@
 module x_market::event_root;
 
 use sui::dynamic_field as df;
+use x_market::errors;
 
 const STATUS_OPEN: u8 = 0;
 const STATUS_TRADING: u8 = 1;
@@ -39,6 +40,10 @@ public fun is_settled(root: &EventRoot): bool {
     root.status == STATUS_SETTLED
 }
 
+public fun event_id(root: &EventRoot): vector<u8> {
+    root.event_id
+}
+
 public fun lock_time(root: &EventRoot): u64 {
     root.lock_time
 }
@@ -47,13 +52,17 @@ public fun oracle_feed_id(root: &EventRoot): ID {
     root.oracle_feed_id
 }
 
+public fun status(root: &EventRoot): u8 {
+    root.status
+}
+
 public entry fun create_event_root(
     event_id: vector<u8>,
     lock_time: u64,
     oracle_feed_id: ID,
     ctx: &mut TxContext,
 ) {
-    assert!(vector::length(&event_id) > 0, 0);
+    assert!(vector::length(&event_id) > 0, errors::event_root_empty_id());
     let root = EventRoot {
         id: object::new(ctx),
         event_id,
@@ -64,8 +73,41 @@ public entry fun create_event_root(
     transfer::share_object(root);
 }
 
+/// One-shot migration helper: create root + link AMM + link Prophet registry.
+public entry fun create_and_link(
+    event_id: vector<u8>,
+    lock_time: u64,
+    oracle_feed_id: ID,
+    pool_id: ID,
+    registry_id: ID,
+    ctx: &mut TxContext,
+) {
+    assert!(vector::length(&event_id) > 0, errors::event_root_empty_id());
+    let mut root = EventRoot {
+        id: object::new(ctx),
+        event_id,
+        lock_time,
+        oracle_feed_id,
+        status: STATUS_OPEN,
+    };
+    link_amm_pool(&mut root, pool_id);
+    link_prophet_registry(&mut root, registry_id);
+    transfer::share_object(root);
+}
+
+public entry fun link_amm_pool_entry(root: &mut EventRoot, pool_id: ID) {
+    link_amm_pool(root, pool_id);
+}
+
+public entry fun link_prophet_registry_entry(
+    root: &mut EventRoot,
+    registry_id: ID,
+) {
+    link_prophet_registry(root, registry_id);
+}
+
 public fun link_amm_pool(root: &mut EventRoot, pool_id: ID) {
-    assert!(!df::exists(&root.id, DF_AMM), 0);
+    assert!(!df::exists(&root.id, DF_AMM), errors::event_root_already_linked());
     df::add(&mut root.id, DF_AMM, AMMExtension { pool_id });
     if (root.status == STATUS_OPEN) {
         root.status = STATUS_TRADING;
@@ -73,12 +115,23 @@ public fun link_amm_pool(root: &mut EventRoot, pool_id: ID) {
 }
 
 public fun link_prophet_registry(root: &mut EventRoot, registry_id: ID) {
-    assert!(!df::exists(&root.id, DF_PROPHET_REGISTRY), 0);
+    assert!(
+        !df::exists(&root.id, DF_PROPHET_REGISTRY),
+        errors::event_root_already_linked(),
+    );
     df::add(
         &mut root.id,
         DF_PROPHET_REGISTRY,
         ProphetExtension { registry_id },
     );
+}
+
+public entry fun mark_settled_entry(root: &mut EventRoot) {
+    mark_settled(root);
+}
+
+public entry fun mark_nullified_entry(root: &mut EventRoot) {
+    mark_nullified(root);
 }
 
 public fun mark_settled(root: &mut EventRoot) {

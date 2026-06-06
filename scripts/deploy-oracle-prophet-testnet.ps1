@@ -162,6 +162,7 @@ NEXT_PUBLIC_WALRUS_PUBLISHER_URL=https://publisher.walrus-testnet.walrus.space
 NEXT_PUBLIC_WALRUS_AGGREGATOR_URL=https://aggregator.walrus-testnet.walrus.space
 NEXT_PUBLIC_WALRUS_EPOCHS=2
 NEXT_PUBLIC_SEAL_THRESHOLD=1
+NEXT_PUBLIC_GAS_STATION_URL=http://localhost:8787
 "@
 $envLocal | Set-Content (Join-Path $root "app/.env.local") -Encoding utf8
 

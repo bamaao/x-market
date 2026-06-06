@@ -3,6 +3,8 @@
   "publishedAt": "2026-06-06",
   "deployer": "0x87e487cd6b1c7a53f91999eb3a5372ced201b614b26924ba4cc1d282a2240c07",
   "packageId": "0xb2af3cb8af06e9754f442680ff2d191b8cc3a16ee661197534e6dc435e1eabce",
+  "packageIdV2": "0xa2207e87710e301341f57eb7c1a739d93b87dd833e4d587fc4167706ccf5b5ab",
+  "upgradeTx": "J35J3KzVnnE1Jg6NXoNoPmekkwbbmAtKig3mpo3XBv4Q",
   "publishTx": "A8NrigzuHn5yULenJdS5uAWQPqUfUYnvDh6XXTKLrvb6",
   "globalConfig": "0x9ce278547f0590cc04a79f76cf97d103940557e7a3ff5bfecf5a99f198012b08",
   "adminCap": "0xb18fdb5f7ceaf2ccc9f94f35594043de3773422520666ec391e54e6b02b5b8c2",
@@ -32,11 +34,35 @@
       "sigmaTenths": 4
     }
   },
+  "eventRoots": {
+    "poisson_goals": {
+      "eventRootId": "0x97b5f6c565d3e9ff297f236523a8f2a968b280c438688b21c902b2b09d7270a4",
+      "poolId": "0xb5d1a85213d6757d1cb386e8b719b524162a117018e6f5b8f0101f4dcc532b5f",
+      "feedId": "0x136398c6975187665d32d06999220344a612949144cbaa1f44364666fbd7a598",
+      "eventId": "POISSON_FEED",
+      "lockTime": 1783299164
+    },
+    "dirichlet_wdl": {
+      "eventRootId": "0x9dd6c234259c2826d6dae24b09b1214a2bfaab26dea0ba377a4c0a3610b02910",
+      "poolId": "0x89fb5ff5754fe5b2d32d071ce98ad778b62a48f738e0d7dd27a86b390eddaac5",
+      "feedId": "0x11fcb62fcec5a187815915d4437478c226d49028c73769c88ab7d1e911d3f7d8",
+      "eventId": "DIRICHLET_FEED",
+      "lockTime": 1783299164
+    },
+    "normal_cpi": {
+      "eventRootId": "0x7fbc614d70564b3d4da27bb46f6eeeed5ba5df0bb06ce57479bf2785b6bcf95a",
+      "poolId": "0xa43716a746c01d6039cd7b9e6a77562f17a8730dc72c9363ddfde06859e4f834",
+      "feedId": "0xcbe29ae220afb7f8c466f9da5cc90e3dbab79453c1860f08debe7ee123bbb125",
+      "eventId": "CPI_FEED",
+      "lockTime": 1783299164
+    }
+  },
   "superseded": {
     "packageId": "0xe6be1520c8f4753928b8daf5e45ca485b3c67cd0ab136874b5705bcf24eac8c1",
     "note": "v1 种子池已弃用，请使用本文件 seedMarkets"
   },
   "explorer": {
-    "package": "https://testnet.suivision.xyz/package/0xb2af3cb8af06e9754f442680ff2d191b8cc3a16ee661197534e6dc435e1eabce"
+    "package": "https://testnet.suivision.xyz/package/0xb2af3cb8af06e9754f442680ff2d191b8cc3a16ee661197534e6dc435e1eabce",
+    "packageV2": "https://testnet.suivision.xyz/package/0xa2207e87710e301341f57eb7c1a739d93b87dd833e4d587fc4167706ccf5b5ab"
   }
 }

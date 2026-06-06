@@ -28,6 +28,7 @@
 ### 3.1 LP 防守参数
 
 - [ ] `fee_multiplier_bps` 基线确认
+- [ ] LP Guard Keeper 已部署（`services/lp-guard-keeper/`，authority 密钥托管）
 - [ ] `sigma_virtual_tenths` 基线确认
 - [ ] `concentration_virtual` 基线确认
 - [ ] `deposit_cutoff_bps` 基线确认

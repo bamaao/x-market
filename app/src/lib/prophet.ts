@@ -18,6 +18,16 @@ export const PROPHET_REGISTRY_ID =
 export const MIN_AUDITED_FOR_PAID = 3;
 export const MIN_SCORE_BPS_FOR_PAID = 4000;
 
+/**
+ * Testnet v2 on-chain bytecode still rejects unlock_price == 0 (fixed in source, pending upgrade).
+ * Use 1 USDC base unit (0.000001 USDC) for free commits until package v3 upgrade lands.
+ */
+export const FREE_COMMIT_UNLOCK_PRICE = 1n;
+
+export function resolveCommitUnlockPrice(requested: bigint): bigint {
+  return requested === 0n ? FREE_COMMIT_UNLOCK_PRICE : requested;
+}
+
 export type ProphetWorkflowStep =
   | "commit"
   | "unlock"

@@ -194,13 +194,17 @@
 
 | 机制 | Phase | Sui 实现要点 |
 | --- | --- | --- |
-| **动态费率引擎** | 2 | `MarketPool` 字段 `fee_multiplier_bps`；链下 Indexer 或链上滑动窗口检测 → entry 更新费率 |
-| **虚拟流动性 / σ 防守** | 2 | `sigma_virtual` / 浓度加成；随 vault 余额或累计成交量衰减 |
+| **动态费率引擎** | 2 | 链上：`fee_multiplier_bps` + `lp_guard::effective_fee_bps`（所有 `buy_*` 路径）；链下：**LP Guard Keeper**（`services/lp-guard-keeper/`）轮询池状态，检测 μ/λ/α 单边漂移 + 偏度 + 成交量冲击，authority 签名 `set_lp_guard_params`；风险满分时有效费率可至 **800 bps（8%）**（基础 200 bps + 乘数 30000） |
+| **虚拟流动性 / σ 防守** | 2 | `sigma_virtual_tenths` / `concentration_virtual`；Keeper 随风险评分同步抬高，无风险时乘数按 `DECAY_FACTOR` 衰减 |
 | **结算时间锁** | 2 | `paused` + `resolution_window_ts`；到期禁 `buy_*` |
 | Max-Loss（已有） | 1 | `risk.move` |
 | Opening Auction（已有） | 1.5 | `pool.move` 竞价流程 |
 
-建议模块：`sources/lp_guard.move`。
+**链上模块：** `sources/lp_guard.move`、`pool::set_lp_guard_params`  
+**链下 Keeper：** `services/lp-guard-keeper/`（见 README；`LP_GUARD_DRY_RUN` 默认 `true`）
+
+**风险评分（Keeper）：** `0.4 × 参数漂移 + 0.35 × 单边偏度 + 0.25 × 成交量 EMA`；窗口默认 10 次轮询（30s 间隔 ≈ 5 分钟）。  
+**禁止：** Oracle 签名更新 λ/μ/σ；Keeper 仅调 LP 防守参数，不改分布定价参数。
 
 ### 2.10 LP 收益与 NAV（Sui 实现）
 
@@ -386,6 +390,7 @@ public struct EventRoot has key {
 | --- | --- | --- | --- |
 | **Preview Engine** | 镜像链上数学，前端报价 | ❌ | — |
 | **Indexer** | 事件索引、IV 展示、排行缓存 | ❌ | 可选；战绩真相在链上 `ProphetStats` |
+| **LP Guard Keeper** | 动态费率 / 虚拟流动性自动调控 | ❌ | — |
 | **Oracle Relayer** | **仅**到期结算 | 仅结算时 | — |
 | **Gas Station** | 赞助交易 Gas Payer 双签 | Prophet 发布/解锁 UX | **必须**（见 §11.3.6） |
 
@@ -501,13 +506,13 @@ public struct EventRoot has key {
 
 ### Phase 4 — SuiProphet & EventRoot（Week 29–40）
 
-- [ ] **`EventRoot` 显式抽象**：`event_root.move` 骨架已就绪；`MarketPool` 包装迁移待办
+- [x] **`EventRoot` 显式抽象**：`event_root.move` + `create_and_link` 迁移脚本
 - [x] **`prophet_registry` 模块**：私密预测 Commit、`paid_buyers`、解锁分账、Hash 审计
 - [x] **`prophet_leaderboard` 模块**：Prophet Score 公式与战绩统计
 - [x] **Walrus + Seal 集成**：门限加密上传；双重 OR 访问策略（付费 / 到期公开）
 - [x] **事后审计流**：`Hash(plaintext) == chain_commit` → 战绩胜/负 → 分账
 - [x] **Prophet Score 排行榜 UI**：`/leaderboard` 直读链上；Indexer 缓存为可选增强
-- [ ] **Gas Station**：赞助交易中间层（`services/gas-station/`，须本地 Gas Payer 服务）
+- [x] **Gas Station**：赞助交易中间层（`services/gas-station/` + `useSponsoredTransaction`）
 - [x] **时间窗口保护**：`lock_time` 前 5 分钟关闭付费通道
 - [x] **付费开通门槛**：链上 `paid_unlock_eligible`（§11.3.7）
 
@@ -552,7 +557,7 @@ public struct EventRoot has key {
 4. Tier 2 ZK：Axiom vs Brevis -> **已决议**：Phase 3 优先接入 **Brevis**。Brevis 在 Sui 生态（及 Move 架构）上支持度更高，能完美契合结构化票据对链上历史状态证明与异步密集计算的需求。
 5. Normal/Poisson 追加 LP 浓度参数公式 -> **已解决**：采用**资金比例缩放（Proportional Scaling）**。Dirichlet 在申购时按新旧 Vault 比例等比放大 $\alpha$；Normal/Poisson 则通过 `nav` 及代币发行量折算，保持分布参数无损。
 6. Opening Auction 尾盘操纵缓解：TWAP / 冻结 / 单笔上限 -> **已解决（策略敲定）**：实施**时间冻结（Time Freeze）+ 单笔硬顶**机制。在竞价截止前的一段窗口内禁止大额新增 Bid，且限制单笔注资占比，防止抢跑巨鲸在最后一秒篡改开盘概率。
-7. **动态费率与虚拟流动性：** 检测窗口、衰减曲线（见 docs/qa.md §LP 防守） -> **已解决**：采用**链下观测 + 链上更新**的混合 PID 控制方案。Indexer 实时监测近期交易量 EMA 与偏度风险，调用 `set_lp_guard_params` 来动态拉高费率乘数和虚拟波动率 $\sigma$，并在风险褪去后平滑衰减，省去了高昂的链上时间加权计算。
+7. **动态费率与虚拟流动性：** 检测窗口、衰减曲线（见 docs/qa.md §LP 防守） -> **已实现**：`services/lp-guard-keeper/` 链下 Keeper 轮询 `MarketPool`，按漂移/偏度/成交量 EMA 计算风险分，调用 `pool::set_lp_guard_params` 动态拉高 `fee_multiplier_bps` 与虚拟 σ/浓度；平静时 `LP_GUARD_DECAY_FACTOR`（默认 0.85）平滑衰减。链上计费见 `lp_guard.move`；运维见 `docs/phase2-playbook.md` §1.3。
 8. **MarketPool 与 EventRoot 关系：** 是否重构为显式根对象？ -> **已决议（Phase 4）**：引入 `EventRoot` 共享对象，`MarketPool` 降级为 Dynamic Field `b"amm"` 扩展；现有 Testnet 池通过 `DataFeed.market_id` 与 L0 Oracle 已联通，迁移采用包装而非硬分叉。
 
 ---
@@ -991,8 +996,8 @@ $$\text{Prophet Score} = w_1 \cdot \text{Accuracy Rate} + w_2 \cdot \log(N) + w_
 | AMM 博弈 | **已就绪** | `market_pool` + `position` + `settlement` |
 | Walrus / Seal | **Testnet 已就绪** | `walrus.ts` HTTP + `seal-prophet.ts` + `seal_approve_prophecy` |
 | 付费开通门槛 | **已就绪（链上）** | `paid_unlock_eligible` + PRD §11.3.7 |
-| Gas Station | Phase 4 | `services/gas-station/` 须本地 Gas Payer |
-| EventRoot 骨架 | **进行中** | `event_root.move`；Testnet 池迁移待办 |
+| Gas Station | **已就绪** | `services/gas-station/` + `useSponsoredTransaction` |
+| EventRoot | **已就绪** | `event_root.move` + `wrap-event-roots-testnet.ps1` |
 
 **迁移路径：** 现有 `MarketPool` 通过 `DataFeed.market_id` 已关联 L0 Feed；Phase 4 新增 `EventRoot` 包装层，将 `pool_id` 迁入 Dynamic Field，Prophet 子对象挂同一根节点，**不重复注册 Oracle**。
 

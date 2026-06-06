@@ -8,6 +8,8 @@ import {
   useSuiClient,
   useSuiClientQuery,
 } from "@mysten/dapp-kit";
+import { useSponsoredTransaction } from "@/hooks/useSponsoredTransaction";
+import { EVENT_ROOT_BY_POOL } from "@/lib/event-root";
 import Link from "next/link";
 import { Transaction } from "@mysten/sui/transactions";
 import {
@@ -18,6 +20,7 @@ import {
   PROPHECY_STATUS_OPEN,
   appendAuditProphecy,
   appendCommitPrivateProphecy,
+  resolveCommitUnlockPrice,
   appendUnlockProphecy,
   auditOutcomeLabel,
   buildProphecyPayload,
@@ -88,7 +91,14 @@ function flowStepIndex(step: ProphetWorkflowStep): number {
 export default function ProphetPage() {
   const account = useCurrentAccount();
   const client = useSuiClient();
-  const { mutate: signAndExecute, isPending } = useSignAndExecuteTransaction();
+  const { mutate: signAndExecute, isPending: walletPending } =
+    useSignAndExecuteTransaction();
+  const {
+    executeSponsored,
+    isPending: sponsorPending,
+    enabled: gasStationEnabled,
+  } = useSponsoredTransaction();
+  const isPending = walletPending || sponsorPending;
   const { mutateAsync: signPersonalMessage } = useSignPersonalMessage();
   const markets = PROPHET_MARKETS.filter((m) => m.poolId);
   const [poolId, setPoolId] = useState(markets[0]?.poolId ?? "");
@@ -283,6 +293,20 @@ export default function ProphetPage() {
     }
   }
 
+  async function afterTxSuccess(successMsg: string, onDone?: () => void | Promise<void>) {
+    setMsg(successMsg);
+    if (poolId) {
+      const ids = await discoverPropheciesForPool(
+        client,
+        poolId,
+        PROPHET_REGISTRY_ID,
+      );
+      setProphecyIds(ids);
+    }
+    refetchProphecy();
+    await onDone?.();
+  }
+
   function runTx(
     build: (tx: Transaction) => void | Promise<void>,
     successMsg = "交易已提交",
@@ -295,23 +319,25 @@ export default function ProphetPage() {
     setMsg(null);
     const tx = new Transaction();
     void Promise.resolve(build(tx))
-      .then(() => {
+      .then(async () => {
+        if (gasStationEnabled) {
+          try {
+            await executeSponsored(tx);
+            await afterTxSuccess(
+              `${successMsg}（Gas 由协议代付）`,
+              onDone,
+            );
+          } catch (e) {
+            setMsg((e as Error).message ?? "赞助交易失败");
+          }
+          return;
+        }
         signAndExecute(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           { transaction: tx as any },
           {
             onSuccess: async () => {
-              setMsg(successMsg);
-              if (poolId) {
-                const ids = await discoverPropheciesForPool(
-                  client,
-                  poolId,
-                  PROPHET_REGISTRY_ID,
-                );
-                setProphecyIds(ids);
-              }
-              refetchProphecy();
-              await onDone?.();
+              await afterTxSuccess(successMsg, onDone);
             },
             onError: (e) => setMsg(e.message ?? "交易失败"),
           },
@@ -369,35 +395,49 @@ export default function ProphetPage() {
         sealId,
         plaintextHash: hash,
         predictedValue: pv,
-        unlockPrice: price,
+        unlockPrice: resolveCommitUnlockPrice(price),
         lockTime: maturityTs,
       });
-      signAndExecute(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        { transaction: tx as any },
-        {
-          onSuccess: async (result) => {
-            setMsg("已 Commit：密文在 Walrus，链上锁定 hash + seal_id");
-            const ids = await discoverPropheciesForPool(
-              client,
-              poolId,
-              PROPHET_REGISTRY_ID,
-            );
-            setProphecyIds(ids);
-            let newId: string | null = null;
-            if (result.digest) {
-              newId = await extractProphecyIdFromTx(client, result.digest);
-            }
-            if (newId) {
-              setSelectedId(newId);
-            } else if (ids[0]) {
-              setSelectedId(ids[0]);
-            }
-            refetchProphecy();
+
+      const onCommitSuccess = async (digest?: string) => {
+        setMsg(
+          gasStationEnabled
+            ? "已 Commit（Gas 代付）：密文在 Walrus，链上锁定 hash + seal_id"
+            : "已 Commit：密文在 Walrus，链上锁定 hash + seal_id",
+        );
+        const ids = await discoverPropheciesForPool(
+          client,
+          poolId,
+          PROPHET_REGISTRY_ID,
+        );
+        setProphecyIds(ids);
+        let newId: string | null = null;
+        if (digest) {
+          newId = await extractProphecyIdFromTx(client, digest);
+        }
+        if (newId) {
+          setSelectedId(newId);
+        } else if (ids[0]) {
+          setSelectedId(ids[0]);
+        }
+        refetchProphecy();
+      };
+
+      if (gasStationEnabled) {
+        const result = await executeSponsored(tx);
+        await onCommitSuccess(result.digest);
+      } else {
+        signAndExecute(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          { transaction: tx as any },
+          {
+            onSuccess: async (result) => {
+              await onCommitSuccess(result.digest);
+            },
+            onError: (e) => setMsg(e.message ?? "Commit 失败"),
           },
-          onError: (e) => setMsg(e.message ?? "Commit 失败"),
-        },
-      );
+        );
+      }
     } catch (e) {
       setMsg((e as Error).message);
     } finally {
@@ -540,7 +580,23 @@ export default function ProphetPage() {
           {maturityTs > 0 && (
             <> · 到期 {new Date(maturityTs * 1000).toLocaleString()}</>
           )}
+          {EVENT_ROOT_BY_POOL[poolId] && (
+            <>
+              {" "}
+              · EventRoot <code>{EVENT_ROOT_BY_POOL[poolId].slice(0, 10)}…</code>
+            </>
+          )}
         </p>
+        {gasStationEnabled ? (
+          <p className="hint">
+            Gas Station 已启用 — Commit / 解锁 / 审计由协议代付 SUI Gas，钱包仅变动
+            USDC。
+          </p>
+        ) : (
+          <p className="hint">
+            未配置 <code>NEXT_PUBLIC_GAS_STATION_URL</code>，交易将自付 SUI Gas。
+          </p>
+        )}
       </div>
 
       <div className="grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
