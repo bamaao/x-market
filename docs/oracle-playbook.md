@@ -166,6 +166,38 @@ NEXT_PUBLIC_GLOBAL_CONFIG=0x...
 
 
 
+## 一键初始化（Testnet）
+
+
+
+```powershell
+
+.\scripts\init-oracle-testnet.ps1 -RegisterSeedFeeds
+
+# 输出 NEXT_PUBLIC_ORACLE_CONFIG_ID / ORACLE_ARBITRATOR_ID → 写入 app/.env.local
+
+```
+
+
+
+脚本依次：`create_oracle_config` → `create_oracle_arbitrator` → `set_oracle_arbitrator`；可选为 `deploy/testnet.json` 种子池补登 Feed。
+
+
+
+## 全流程（Web `/oracle`）
+
+
+
+```
+提议 → [争议窗口] → Finalize（无争议）或 委员会终裁（有争议）→ Pool resolved → /positions 领取
+```
+
+
+
+页面顶部有四步向导；争议立案后 **自动发现** `ArbitrationCase`（事件 `ArbitrationCaseOpened` + 对象扫描）。
+
+
+
 ## 结算操作
 
 
@@ -188,7 +220,7 @@ NEXT_PUBLIC_GLOBAL_CONFIG=0x...
 
 - 链上：`oracle_arbitrator::dispute_and_request_arbitration`
 
-- 交易成功后记录返回的 **ArbitrationCase** 对象 ID
+- 链上发出 `ArbitrationCaseOpened`；前端从交易 `objectChanges` 或事件索引 Case ID
 
 
 
@@ -262,6 +294,22 @@ sui move test   # macro_oracle_tests + oracle_arbitrator_tests
 
 
 
-Finalize 或委员会终裁后：Web **持仓**页 → **领取赔付**。
+Finalize 或委员会终裁后：Oracle 页显示结算横幅 → Web **持仓**页 → **领取赔付**（`settlement::claim_position`）。
+
+
+
+### Case 发现（链下）
+
+
+
+| 方式 | 说明 |
+
+| --- | --- |
+
+| 交易解析 | `getTransactionBlock` → `objectChanges` 中 `oracle_arbitrator::ArbitrationCase` |
+
+| 事件 | `queryEvents` → `ArbitrationCaseOpened`，按 `assertion_id` 过滤 |
+
+| 扫描 | `queryObjects` 过滤 `ArbitrationCase`，匹配 `assertion_id` 字段 |
 
 

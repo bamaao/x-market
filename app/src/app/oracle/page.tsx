@@ -8,6 +8,7 @@ import {
   useSuiClientQuery,
 } from "@mysten/dapp-kit";
 import { Transaction } from "@mysten/sui/transactions";
+import Link from "next/link";
 import {
   GLOBAL_CONFIG_ID,
   ORACLE_ARBITRATOR_ID,
@@ -28,16 +29,47 @@ import {
   bytesIdentifier,
   claimedValueHint,
   decodeBytes,
+  deriveOracleWorkflowStep,
+  discoverArbitrationCaseForAssertion,
   discoverFeedForPool,
+  extractCreatedObjectIdFromTx,
   feedStatusLabel,
   formatCountdown,
   formatUnixTs,
   livenessRemainingSecs,
   resolveFeedRegistryId,
   verdictLabel,
+  workflowStepLabel,
 } from "@/lib/oracle";
 import { PACKAGE_ID } from "@/lib/markets";
 
+const ARBITRATION_CASE_TYPE = `${PACKAGE_ID}::oracle_arbitrator::ArbitrationCase`;
+
+const FLOW_STEPS = [
+  { key: "propose", label: "1. 提议" },
+  { key: "liveness", label: "2. 争议窗口" },
+  { key: "settle", label: "3. 市场结算" },
+  { key: "claim", label: "4. 领取赔付" },
+] as const;
+
+function flowStepIndex(
+  step: ReturnType<typeof deriveOracleWorkflowStep>,
+): number {
+  switch (step) {
+    case "register_feed":
+    case "propose":
+      return 0;
+    case "liveness":
+      return 1;
+    case "finalize_or_dispute":
+    case "arbitration":
+      return 2;
+    case "settled":
+      return 3;
+    default:
+      return 0;
+  }
+}
 function parseMoveFields(content: unknown): Record<string, unknown> | undefined {
   if (!content || typeof content !== "object") return undefined;
   const c = content as { dataType?: string; fields?: Record<string, unknown> };
@@ -178,6 +210,30 @@ export default function OraclePage() {
   const caseThreshold = Number(caseFields?.required_approvals ?? 0);
   const caseExecuted = Number(caseFields?.status ?? 0) === 1;
 
+  const workflowStep = deriveOracleWorkflowStep({
+    hasFeed: selectedFeedId.length > 0,
+    poolResolved,
+    feedStatus,
+    assertionStatus,
+    hasActiveAssertion: effectiveAssertionId.length > 0,
+    livenessRemain,
+  });
+  const activeFlowIdx = flowStepIndex(workflowStep);
+
+  useEffect(() => {
+    if (assertionStatus !== 1 || !effectiveAssertionId || caseId) return;
+    let cancelled = false;
+    void discoverArbitrationCaseForAssertion(client, effectiveAssertionId).then(
+      (id) => {
+        if (cancelled || !id) return;
+        setCaseId(id);
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [client, assertionStatus, effectiveAssertionId, caseId]);
+
   const runTx = async (build: (tx: Transaction) => void, ok: string) => {
     const tx = new Transaction();
     build(tx);
@@ -275,7 +331,32 @@ export default function OraclePage() {
     <>
       <h1>Oracle 结算</h1>
       <p className="sub">
-        乐观预言机：建市场自动注册 Feed → 链上发现 → 提议 / 争议 / 委员会终裁
+        乐观预言机：提议 → 争议窗口 → 委员会终裁或 Finalize → 市场结算 → 领取
+      </p>
+
+      <div className="oracle-flow" aria-label="结算流程">
+        {FLOW_STEPS.map((s, i) => {
+          const done = i < activeFlowIdx;
+          const active = i === activeFlowIdx;
+          const settleHint =
+            s.key === "settle" && workflowStep === "arbitration"
+              ? "（委员会）"
+              : s.key === "settle" && workflowStep === "finalize_or_dispute"
+                ? "（Finalize）"
+                : "";
+          return (
+            <div
+              key={s.key}
+              className={`oracle-flow-step${active ? " active" : ""}${done ? " done" : ""}`}
+            >
+              {s.label}
+              {settleHint}
+            </div>
+          );
+        })}
+      </div>
+      <p className="hint">
+        当前阶段：<strong>{workflowStepLabel(workflowStep)}</strong>
       </p>
 
       {!account && <p className="hint">连接钱包后参与提议/争议/委员会投票。</p>}
@@ -454,12 +535,30 @@ export default function OraclePage() {
                   // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   { transaction: tx as any },
                   {
-                    onSuccess: (r) => {
+                    onSuccess: async (r) => {
+                      let discovered: string | null = null;
+                      if (r.digest) {
+                        discovered = await extractCreatedObjectIdFromTx(
+                          client,
+                          r.digest,
+                          ARBITRATION_CASE_TYPE,
+                        );
+                        if (!discovered) {
+                          discovered = await discoverArbitrationCaseForAssertion(
+                            client,
+                            effectiveAssertionId,
+                          );
+                        }
+                      }
+                      if (discovered) setCaseId(discovered);
                       setMsg(
-                        `已争议并立案: ${r.digest?.slice(0, 18)}…（从交易中复制 ArbitrationCase ID）`,
+                        discovered
+                          ? `已争议并立案，Case: ${discovered.slice(0, 18)}…`
+                          : `已争议并立案: ${r.digest?.slice(0, 18)}…（Case 自动发现中）`,
                       );
                       void refetchAssertion();
                       void refetchFeed();
+                      if (discovered) void refetchCase();
                     },
                     onError: (e) => setMsg(`失败: ${e.message}`),
                   },
@@ -504,8 +603,31 @@ export default function OraclePage() {
         <input
           value={caseId}
           onChange={(e) => setCaseId(e.target.value)}
-          placeholder="争议交易返回的 Case 对象 ID"
+          placeholder={
+            isInArbitration
+              ? "争议后自动发现，也可手动粘贴"
+              : "争议交易返回的 Case 对象 ID"
+          }
         />
+        {isInArbitration && !caseId && (
+          <button
+            type="button"
+            className="link-btn"
+            onClick={() => {
+              void discoverArbitrationCaseForAssertion(
+                client,
+                effectiveAssertionId,
+              ).then((id) => {
+                if (id) {
+                  setCaseId(id);
+                  void refetchCase();
+                } else setMsg("未找到 Case，请稍后重试或粘贴 ID");
+              });
+            }}
+          >
+            按 Assertion 重新发现 Case
+          </button>
+        )}
         {caseFields && (
           <p className="hint">
             裁决: {verdictLabel(caseVerdict)} · 采纳值:{" "}
@@ -639,6 +761,24 @@ export default function OraclePage() {
           </button>
         </div>
       </div>
+
+      {poolResolved && (
+        <div className="oracle-claim-banner">
+          <p>
+            市场已结算
+            {poolFields?.resolved_value != null && (
+              <>
+                ，结果 slot/值:{" "}
+                <code>{String(poolFields.resolved_value)}</code>
+              </>
+            )}
+            。获胜方可前往持仓页领取赔付。
+          </p>
+          <p style={{ marginTop: "0.75rem" }}>
+            <Link href="/positions">前往持仓领取 →</Link>
+          </p>
+        </div>
+      )}
 
       {msg && <p className="hint">{msg}</p>}
 

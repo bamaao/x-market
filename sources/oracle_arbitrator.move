@@ -5,6 +5,7 @@ module x_market::oracle_arbitrator;
 
 use sui::clock::{Self, Clock};
 use sui::coin::Coin;
+use sui::event;
 use x_market::config::{Self, AdminCap, GlobalConfig};
 use x_market::usdc::USDC;
 use x_market::errors;
@@ -26,6 +27,17 @@ public struct OracleArbitrator has key {
     id: UID,
     committee: vector<address>,
     threshold: u8,
+}
+
+/// Emitted when a dispute opens a committee case (indexer / frontend discovery).
+public struct ArbitrationCaseOpened has copy, drop {
+    case_id: ID,
+    assertion_id: ID,
+    feed_id: ID,
+    pool_id: ID,
+    proposer: address,
+    disputer: address,
+    claimed_value: u64,
 }
 
 /// One case per disputed assertion; created in the same transaction as `dispute_assertion`.
@@ -219,6 +231,16 @@ fun request_arbitration(
         created_at: now,
         expires_at: now + CASE_TTL_SECS,
     };
+    let case_id = object::id(&case);
+    event::emit(ArbitrationCaseOpened {
+        case_id,
+        assertion_id,
+        feed_id: object::id(feed),
+        pool_id: macro_oracle::feed_market_id(feed),
+        proposer: macro_oracle::assertion_proposer(assertion),
+        disputer: macro_oracle::assertion_disputer(assertion),
+        claimed_value: macro_oracle::assertion_claimed_value(assertion),
+    });
     transfer::share_object(case);
 }
 

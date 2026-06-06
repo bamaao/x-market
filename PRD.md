@@ -60,7 +60,7 @@
 | **L1 市场根** | 绑定现实世界事件元数据；指向 L0 Feed；管理生命周期 | 博弈 + 付费共用 |
 | **L2 业务模块** | AMM 定价/头寸，或 Seal+Walrus 私密预测/解锁 | 可独立启用或叠加 |
 
-> **当前实现（Testnet）：** L2 博弈模块已落地（`MarketPool` 即事实上的市场根）；L0 Oracle 已落地（§10）；L1 `EventRoot` 显式抽象与 L2 SuiProphet 模块为 **Phase 4 规划**（见 §6、§11）。
+> **当前实现（Testnet）：** L2 博弈模块已落地（`MarketPool` 即事实上的市场根）；L0 Oracle 已落地（§10）；L2 SuiProphet 核心链上模块已落地（`prophet_registry` / `prophet_leaderboard`，§11）；L1 `EventRoot` 显式抽象仍为 **Phase 4 待办**（见 §6）。
 
 ---
 
@@ -499,7 +499,8 @@ public struct EventRoot has key {
 ### Phase 4 — SuiProphet & EventRoot（Week 29–40）
 
 - [ ] **`EventRoot` 显式抽象**：从 `MarketPool` 迁移/包装为动态字段挂载模式
-- [ ] **`prophet_registry` 模块**：私密预测 Commit、`paid_buyers`、解锁分账
+- [x] **`prophet_registry` 模块**：私密预测 Commit、`paid_buyers`、解锁分账、Hash 审计
+- [x] **`prophet_leaderboard` 模块**：Prophet Score 公式与战绩统计
 - [ ] **Walrus + Seal 集成**：门限加密上传；双重 OR 访问策略（付费 / 到期公开）
 - [ ] **事后审计流**：`Hash(plaintext) == chain_commit` → 战绩胜/负 → Leaderboard
 - [ ] **Prophet Score 排行榜**：$w_1 \cdot \text{Accuracy} + w_2 \cdot \log(N) + w_3 \cdot \text{ROI}$
@@ -962,11 +963,11 @@ $$\text{Prophet Score} = w_1 \cdot \text{Accuracy Rate} + w_2 \cdot \log(N) + w_
 | PRD 概念 | 阶段 | 规划模块 |
 | --- | --- | --- |
 | 市场根对象 | Phase 4 | `event_root.move` |
-| 私密预测 Commit / 解锁 | Phase 4 | `prophet_registry.move` |
-| 战绩与排行榜 | Phase 4 | `prophet_leaderboard.move` + Indexer |
+| 私密预测 Commit / 解锁 | **已就绪** | `prophet_registry.move` + `/prophet` UI |
+| 战绩与排行榜 | **已就绪（链上）** | `prophet_leaderboard.move`；Indexer 增强待办 |
 | 结算触发 | **已就绪** | `macro_oracle` + `oracle_arbitrator`（§10） |
 | AMM 博弈 | **已就绪** | `market_pool` + `position` + `settlement` |
-| Walrus / Seal | Phase 4 | 链下 SDK + Seal 策略配置 |
+| Walrus / Seal | **Testnet 已就绪** | `walrus.ts` HTTP + `seal-prophet.ts` + `seal_approve_prophecy` |
 | Gas Station | Phase 4 | 赞助交易中间层 |
 
 **迁移路径：** 现有 `MarketPool` 通过 `DataFeed.market_id` 已关联 L0 Feed；Phase 4 新增 `EventRoot` 包装层，将 `pool_id` 迁入 Dynamic Field，Prophet 子对象挂同一根节点，**不重复注册 Oracle**。

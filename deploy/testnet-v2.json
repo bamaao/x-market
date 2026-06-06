@@ -1,0 +1,42 @@
+{
+  "network": "testnet",
+  "publishedAt": "2026-06-06",
+  "deployer": "0x87e487cd6b1c7a53f91999eb3a5372ced201b614b26924ba4cc1d282a2240c07",
+  "packageId": "0xb2af3cb8af06e9754f442680ff2d191b8cc3a16ee661197534e6dc435e1eabce",
+  "publishTx": "A8NrigzuHn5yULenJdS5uAWQPqUfUYnvDh6XXTKLrvb6",
+  "globalConfig": "0x9ce278547f0590cc04a79f76cf97d103940557e7a3ff5bfecf5a99f198012b08",
+  "adminCap": "0xb18fdb5f7ceaf2ccc9f94f35594043de3773422520666ec391e54e6b02b5b8c2",
+  "treasuryCapUsdc": "0xb45ae6b1ad470b6ea91d1f81cc10354d902ea339ddaceb9773a5a8387b7e31e9",
+  "upgradeCap": "0xdaacf4be93d3fe7ecadabef38233f7ffeddc26bb47d6a824ed3904de999631a7",
+  "maturityTs": 1783299164,
+  "oracle": {
+    "oracleConfigId": "0x1ad185d06bcbb53a98c5a834516da7a28c748f32079faa8ff310a35d04f663d8",
+    "feedRegistryId": "0x5ffc96e4b2f7ef6626e7e1c5355edeb588bbe479a917d9e168f8b28650b0fe2f",
+    "oracleArbitratorId": "0xe0e79ad8c186abcb02f13c0d1ac06f7afdd59a1abef710744cb680e6dfe6228c"
+  },
+  "prophet": {
+    "registryId": "0xfa8359d6e1693542ef315eeda6a5c6c659dc819683a7bf86ac3391d1c4f63f38"
+  },
+  "seedMarkets": {
+    "poisson_goals": {
+      "poolId": "0xb5d1a85213d6757d1cb386e8b719b524162a117018e6f5b8f0101f4dcc532b5f",
+      "lambdaTenths": 25
+    },
+    "dirichlet_wdl": {
+      "poolId": "0x89fb5ff5754fe5b2d32d071ce98ad778b62a48f738e0d7dd27a86b390eddaac5",
+      "alphas": [10, 10, 10]
+    },
+    "normal_cpi": {
+      "poolId": "0xa43716a746c01d6039cd7b9e6a77562f17a8730dc72c9363ddfde06859e4f834",
+      "muTenths": 25,
+      "sigmaTenths": 4
+    }
+  },
+  "superseded": {
+    "packageId": "0xe6be1520c8f4753928b8daf5e45ca485b3c67cd0ab136874b5705bcf24eac8c1",
+    "note": "v1 种子池已弃用，请使用本文件 seedMarkets"
+  },
+  "explorer": {
+    "package": "https://testnet.suivision.xyz/package/0xb2af3cb8af06e9754f442680ff2d191b8cc3a16ee661197534e6dc435e1eabce"
+  }
+}

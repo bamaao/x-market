@@ -29,6 +29,13 @@
   },
   "faucetPackageId": "0x70bb4f8ed11991f79dbafef255ad1881d169bb1e337b69b129d997dd4216ebf0",
   "faucetPublishTx": "CVXUnZe8aWd398RKhr75wSttqe7tz2ksHZs3gFPqYG6a",
+  "oracle": {
+    "note": "已弃用 — 请使用 deploy/testnet-v2.json（含 Oracle/Prophet 全模块）",
+    "oracleConfigId": null,
+    "feedRegistryId": null,
+    "oracleArbitratorId": null
+  },
+  "supersededBy": "deploy/testnet-v2.json",
   "explorer": {
     "package": "https://testnet.suivision.xyz/package/0xe6be1520c8f4753928b8daf5e45ca485b3c67cd0ab136874b5705bcf24eac8c1",
     "faucet": "https://testnet.suivision.xyz/package/0x70bb4f8ed11991f79dbafef255ad1881d169bb1e337b69b129d997dd4216ebf0"

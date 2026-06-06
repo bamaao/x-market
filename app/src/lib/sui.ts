@@ -1,4 +1,12 @@
-import { getFullnodeUrl, SuiClient } from "@mysten/sui/client";
+import {
+  SuiJsonRpcClient,
+  getJsonRpcFullnodeUrl,
+} from "@mysten/sui/jsonRpc";
 import { NETWORK } from "./markets";
 
-export const suiClient = new SuiClient({ url: getFullnodeUrl(NETWORK) });
+const network = NETWORK === "mainnet" ? "mainnet" : "testnet";
+
+export const suiClient = new SuiJsonRpcClient({
+  url: getJsonRpcFullnodeUrl(network),
+  network,
+});

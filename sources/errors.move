@@ -37,6 +37,15 @@ const E_CASE_EXECUTED: u64 = 33;
 const E_VERDICT_MISMATCH: u64 = 34;
 const E_FEED_ALREADY_EXISTS: u64 = 35;
 const E_NOT_POOL_AUTHORITY: u64 = 36;
+const E_PROPHECY_CLOSED: u64 = 37;
+const E_ALREADY_UNLOCKED: u64 = 38;
+const E_NOT_PAID_BUYER: u64 = 39;
+const E_UNLOCK_WINDOW_CLOSED: u64 = 40;
+const E_ALREADY_AUDITED: u64 = 42;
+const E_LOCK_NOT_REACHED: u64 = 44;
+const E_INVALID_HASH_LEN: u64 = 45;
+const E_MARKET_ALREADY_RESOLVED: u64 = 46;
+const E_SEAL_ID_MISMATCH: u64 = 47;
 
 public fun math_overflow(): u64 { E_MATH_OVERFLOW }
 public fun div_by_zero(): u64 { E_DIV_BY_ZERO }
@@ -74,3 +83,12 @@ public fun case_executed(): u64 { E_CASE_EXECUTED }
 public fun verdict_mismatch(): u64 { E_VERDICT_MISMATCH }
 public fun feed_already_exists(): u64 { E_FEED_ALREADY_EXISTS }
 public fun not_pool_authority(): u64 { E_NOT_POOL_AUTHORITY }
+public fun prophecy_closed(): u64 { E_PROPHECY_CLOSED }
+public fun already_unlocked(): u64 { E_ALREADY_UNLOCKED }
+public fun not_paid_buyer(): u64 { E_NOT_PAID_BUYER }
+public fun unlock_window_closed(): u64 { E_UNLOCK_WINDOW_CLOSED }
+public fun already_audited(): u64 { E_ALREADY_AUDITED }
+public fun lock_not_reached(): u64 { E_LOCK_NOT_REACHED }
+public fun invalid_hash_len(): u64 { E_INVALID_HASH_LEN }
+public fun market_already_resolved(): u64 { E_MARKET_ALREADY_RESOLVED }
+public fun seal_id_mismatch(): u64 { E_SEAL_ID_MISMATCH }

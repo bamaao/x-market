@@ -1,5 +1,5 @@
 import { Transaction } from "@mysten/sui/transactions";
-import type { SuiClient } from "@mysten/sui/client";
+import type { XMarketRpc } from "./rpc";
 import { PACKAGE_ID, GLOBAL_CONFIG_ID, SEED_MARKETS, type MarketKind } from "./markets";
 import { SUI_CLOCK_ID } from "./trade";
 
@@ -19,6 +19,25 @@ export const VERDICT_DISPUTER_WINS = 2;
 export const VERDICT_UNRESOLVED = 3;
 
 const DATA_FEED_TYPE = `${PACKAGE_ID}::macro_oracle::DataFeed`;
+const ARBITRATION_CASE_TYPE = `${PACKAGE_ID}::oracle_arbitrator::ArbitrationCase`;
+const ARBITRATION_CASE_OPENED_EVENT = `${PACKAGE_ID}::oracle_arbitrator::ArbitrationCaseOpened`;
+
+export type OracleWorkflowStep =
+  | "register_feed"
+  | "propose"
+  | "liveness"
+  | "finalize_or_dispute"
+  | "arbitration"
+  | "settled"
+  | "idle";
+
+export const ORACLE_WORKFLOW_STEPS: { id: OracleWorkflowStep; label: string }[] = [
+  { id: "propose", label: "1. 提议" },
+  { id: "liveness", label: "2. 争议窗口" },
+  { id: "finalize_or_dispute", label: "3. 结算" },
+  { id: "arbitration", label: "3. 委员会终裁" },
+  { id: "settled", label: "4. 领取" },
+];
 
 export interface OracleMarketRef {
   id: string;
@@ -52,7 +71,7 @@ function parseObjectId(value: unknown): string {
 
 /** Resolve FeedRegistry id from OracleConfig (auto-created with config). */
 export async function resolveFeedRegistryId(
-  client: SuiClient,
+  client: XMarketRpc,
   oracleConfigId: string,
 ): Promise<string | null> {
   if (!oracleConfigId) return null;
@@ -66,7 +85,7 @@ export async function resolveFeedRegistryId(
 
 /** O(1) lookup via FeedRegistry dynamic field (preferred). */
 export async function lookupFeedByMarket(
-  client: SuiClient,
+  client: XMarketRpc,
   registryId: string,
   poolId: string,
 ): Promise<string | null> {
@@ -89,7 +108,7 @@ export async function lookupFeedByMarket(
   if (tag === 0) return null;
   const idBytes = bytes.slice(1);
   if (idBytes.length !== 32) return null;
-  const hex = Array.from(idBytes)
+  const hex = (idBytes as number[])
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
   return `0x${hex}`;
@@ -97,10 +116,10 @@ export async function lookupFeedByMarket(
 
 /** Fallback: scan DataFeed objects and match `market_id` field. */
 export async function discoverFeedByMarketScan(
-  client: SuiClient,
+  client: XMarketRpc,
   poolId: string,
 ): Promise<string | null> {
-  if (!poolId) return null;
+  if (!poolId || !client.queryObjects) return null;
   let cursor: string | null | undefined = null;
   for (;;) {
     const page = await client.queryObjects({
@@ -121,7 +140,7 @@ export async function discoverFeedByMarketScan(
 
 /** Chain discovery: registry lookup → scan fallback. */
 export async function discoverFeedForPool(
-  client: SuiClient,
+  client: XMarketRpc,
   poolId: string,
   oracleConfigId: string = ORACLE_CONFIG_ID,
 ): Promise<string | null> {
@@ -215,6 +234,130 @@ export function formatCountdown(secs: number): string {
   if (h > 0) return `${h}h ${m}m ${s}s`;
   if (m > 0) return `${m}m ${s}s`;
   return `${s}s`;
+}
+
+export function parsePoolMaturityTs(
+  poolFields: Record<string, unknown> | undefined,
+): number {
+  if (!poolFields) return 0;
+  return Number(poolFields.maturity_ts ?? 0);
+}
+
+export function deriveOracleWorkflowStep(params: {
+  hasFeed: boolean;
+  poolResolved: boolean;
+  feedStatus: number;
+  assertionStatus: number;
+  hasActiveAssertion: boolean;
+  livenessRemain: number;
+}): OracleWorkflowStep {
+  if (params.poolResolved) return "settled";
+  if (!params.hasFeed) return "register_feed";
+  if (!params.hasActiveAssertion && params.feedStatus === 0) return "propose";
+  if (params.assertionStatus === 0 && params.livenessRemain > 0) return "liveness";
+  if (params.assertionStatus === 0 && params.livenessRemain <= 0) {
+    return "finalize_or_dispute";
+  }
+  if (params.assertionStatus === 1) return "arbitration";
+  return "idle";
+}
+
+export function workflowStepLabel(step: OracleWorkflowStep): string {
+  switch (step) {
+    case "register_feed":
+      return "注册 Feed";
+    case "propose":
+      return "等待提议";
+    case "liveness":
+      return "争议窗口";
+    case "finalize_or_dispute":
+      return "可 Finalize 或争议";
+    case "arbitration":
+      return "委员会终裁";
+    case "settled":
+      return "已结算 · 去领取";
+    case "idle":
+      return "—";
+  }
+}
+
+/** Parse a newly created object id from transaction effects. */
+export async function extractCreatedObjectIdFromTx(
+  client: XMarketRpc,
+  digest: string,
+  objectType: string,
+): Promise<string | null> {
+  if (!client.getTransactionBlock) return null;
+  const tx = await client.getTransactionBlock({
+    digest,
+    options: { showObjectChanges: true },
+  });
+  for (const change of tx.objectChanges ?? []) {
+    if (
+      change.type === "created" &&
+      "objectType" in change &&
+      change.objectType === objectType &&
+      "objectId" in change
+    ) {
+      return change.objectId;
+    }
+  }
+  return null;
+}
+
+function normalizeId(value: unknown): string {
+  if (typeof value === "string") return value;
+  return "";
+}
+
+/** Event index → scan fallback for ArbitrationCase by assertion_id. */
+export async function discoverArbitrationCaseForAssertion(
+  client: XMarketRpc,
+  assertionId: string,
+): Promise<string | null> {
+  if (!assertionId) return null;
+  if (client.queryEvents) {
+    try {
+      let cursor: string | null | undefined = null;
+      for (let page = 0; page < 5; page++) {
+        const events = await client.queryEvents({
+          query: { MoveEventType: ARBITRATION_CASE_OPENED_EVENT },
+          order: "descending",
+          limit: 50,
+          cursor: cursor ?? undefined,
+        });
+        for (const ev of events.data) {
+          const parsed = ev.parsedJson as Record<string, unknown> | null;
+          const aid = normalizeId(parsed?.assertion_id);
+          if (aid === assertionId) {
+            const caseId = normalizeId(parsed?.case_id);
+            if (caseId) return caseId;
+          }
+        }
+        if (!events.hasNextPage) break;
+        cursor = events.nextCursor;
+      }
+    } catch {
+      // fall through to scan
+    }
+  }
+  if (!client.queryObjects) return null;
+  let cursor: string | null | undefined = null;
+  for (;;) {
+    const page = await client.queryObjects({
+      filter: { StructType: ARBITRATION_CASE_TYPE },
+      options: { showContent: true },
+      cursor: cursor ?? undefined,
+    });
+    for (const item of page.data) {
+      const fields = parseMoveFields(item.content);
+      const aid = parseObjectId(fields?.assertion_id);
+      if (aid === assertionId) return item.objectId;
+    }
+    if (!page.hasNextPage) break;
+    cursor = page.nextCursor;
+  }
+  return null;
 }
 
 export function appendCreateOracleConfig(
