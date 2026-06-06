@@ -14,6 +14,10 @@ import { isWalrusBlobId, readBlobFromWalrus } from "./walrus";
 export const PROPHET_REGISTRY_ID =
   process.env.NEXT_PUBLIC_PROPHET_REGISTRY_ID ?? "";
 
+/** Align with on-chain `prophet_leaderboard` (PRD §11.3.7). */
+export const MIN_AUDITED_FOR_PAID = 3;
+export const MIN_SCORE_BPS_FOR_PAID = 4000;
+
 export type ProphetWorkflowStep =
   | "commit"
   | "unlock"
@@ -295,6 +299,33 @@ export function previewAuditOutcome(
 
 export function formatScorePercent(scoreBps: number): string {
   return `${(scoreBps / 100).toFixed(1)}`;
+}
+
+export function isPaidUnlockEligible(
+  stats: ProphetStatsView | null | undefined,
+): boolean {
+  if (!stats) return false;
+  return (
+    stats.cheats === 0 &&
+    stats.totalAudited >= MIN_AUDITED_FOR_PAID &&
+    stats.scoreBps >= MIN_SCORE_BPS_FOR_PAID
+  );
+}
+
+export function paidUnlockEligibilityHint(
+  stats: ProphetStatsView | null | undefined,
+): string {
+  if (!stats) {
+    return `新预言家须先发布免费预测（unlock_price = 0），完成 ≥${MIN_AUDITED_FOR_PAID} 场审计且 Score ≥ ${MIN_SCORE_BPS_FOR_PAID / 100} 后方可开通付费`;
+  }
+  if (stats.cheats > 0) return "存在作弊记录，暂不可开通付费解锁";
+  if (stats.totalAudited < MIN_AUDITED_FOR_PAID) {
+    return `已审计 ${stats.totalAudited}/${MIN_AUDITED_FOR_PAID} 场，继续免费练手预测以积累战绩`;
+  }
+  if (stats.scoreBps < MIN_SCORE_BPS_FOR_PAID) {
+    return `Prophet Score ${formatScorePercent(stats.scoreBps)}，需 ≥ ${MIN_SCORE_BPS_FOR_PAID / 100} 方可开通付费`;
+  }
+  return "已满足付费开通条件，可设置 unlock_price > 0";
 }
 
 export function formatAccuracyPercent(stats: ProphetStatsView): string {

@@ -6,6 +6,10 @@ const W2_BPS: u64 = 2000;
 const W3_BPS: u64 = 2000;
 const MAX_EXPERIENCE_GAMES: u64 = 100;
 const REVENUE_SCALE_USDC: u64 = 1_000_000;
+/// Minimum audited games before paid unlock (PRD §11.3.7).
+const MIN_AUDITED_FOR_PAID: u64 = 3;
+/// Minimum Prophet Score (bps) before paid unlock — 40.0 / 100.
+const MIN_SCORE_BPS_FOR_PAID: u64 = 4000;
 
 public struct ProphetStats has store, copy, drop {
     prophet: address,
@@ -111,6 +115,16 @@ public fun record_audit_loss(stats: &mut ProphetStats, escrow_revenue: u64) {
     stats.total_unlock_revenue = stats.total_unlock_revenue + escrow_revenue;
     refresh_score(stats);
 }
+
+/// PRD §11.3.7: paid unlock requires track record; free commits always allowed.
+public fun paid_unlock_eligible(stats: &ProphetStats): bool {
+    stats.cheats == 0 &&
+        stats.total_audited >= MIN_AUDITED_FOR_PAID &&
+        stats.score_bps >= MIN_SCORE_BPS_FOR_PAID
+}
+
+public fun min_audited_for_paid(): u64 { MIN_AUDITED_FOR_PAID }
+public fun min_score_bps_for_paid(): u64 { MIN_SCORE_BPS_FOR_PAID }
 
 public fun wins(stats: &ProphetStats): u64 { stats.wins }
 public fun losses(stats: &ProphetStats): u64 { stats.losses }

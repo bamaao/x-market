@@ -1,6 +1,6 @@
 # X-Market on Sui — 产品需求文档
 
-> **版本：** v1.8  
+> **版本：** v1.9  
 > **日期：** 2026-06-05  
 > **链：** Sui  
 > **状态：** 草案  
@@ -382,11 +382,14 @@ public struct EventRoot has key {
 
 ### 3.4 链下服务
 
-| 服务 | 职责 | 是否关键路径 |
-| --- | --- | --- |
-| **Preview Engine** | 镜像链上数学，前端报价 | ❌ |
-| **Indexer** | 事件索引、IV 展示 | ❌ |
-| **Oracle Relayer** | **仅**到期结算 | 仅结算时 |
+| 服务 | 职责 | 是否关键路径 | Prophet / EventRoot |
+| --- | --- | --- | --- |
+| **Preview Engine** | 镜像链上数学，前端报价 | ❌ | — |
+| **Indexer** | 事件索引、IV 展示、排行缓存 | ❌ | 可选；战绩真相在链上 `ProphetStats` |
+| **Oracle Relayer** | **仅**到期结算 | 仅结算时 | — |
+| **Gas Station** | 赞助交易 Gas Payer 双签 | Prophet 发布/解锁 UX | **必须**（见 §11.3.6） |
+
+> 排行与 Prophet Score **不以 Indexer 为真相源**；MVP 前端经 RPC + 事件扫描直读链上动态字段即可。详见 [docs/phase4-services.md](./docs/phase4-services.md)。
 
 ### 3.5 预言机（仅结算，不参与定价）
 
@@ -427,9 +430,9 @@ public struct EventRoot has key {
 
 **SuiProphet 付费（Phase 4）：**
 
-- 预言家主页 / 发布私密预测
-- 全链排行榜（Prophet Score）
-- 付费解锁（仅 USDC，Gas Station 代付）
+- 预言家主页 / 发布私密预测（`/prophet`）
+- 全链排行榜（`/leaderboard`，Prophet Score）
+- 付费解锁（仅 USDC，Gas Station 代付；须满足 §11.3.7 门槛）
 
 ### 4.2 钱包
 
@@ -498,14 +501,15 @@ public struct EventRoot has key {
 
 ### Phase 4 — SuiProphet & EventRoot（Week 29–40）
 
-- [ ] **`EventRoot` 显式抽象**：从 `MarketPool` 迁移/包装为动态字段挂载模式
+- [ ] **`EventRoot` 显式抽象**：`event_root.move` 骨架已就绪；`MarketPool` 包装迁移待办
 - [x] **`prophet_registry` 模块**：私密预测 Commit、`paid_buyers`、解锁分账、Hash 审计
 - [x] **`prophet_leaderboard` 模块**：Prophet Score 公式与战绩统计
-- [ ] **Walrus + Seal 集成**：门限加密上传；双重 OR 访问策略（付费 / 到期公开）
-- [ ] **事后审计流**：`Hash(plaintext) == chain_commit` → 战绩胜/负 → Leaderboard
-- [ ] **Prophet Score 排行榜**：$w_1 \cdot \text{Accuracy} + w_2 \cdot \log(N) + w_3 \cdot \text{ROI}$
-- [ ] **Gas Station**：赞助交易；用户仅见 USDC 变动
-- [ ] **时间窗口保护**：`lock_time` 前 5 分钟关闭付费通道
+- [x] **Walrus + Seal 集成**：门限加密上传；双重 OR 访问策略（付费 / 到期公开）
+- [x] **事后审计流**：`Hash(plaintext) == chain_commit` → 战绩胜/负 → 分账
+- [x] **Prophet Score 排行榜 UI**：`/leaderboard` 直读链上；Indexer 缓存为可选增强
+- [ ] **Gas Station**：赞助交易中间层（`services/gas-station/`，须本地 Gas Payer 服务）
+- [x] **时间窗口保护**：`lock_time` 前 5 分钟关闭付费通道
+- [x] **付费开通门槛**：链上 `paid_unlock_eligible`（§11.3.7）
 
 ---
 
@@ -911,6 +915,8 @@ enum AssertionState {
 
 流程：Seal 门限加密 → 上传 Walrus 得 `blob_id` → 链上 Commit 子对象 → 记录 `plaintext_hash`、`unlock_price_usdc`、`lock_time`。
 
+**练手与付费分阶段（§11.3.7）：** 新预言家默认仅可 `unlock_price = 0`（免费公开练手）；达到战绩门槛后链上才允许 `unlock_price > 0`。
+
 #### 11.3.3 即时付费解锁（订阅者）
 
 1. 浏览预言家主页 / 排行榜  
@@ -942,6 +948,22 @@ $$\text{Prophet Score} = w_1 \cdot \text{Accuracy Rate} + w_2 \cdot \log(N) + w_
 
 发布预测与付费解锁均走 **Sponsored Transactions**；用户钱包仅显示 USDC 变动，协议 Gas Payer 代付 SUI Gas。
 
+**须本地服务：** Gas Payer 私钥与赞助 API 部署于 `services/gas-station/`（见 README），无法用纯前端替代。
+
+#### 11.3.7 预言家等级与付费开通门槛
+
+为防止无战绩账号直接收费割韭菜，**付费解锁须链上 gate**（`prophet_leaderboard::paid_unlock_eligible`），在 `commit_private_prophecy` 当 `unlock_price > 0` 时强制校验：
+
+| 条件 | 默认阈值 | 说明 |
+| --- | --- | --- |
+| 已审计场次 | `total_audited ≥ 3` | 须先完成免费练手预测并经 Oracle 审计 |
+| Prophet Score | `score_bps ≥ 4000`（40/100） | 综合胜率 + 经验 + 收入加权 |
+| 诚信记录 | `cheats == 0` | 任一 Hash 作弊则永久失去付费资格 |
+
+**免费练手：** `unlock_price = 0` 的预测不受上述限制，用于冷启动积累全链战绩；订阅者可在结算后免费解密（Seal 条件 B）。
+
+**前端：** `/prophet` 展示门槛进度；`/leaderboard` 标注「付费已开通」列。
+
 ### 11.4 安全与边界
 
 | 机制 | 说明 |
@@ -964,11 +986,13 @@ $$\text{Prophet Score} = w_1 \cdot \text{Accuracy Rate} + w_2 \cdot \log(N) + w_
 | --- | --- | --- |
 | 市场根对象 | Phase 4 | `event_root.move` |
 | 私密预测 Commit / 解锁 | **已就绪** | `prophet_registry.move` + `/prophet` UI |
-| 战绩与排行榜 | **已就绪（链上）** | `prophet_leaderboard.move`；Indexer 增强待办 |
+| 战绩与排行榜 | **已就绪** | 链上 `prophet_leaderboard` + `/leaderboard`；Indexer 可选 |
 | 结算触发 | **已就绪** | `macro_oracle` + `oracle_arbitrator`（§10） |
 | AMM 博弈 | **已就绪** | `market_pool` + `position` + `settlement` |
 | Walrus / Seal | **Testnet 已就绪** | `walrus.ts` HTTP + `seal-prophet.ts` + `seal_approve_prophecy` |
-| Gas Station | Phase 4 | 赞助交易中间层 |
+| 付费开通门槛 | **已就绪（链上）** | `paid_unlock_eligible` + PRD §11.3.7 |
+| Gas Station | Phase 4 | `services/gas-station/` 须本地 Gas Payer |
+| EventRoot 骨架 | **进行中** | `event_root.move`；Testnet 池迁移待办 |
 
 **迁移路径：** 现有 `MarketPool` 通过 `DataFeed.market_id` 已关联 L0 Feed；Phase 4 新增 `EventRoot` 包装层，将 `pool_id` 迁入 Dynamic Field，Prophet 子对象挂同一根节点，**不重复注册 Oracle**。
 

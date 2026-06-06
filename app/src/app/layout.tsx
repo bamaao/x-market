@@ -28,6 +28,7 @@ export default function RootLayout({
               <a href="/margin">保证金</a>
               <a href="/oracle">Oracle</a>
               <a href="/prophet">Prophet</a>
+              <a href="/leaderboard">排行榜</a>
             </nav>
             <WalletButton />
           </header>

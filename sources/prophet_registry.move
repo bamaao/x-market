@@ -189,8 +189,8 @@ public entry fun commit_private_prophecy(
     if (!is_valid_seal_id_len(vector::length(&seal_id))) {
         abort errors::invalid_hash_len()
     };
-    if (unlock_price == 0) {
-        abort errors::out_of_bounds()
+    if (unlock_price > 0) {
+        assert_paid_unlock_eligible(registry, ctx.sender());
     };
     let maturity = market_pool::maturity_ts(pool);
     if (lock_time != maturity) {
@@ -310,6 +310,17 @@ public entry fun audit_prophecy(
         won,
         ctx,
     );
+}
+
+fun assert_paid_unlock_eligible(registry: &ProphetRegistry, prophet: address) {
+    if (df::exists<address>(&registry.id, prophet)) {
+        let stats = df::borrow<address, ProphetStats>(&registry.id, prophet);
+        if (!prophet_leaderboard::paid_unlock_eligible(stats)) {
+            abort errors::prophet_not_paid_eligible()
+        };
+    } else {
+        abort errors::prophet_not_paid_eligible()
+    };
 }
 
 fun index_prophecy(registry: &mut ProphetRegistry, market_id: ID, prophecy_id: ID) {

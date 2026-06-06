@@ -46,6 +46,7 @@ const E_LOCK_NOT_REACHED: u64 = 44;
 const E_INVALID_HASH_LEN: u64 = 45;
 const E_MARKET_ALREADY_RESOLVED: u64 = 46;
 const E_SEAL_ID_MISMATCH: u64 = 47;
+const E_PROPHET_NOT_PAID_ELIGIBLE: u64 = 48;
 
 public fun math_overflow(): u64 { E_MATH_OVERFLOW }
 public fun div_by_zero(): u64 { E_DIV_BY_ZERO }
@@ -92,3 +93,4 @@ public fun lock_not_reached(): u64 { E_LOCK_NOT_REACHED }
 public fun invalid_hash_len(): u64 { E_INVALID_HASH_LEN }
 public fun market_already_resolved(): u64 { E_MARKET_ALREADY_RESOLVED }
 public fun seal_id_mismatch(): u64 { E_SEAL_ID_MISMATCH }
+public fun prophet_not_paid_eligible(): u64 { E_PROPHET_NOT_PAID_ELIGIBLE }

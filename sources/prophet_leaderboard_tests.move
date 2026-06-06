@@ -28,3 +28,16 @@ fun audit_updates_streak() {
     assert!(prophet_leaderboard::losses(&stats) == 1, 2);
     prophet_leaderboard::record_cheat(&mut stats);
 }
+
+#[test]
+fun paid_unlock_eligibility() {
+    let mut stats = prophet_leaderboard::new_stats(@0x1);
+    assert!(!prophet_leaderboard::paid_unlock_eligible(&stats), 0);
+    prophet_leaderboard::record_audit_win(&mut stats, 0);
+    prophet_leaderboard::record_audit_win(&mut stats, 0);
+    assert!(!prophet_leaderboard::paid_unlock_eligible(&stats), 1);
+    prophet_leaderboard::record_audit_win(&mut stats, 0);
+    assert!(prophet_leaderboard::paid_unlock_eligible(&stats), 2);
+    prophet_leaderboard::record_cheat(&mut stats);
+    assert!(!prophet_leaderboard::paid_unlock_eligible(&stats), 3);
+}

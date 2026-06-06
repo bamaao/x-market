@@ -30,7 +30,6 @@ import {
   deriveProphetWorkflowStep,
   discoverPropheciesForPool,
   extractProphecyIdFromTx,
-  fetchLeaderboard,
   fetchProphetRegistry,
   fetchProphetStats,
   fetchProphecy,
@@ -38,14 +37,17 @@ import {
   formatScorePercent,
   formatUsdcBaseUnits,
   hashProphecyPlaintext,
+  isPaidUnlockEligible,
   loadStoredProphecyPlaintext,
+  MIN_AUDITED_FOR_PAID,
+  MIN_SCORE_BPS_FOR_PAID,
+  paidUnlockEligibilityHint,
   parseProphecyFields,
   parseUsdcAmount,
   previewAuditOutcome,
   prophecyStatusLabel,
   storeProphecyPlaintext,
   verifyProphecyPlaintextHash,
-  type LeaderboardEntry,
   type ProphetRegistryView,
   type ProphetStatsView,
   type ProphetWorkflowStep,
@@ -95,7 +97,7 @@ export default function ProphetPage() {
   const [loadingList, setLoadingList] = useState(false);
   const [predictedValue, setPredictedValue] = useState("7");
   const [analysis, setAnalysis] = useState("");
-  const [unlockPrice, setUnlockPrice] = useState("1");
+  const [unlockPrice, setUnlockPrice] = useState("0");
   const [msg, setMsg] = useState<string | null>(null);
   const [nowSec, setNowSec] = useState(() => Math.floor(Date.now() / 1000));
   const [storedPlaintext, setStoredPlaintext] = useState("");
@@ -108,8 +110,7 @@ export default function ProphetPage() {
   const [prophetStats, setProphetStats] = useState<ProphetStatsView | null>(
     null,
   );
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [loadingLeaderboard, setLoadingLeaderboard] = useState(false);
+  const [myStats, setMyStats] = useState<ProphetStatsView | null>(null);
 
   const market = markets.find((m) => m.poolId === poolId);
 
@@ -198,6 +199,9 @@ export default function ProphetPage() {
     return verifyProphecyPlaintextHash(storedPlaintext, prophecy);
   }, [prophecy, storedPlaintext]);
   const isAudited = prophecy != null && prophecy.status !== PROPHECY_STATUS_OPEN;
+  const paidEligible = isPaidUnlockEligible(myStats);
+  const unlockPriceNum = parseUsdcAmount(unlockPrice);
+  const paidUnlockBlocked = unlockPriceNum > 0n && !paidEligible;
 
   const workflowStep = deriveProphetWorkflowStep({
     prophecy,
@@ -222,18 +226,16 @@ export default function ProphetPage() {
   }, [client]);
 
   useEffect(() => {
-    if (!PROPHET_REGISTRY_ID) return;
-    setLoadingLeaderboard(true);
-    void fetchLeaderboard(client, PROPHET_REGISTRY_ID).then((rows) => {
-      setLeaderboard(rows);
-      setLoadingLeaderboard(false);
-    });
-  }, [client]);
-
-  const refreshLeaderboard = useCallback(() => {
-    if (!PROPHET_REGISTRY_ID) return;
-    void fetchLeaderboard(client, PROPHET_REGISTRY_ID).then(setLeaderboard);
-  }, [client]);
+    if (!PROPHET_REGISTRY_ID || !account?.address) {
+      setMyStats(null);
+      return;
+    }
+    void fetchProphetStats(
+      client,
+      PROPHET_REGISTRY_ID,
+      account.address,
+    ).then(setMyStats);
+  }, [client, account?.address]);
 
   useEffect(() => {
     setDecryptedAnalysis(null);
@@ -331,6 +333,11 @@ export default function ProphetPage() {
       setMsg("请先连接钱包");
       return;
     }
+    const price = parseUsdcAmount(unlockPrice);
+    if (price > 0n && !isPaidUnlockEligible(myStats)) {
+      setMsg(paidUnlockEligibilityHint(myStats));
+      return;
+    }
     setCommitting(true);
     setMsg("Seal 加密 → Walrus 上传 → 链上 Commit…");
     try {
@@ -354,7 +361,6 @@ export default function ProphetPage() {
       storeProphecyPlaintext(sealIdHex(sealId), json);
       setStoredPlaintext(json);
 
-      const price = parseUsdcAmount(unlockPrice);
       const tx = new Transaction();
       appendCommitPrivateProphecy(tx, {
         registryId: PROPHET_REGISTRY_ID,
@@ -455,7 +461,13 @@ export default function ProphetPage() {
           );
           setProphetStats(stats);
         }
-        refreshLeaderboard();
+        if (account?.address) {
+          void fetchProphetStats(
+            client,
+            PROPHET_REGISTRY_ID,
+            account.address,
+          ).then(setMyStats);
+        }
       },
     );
   }
@@ -546,16 +558,26 @@ export default function ProphetPage() {
             onChange={(e) => setAnalysis(e.target.value)}
             placeholder="链上大户筹码、宏观路径…"
           />
-          <label>解锁价 (USDC)</label>
+          <label>解锁价 (USDC，0 = 免费练手)</label>
           <input
             value={unlockPrice}
             onChange={(e) => setUnlockPrice(e.target.value)}
           />
+          <p className="hint">
+            付费开通：≥{MIN_AUDITED_FOR_PAID} 场审计 · Score ≥{" "}
+            {MIN_SCORE_BPS_FOR_PAID / 100} · 零作弊（链上强制）。{" "}
+            {paidUnlockEligibilityHint(myStats)}
+          </p>
           <div className="btn-row">
             <button
               type="button"
               className="primary"
-              disabled={isPending || committing || !analysis.trim()}
+              disabled={
+                isPending ||
+                committing ||
+                !analysis.trim() ||
+                paidUnlockBlocked
+              }
               onClick={() => void onCommit()}
             >
               Seal 加密 → Walrus → Commit
@@ -804,46 +826,12 @@ export default function ProphetPage() {
       </div>
 
       <div className="card" style={{ marginTop: "1rem" }}>
-        <h2>全链战绩排行榜</h2>
+        <h2>战绩与排行</h2>
         <p className="hint">
-          Prophet Score = 60% 胜率 + 20% 经验(log N) + 20% 收入；数据来自
-          Registry 动态字段。
+          排行数据直读链上 <code>ProphetStats</code>，无需本地统计服务。详见{" "}
+          <Link href="/leaderboard">排行榜页</Link>（架构说明见{" "}
+          <code>docs/phase4-services.md</code>）
         </p>
-        {loadingLeaderboard ? (
-          <p className="hint">加载中…</p>
-        ) : leaderboard.length === 0 ? (
-          <p className="hint">暂无审计战绩 — 完成首笔 audit_prophecy 后出现。</p>
-        ) : (
-          <table style={{ width: "100%", fontSize: "0.85rem", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ color: "var(--muted)", textAlign: "left" }}>
-                <th style={{ padding: "0.35rem 0" }}>#</th>
-                <th>预言家</th>
-                <th>胜/负</th>
-                <th>胜率</th>
-                <th>Score</th>
-              </tr>
-            </thead>
-            <tbody>
-              {leaderboard.map((row) => (
-                <tr key={row.prophet} style={{ borderTop: "1px solid var(--border)" }}>
-                  <td style={{ padding: "0.5rem 0" }}>{row.rank}</td>
-                  <td>
-                    <code>
-                      {row.prophet.slice(0, 8)}…
-                      {account?.address === row.prophet ? "（你）" : ""}
-                    </code>
-                  </td>
-                  <td>
-                    {row.wins}/{row.losses}
-                  </td>
-                  <td>{formatAccuracyPercent(row)}</td>
-                  <td>{formatScorePercent(row.scoreBps)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
       </div>
 
       {msg && <p className="msg">{msg}</p>}
