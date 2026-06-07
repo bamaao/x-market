@@ -70,6 +70,8 @@ NEXT_PUBLIC_SUI_CLOCK=0x6
 
 模块：`x_market::zk_coprocessor`
 
+> **产品决策：** 主网前不启用 Tier 2 联合 PDF 交易路径；本模块保留为接口占位。详见 [tier2-decision.md](./tier2-decision.md)。
+
 > 当前版本为 **Attestation + 挑战约束过渡层**：链上仍不直接执行 Groth16/Plonk 数学验算，
 > 但已支持 `proof_scheme_code`、验证委员会阈值确认、挑战证据哈希与挑战裁决流程。
 

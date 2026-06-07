@@ -382,7 +382,8 @@ public struct EventRoot has key {
 
 **参数更新：** 同一 PTB 内完成算价 + 更新 + 写状态。
 
-**Tier 2（Phase 3）：** ZK Coprocessor 异步验证，不阻塞交易。
+**Tier 2（Phase 3）：** ZK Coprocessor 异步验证，不阻塞交易。  
+> **决策（2026-06-08）：** 主网前不上 Tier 2 联合 PDF 模型；见 [docs/tier2-decision.md](./docs/tier2-decision.md)。
 
 ### 3.4 链下服务
 
