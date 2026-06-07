@@ -544,6 +544,64 @@ public(package) fun finalize_dirichlet_auction(pool: &mut MarketPool, alphas: ve
     seed_auction_lp_shares(pool);
 }
 
+public(package) fun new_normal_auction(
+    authority: address,
+    auction_end_ts: u64,
+    maturity_ts: u64,
+    fee_bps: u16,
+    ctx: &mut TxContext,
+): MarketPool {
+    MarketPool {
+        id: object::new(ctx),
+        authority,
+        kind: KIND_NORMAL,
+        status: market_status::status_auction(),
+        lambda_tenths: 0,
+        mu_tenths: 0,
+        sigma_tenths: 0,
+        mu_units: 0,
+        sigma_units: 0,
+        dirichlet_alphas: vector[0, 0, 0],
+        dirichlet_len: 0,
+        vault: balance::zero(),
+        collateral_usdc: 0,
+        liability_by_k: risk::zero_liability(),
+        auction_end_ts,
+        auction_buckets: vector[0, 0, 0],
+        margin_locked_positions: vector[],
+        slash_cycle_base_collateral_usdc: 0,
+        slash_cycle_total_usdc: 0,
+        slash_resume_after_ts: 0,
+        lp_shares: 0,
+        created_ts: auction_end_ts,
+        maturity_ts,
+        fee_bps,
+        fee_multiplier_bps: 0,
+        sigma_virtual_tenths: 0,
+        concentration_virtual: 0,
+        deposit_cutoff_bps: 0,
+        resolution_window_ts: 0,
+        paused: false,
+        resolved: false,
+        resolved_value: 0,
+    }
+}
+
+public(package) fun finalize_normal_auction(
+    pool: &mut MarketPool,
+    mu_tenths: u32,
+    sigma_tenths: u32,
+) {
+    pool.mu_tenths = mu_tenths;
+    pool.sigma_tenths = sigma_tenths;
+    pool.mu_units = 0;
+    pool.sigma_units = 0;
+    pool.status = market_status::status_trading();
+    pool.auction_buckets = vector[0, 0, 0];
+    sync_collateral_usdc(pool);
+    seed_auction_lp_shares(pool);
+}
+
 fun seed_auction_lp_shares(pool: &mut MarketPool) {
     if (pool.collateral_usdc > 0 && pool.lp_shares == 0) {
         pool.lp_shares = pool.collateral_usdc;

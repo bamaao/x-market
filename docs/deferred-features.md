@@ -14,9 +14,9 @@
 | --- | --- | --- | --- |
 | **Beta 分布** | ❌ | Dirichlet 二/三分类近似 | 否 |
 | **UMA DVM** | ❌ | `OracleArbitrator` 内置多签委员会 | 否（治理已选内置委员会） |
-| **Normal Opening Auction** | ❌ | `create_normal_pool` 直接 Trading | 否 |
+| **Normal Opening Auction** | ✅ | `create_normal_pool` 仍可用于直连 Trading | 否 |
 
-**建议立项优先级（主网后）：** Normal 竞价 > UMA DVM > Beta CDF
+**建议立项优先级（主网后）：** UMA DVM > Beta CDF（Normal 竞价已于 2026-06-08 实现）
 
 ---
 
@@ -109,49 +109,24 @@ math-spec 原文：
 
 ---
 
-## 3. Normal Opening Auction
+## 3. Normal Opening Auction — 已实现（2026-06-08）
 
-### 3.1 规划 vs 实现
+### 3.1 实现摘要
 
 | 项 | 状态 | 位置 |
 | --- | --- | --- |
-| `start_poisson_auction` | ✅ | `pool.move` |
-| `start_dirichlet_auction` | ✅ | `pool.move` |
-| `auction_bid` / `finalize_*_auction` | ✅ | Poisson + Dirichlet |
-| **`start_normal_auction`** | ❌ | 不存在 |
-| Normal 池创建 | ✅ 直连 Trading | `create_normal_pool` / `create_normal_pool_with_feed` |
-| 脚本 `start-auction-pool.ps1` | ✅ 仅 poisson/dirichlet | `-Kind` 无 `normal` |
-| Web `AuctionPanel` | ⚠️ 显式禁用 | `supportsAuction` 排除 `normal` |
-| Mobile 拍卖 Tab | ⚠️ 显式禁用 | `canAuction` 排除 `normal` |
+| `start_normal_auction` | ✅ | `pool.move` |
+| `finalize_normal_auction` | ✅ | `pool.move` + `market_pool.move` |
+| 桶 → (μ, σ) 定标 | ✅ | `math_normal::mu_sigma_tenths_from_auction_buckets` |
+| `auction_bid`（共用） | ✅ | 三分布通用 |
+| 脚本 `-Kind normal` | ✅ | `scripts/start-auction-pool.ps1` |
+| Web / Mobile 拍卖 UI | ✅ | `AuctionPanel` · `auction.ts` · Flutter |
 
-Web 提示（`app/src/components/AuctionPanel.tsx`）：
+**三桶锚点（tenths）：** μ = 20 / 25 / 30（2.0% / 2.5% / 3.0%）；σ = 3 / 4 / 6（0.3% / 0.4% / 0.6%）。按各桶 USDC 加权平均定标。
 
-> Normal 池暂未接入竞价；请用 `create_normal_pool` 直接 Trading。
+**仍可用快捷路径：** `create_normal_pool` 直接 Trading（种子 CPI 市场未改）。
 
-种子 CPI 市场（`app/src/lib/markets.ts`）通过 `scripts/seed-testnet.ps1` / `create_normal_pool` 注入先验 μ/σ，**跳过竞价期**。
-
-### 3.2 缺口说明
-
-- 无 Normal 竞价桶设计（如：低/中/高 μ 或 σ 档位 → 定标 `mu_tenths` / `sigma_tenths`）。
-- 无 `finalize_normal_auction` 与 `market_pool` 状态机衔接。
-- 前后端、脚本、文档（phase1.5）未覆盖 Normal 路径。
-
-### 3.3 何时需要补
-
-- 产品要求 **所有分布模板统一「Auction → Trading」** 冷启动流程。
-- CPI / 宏观池需要社区竞价发现先验，而非运营方硬编码 μ/σ。
-- 与 Poisson / Dirichlet 种子市场运营体验对齐。
-
-### 3.4 若立项：实现要点
-
-1. **链上：** `start_normal_auction`；桶 → (μ, σ) 映射；`finalize_normal_auction`（参考 `finalize_poisson_auction`）。
-2. **数学：** 桶比例定标公式（可复用 `math_dirichlet_auction` 思路或 Normal 专用 LUT）。
-3. **脚本：** `start-auction-pool.ps1 -Kind normal`。
-4. **Web：** `AuctionPanel` 扩展 `supportsAuction`；`auction.ts` 增加 `finalize_normal_auction`。
-5. **Mobile：** `market_detail_screen` + `buildFinalizeAuction` 三分支。
-6. **文档：** [phase1.5-playbook.md](./phase1.5-playbook.md) 增补 Normal 示例。
-
-**工期粗估：** 1–2 周（链上 + 双端 UI）。
+详见 [phase1.5-playbook.md](./phase1.5-playbook.md) §3.3。
 
 ---
 
@@ -164,9 +139,8 @@ Web 提示（`app/src/components/AuctionPanel.tsx`）：
   └── 不依赖本文任一项
 
 主网后增强（建议顺序）
-  1. Normal Opening Auction   — 产品一致性、冷启动体验
-  2. UMA DVM（若治理切换）   — 终裁去信任化
-  3. Beta CDF                — 长尾得票率 / 合规命名
+  1. UMA DVM（若治理切换）   — 终裁去信任化
+  2. Beta CDF                — 长尾得票率 / 合规命名
 ```
 
 ---
@@ -188,9 +162,9 @@ Web 提示（`app/src/components/AuctionPanel.tsx`）：
 
 ### Normal 竞价
 
-- [ ] `start_normal_auction` → `auction_bid` → `finalize_normal_auction` → `buy_*` 全链脚本
-- [ ] Web / Mobile Auction 面板 Normal 可用
-- [ ] `start-auction-pool.ps1 -Kind normal` 文档化
+- [x] `start_normal_auction` → `auction_bid` → `finalize_normal_auction` → `buy_*` 全链脚本
+- [x] Web / Mobile Auction 面板 Normal 可用
+- [x] `start-auction-pool.ps1 -Kind normal` 文档化
 
 ---
 
@@ -199,3 +173,4 @@ Web 提示（`app/src/components/AuctionPanel.tsx`）：
 | 日期 | 版本 | 说明 |
 | --- | --- | --- |
 | 2026-06-08 | v1.0 | 初版：Beta / UMA DVM / Normal 竞价缺口、替代方案与立项优先级 |
+| 2026-06-08 | v1.1 | Normal Opening Auction 已实现；更新 §3 与优先级 |

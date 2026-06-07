@@ -1,6 +1,6 @@
-# 创建 Opening Auction 池（Poisson 或 Dirichlet）
+# 创建 Opening Auction 池（Poisson / Dirichlet / Normal）
 param(
-  [ValidateSet("poisson", "dirichlet")]
+  [ValidateSet("poisson", "dirichlet", "normal")]
   [string]$Kind = "poisson",
   [string]$PackageId = $env:X_MARKET_PACKAGE_ID,
   [string]$ClockId = "0x6",
@@ -26,7 +26,10 @@ Write-Host "Maturity: $maturity"
 if ($Kind -eq "poisson") {
   sui client call --package $PackageId --module pool --function start_poisson_auction `
     --args $auctionEnd $maturity $FeeBps $ClockId --gas-budget 100000000
-} else {
+} elseif ($Kind -eq "dirichlet") {
   sui client call --package $PackageId --module pool --function start_dirichlet_auction `
+    --args $auctionEnd $maturity $FeeBps $ClockId --gas-budget 100000000
+} else {
+  sui client call --package $PackageId --module pool --function start_normal_auction `
     --args $auctionEnd $maturity $FeeBps $ClockId --gas-budget 100000000
 }

@@ -73,7 +73,7 @@ npm run dev
 
 | 能力 | 状态 |
 | --- | --- |
-| Opening Auction（Poisson + Dirichlet） | ✅ `start_*_auction` / `auction_bid` / `finalize_*` |
+| Opening Auction（Poisson + Dirichlet + Normal） | ✅ `start_*_auction` / `auction_bid` / `finalize_*` |
 | 状态机 Auction → Trading → Settled | ✅ `market_status` |
 | NAV 申购 `deposit_liquidity` | ✅ `nav.move` + 全局缩放 Dirichlet α |
 | LP Token `LpShare` | ✅ `lp_token.move`（赎回 Phase 2） |
@@ -82,6 +82,7 @@ npm run dev
 ```powershell
 .\scripts\start-auction-pool.ps1 -Kind poisson   # 新建竞价池
 .\scripts\start-auction-pool.ps1 -Kind dirichlet
+.\scripts\start-auction-pool.ps1 -Kind normal    # CPI 等宏观 μ/σ 竞价定标
 ```
 
 ## Phase 1 能力（链上）

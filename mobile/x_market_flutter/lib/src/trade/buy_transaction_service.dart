@@ -499,9 +499,11 @@ class ChainTransactionService {
     required String poolId,
     required String marketKind,
   }) {
-    final target = marketKind == 'dirichlet'
-        ? '${SuiConfig.packageId}::pool::finalize_dirichlet_auction'
-        : '${SuiConfig.packageId}::pool::finalize_poisson_auction';
+    final target = switch (marketKind) {
+      'dirichlet' => '${SuiConfig.packageId}::pool::finalize_dirichlet_auction',
+      'normal' => '${SuiConfig.packageId}::pool::finalize_normal_auction',
+      _ => '${SuiConfig.packageId}::pool::finalize_poisson_auction',
+    };
     return _buildSimple(
       sender: sender,
       description: '拍卖定标',

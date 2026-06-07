@@ -310,8 +310,9 @@ class _MarketDetailScreenState extends State<MarketDetailScreen>
   }
 
   Widget _auctionTab() {
-    final canAuction =
-        widget.market.kind == 'poisson' || widget.market.kind == 'dirichlet';
+    final canAuction = widget.market.kind == 'poisson' ||
+        widget.market.kind == 'dirichlet' ||
+        widget.market.kind == 'normal';
     if (!canAuction) {
       return const Center(child: Text('该市场不支持 Opening Auction'));
     }

@@ -27,7 +27,7 @@ type Props = { market: SeedMarket };
 const BUCKET_LABELS: Record<string, [string, string, string]> = {
   poisson: ["低进球 (λ≈1.5)", "中 (λ≈2.5)", "高 (λ≈5.0)"],
   dirichlet: ["主胜", "平局", "客胜"],
-  normal: ["—", "—", "—"],
+  normal: ["低预期 (μ≈2.0%)", "中 (μ≈2.5%)", "高 (μ≈3.0%)"],
 };
 
 export function AuctionPanel({ market }: Props) {
@@ -41,8 +41,6 @@ export function AuctionPanel({ market }: Props) {
   const [balanceKey, setBalanceKey] = useState(0);
 
   const labels = BUCKET_LABELS[market.kind] ?? BUCKET_LABELS.poisson;
-  const supportsAuction =
-    market.kind === "poisson" || market.kind === "dirichlet";
 
   const bid = async () => {
     if (!account?.address) {
@@ -94,15 +92,6 @@ export function AuctionPanel({ market }: Props) {
       },
     );
   };
-
-  if (!supportsAuction) {
-    return (
-      <div className="card panel">
-        <h2>Opening Auction</h2>
-        <p className="hint">Normal 池暂未接入竞价；请用 create_normal_pool 直接 Trading。</p>
-      </div>
-    );
-  }
 
   return (
     <div className="card panel">

@@ -281,3 +281,20 @@ fun binary_search_mu(
     };
     lo
 }
+
+/// Opening Auction: bucket USDC → Normal prior (μ, σ) in tenths.
+/// Anchors: μ = 2.0% / 2.5% / 3.0%; σ = 0.3% / 0.4% / 0.6%.
+public fun mu_sigma_tenths_from_auction_buckets(buckets: &vector<u64>): (u32, u32) {
+    let total = buckets[0] + buckets[1] + buckets[2];
+    if (total == 0) {
+        abort errors::out_of_bounds()
+    };
+    let weighted_mu = buckets[0] * 20 + buckets[1] * 25 + buckets[2] * 30;
+    let mu = (weighted_mu / total) as u32;
+    let weighted_sigma = buckets[0] * 3 + buckets[1] * 4 + buckets[2] * 6;
+    let mut sigma = (weighted_sigma / total) as u32;
+    if (sigma == 0) {
+        sigma = 1
+    };
+    (mu, sigma)
+}

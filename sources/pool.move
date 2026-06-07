@@ -327,6 +327,49 @@ public entry fun finalize_dirichlet_auction(
     market_pool::finalize_dirichlet_auction(pool, alphas);
 }
 
+// --- Opening Auction (Normal μ/σ) ---
+
+public entry fun start_normal_auction(
+    auction_end_ts: u64,
+    maturity_ts: u64,
+    fee_bps: u16,
+    clock: &Clock,
+    ctx: &mut TxContext,
+) {
+    if (auction_end_ts <= clock::timestamp_ms(clock) / 1000) {
+        abort errors::out_of_bounds()
+    };
+    let pool = market_pool::new_normal_auction(
+        ctx.sender(),
+        auction_end_ts,
+        maturity_ts,
+        fee_bps,
+        ctx,
+    );
+    market_pool::share_pool(pool);
+}
+
+public entry fun finalize_normal_auction(
+    pool: &mut MarketPool,
+    clock: &Clock,
+    _ctx: &TxContext,
+) {
+    if (!market_pool::is_auction(pool)) {
+        abort errors::not_auction()
+    };
+    if (!market_pool::is_normal(pool)) {
+        abort errors::unsupported_distribution()
+    };
+    let now = clock::timestamp_ms(clock) / 1000;
+    if (now < market_pool::auction_end_ts(pool)) {
+        abort errors::auction_not_ended()
+    };
+    let buckets = market_pool::auction_buckets(pool);
+    let (mu_tenths, sigma_tenths) =
+        math_normal::mu_sigma_tenths_from_auction_buckets(buckets);
+    market_pool::finalize_normal_auction(pool, mu_tenths, sigma_tenths);
+}
+
 public entry fun deposit_liquidity(
     pool: &mut MarketPool,
     payment: Coin<USDC>,

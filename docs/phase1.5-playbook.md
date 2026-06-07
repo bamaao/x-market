@@ -2,7 +2,7 @@
 
 本文用于在 **Sui Testnet** 上完整跑通 Phase 1.5：
 
-- Opening Auction（Poisson + Dirichlet；**Normal 竞价未实现**，见 [deferred-features.md](./deferred-features.md) §3）
+- Opening Auction（Poisson + Dirichlet + Normal）
 - Auction -> Trading 状态切换
 - NAV 申购 `deposit_liquidity`
 - LP 份额对象 `LpShare`
@@ -64,6 +64,14 @@ $env:X_MARKET_PACKAGE_ID="0x你的新包ID"
 
 ```powershell
 .\scripts\start-auction-pool.ps1 -Kind dirichlet -PackageId 0x你的新包ID -AuctionHours 24 -MaturityDays 30
+```
+
+### 3.3 创建 Normal Auction 池（CPI 等宏观）
+
+三桶锚点：μ = 2.0% / 2.5% / 3.0%（tenths 20/25/30），σ = 0.3% / 0.4% / 0.6%（tenths 3/4/6），按 USDC 加权定标。
+
+```powershell
+.\scripts\start-auction-pool.ps1 -Kind normal -PackageId 0x你的新包ID -AuctionHours 24 -MaturityDays 30
 ```
 
 输出里会出现新 `MarketPool` 对象 ID，记下来用于前端竞价。

@@ -31,7 +31,9 @@ export function appendFinalizeAuction(
   const target =
     kind === "dirichlet"
       ? `${PACKAGE_ID}::pool::finalize_dirichlet_auction`
-      : `${PACKAGE_ID}::pool::finalize_poisson_auction`;
+      : kind === "normal"
+        ? `${PACKAGE_ID}::pool::finalize_normal_auction`
+        : `${PACKAGE_ID}::pool::finalize_poisson_auction`;
   tx.moveCall({
     target,
     arguments: [tx.object(poolId), tx.object(clockId)],
