@@ -15,6 +15,11 @@ import {
   paidUnlockEligibilityHint,
   type LeaderboardEntry,
 } from "@/lib/prophet";
+import {
+  fetchIndexerLeaderboard,
+  indexerEnabled,
+  type IndexerProphetStats,
+} from "@/lib/indexer";
 
 export default function LeaderboardPage() {
   const account = useCurrentAccount();
@@ -22,15 +27,38 @@ export default function LeaderboardPage() {
   const [rows, setRows] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
-    if (!PROPHET_REGISTRY_ID) {
-      setLoading(false);
-      return;
-    }
     setLoading(true);
-    void fetchLeaderboard(client, PROPHET_REGISTRY_ID, 50).then((data) => {
+    const load = async () => {
+      if (indexerEnabled()) {
+        const indexed = await fetchIndexerLeaderboard(50);
+        if (indexed.length) {
+          setRows(
+            indexed.map((r: IndexerProphetStats) => ({
+              prophet: r.prophet,
+              wins: r.wins,
+              losses: r.losses,
+              cheats: r.cheats,
+              currentStreak: r.current_streak,
+              maxStreak: r.max_streak,
+              totalAudited: r.total_audited,
+              totalUnlockRevenue: BigInt(r.total_unlock_revenue),
+              scoreBps: r.score_bps,
+              rank: r.rank,
+            })),
+          );
+          setLoading(false);
+          return;
+        }
+      }
+      if (!PROPHET_REGISTRY_ID) {
+        setLoading(false);
+        return;
+      }
+      const data = await fetchLeaderboard(client, PROPHET_REGISTRY_ID, 50);
       setRows(data);
       setLoading(false);
-    });
+    };
+    void load();
   }, [client]);
 
   const myRow = rows.find((r) => r.prophet === account?.address);
@@ -39,7 +67,7 @@ export default function LeaderboardPage() {
     <div>
       <h1>Prophet 排行榜</h1>
       <p className="sub">
-        数据直接来自链上 <code>ProphetRegistry</code> 动态字段；无需本地统计服务即可展示权威战绩。
+        优先读 Indexer 缓存排行；回退链上 <code>ProphetRegistry</code> 动态字段（权威真相源仍在链上）。
       </p>
 
       {!PROPHET_REGISTRY_ID && (

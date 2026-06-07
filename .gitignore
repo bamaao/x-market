@@ -18,6 +18,8 @@ pnpm-debug.log*
 app/.env
 app/.env.*
 !app/.env.example
+.run/
+docs/governance-params-snapshot.json
 
 # Node / Next
 node_modules/

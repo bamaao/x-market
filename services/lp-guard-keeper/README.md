@@ -37,6 +37,18 @@ npm run dev          # 开发（watch）
 LP_GUARD_DRY_RUN=false npm start   # 生产发链上更新
 ```
 
+## 健康检查
+
+```
+GET http://localhost:8788/health
+```
+
+返回 `keeper`、`pools`、`dryRun`、`gasBalanceMist`。生产模式（`LP_GUARD_PRODUCTION=true`）下余额不足或 `DRY_RUN=true` 会拒绝启动。
+
+## Docker
+
+见仓库根目录 `docker-compose.services.yml`。
+
 ## 与链上模块关系
 
 - 计费：`sources/lp_guard.move`（`effective_fee_bps`）

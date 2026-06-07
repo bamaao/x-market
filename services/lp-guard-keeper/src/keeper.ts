@@ -10,6 +10,7 @@ import {
   shouldUpdateOnChain,
   updateVolumeEma,
 } from "./risk-engine.js";
+import { collectKeeperHealth, startHealthServer } from "./health.js";
 import { submitSetLpGuard } from "./tx.js";
 import type { PoolSnapshot } from "./types.js";
 
@@ -102,13 +103,30 @@ async function main(): Promise<void> {
     pools.set(poolId, { poolId, history: [snapshot], volumeEma: 0 });
   }
 
+  const keeperAddress = keypair.getPublicKey().toSuiAddress();
+
+  const startupHealth = await collectKeeperHealth(client, keypair, config);
+  if (!startupHealth.ok) {
+    console.error(
+      JSON.stringify({ event: "lp_guard_startup_failed", ...startupHealth }),
+    );
+    if (process.env.LP_GUARD_PRODUCTION === "true") {
+      process.exit(1);
+    }
+  }
+
+  startHealthServer(config.healthPort, () =>
+    collectKeeperHealth(client, keypair, config),
+  );
+
   console.log(
     JSON.stringify({
       event: "lp_guard_started",
       pools: config.poolIds,
       pollMs: config.pollMs,
       dryRun: config.dryRun,
-      keeper: keypair.getPublicKey().toSuiAddress(),
+      healthPort: config.healthPort,
+      keeper: keeperAddress,
     }),
   );
 

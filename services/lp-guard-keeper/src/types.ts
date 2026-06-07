@@ -45,5 +45,6 @@ export interface KeeperConfig {
   decayFactor: number;
   updateThresholdBps: number;
   dryRun: boolean;
+  healthPort: number;
   secretKey: string;
 }

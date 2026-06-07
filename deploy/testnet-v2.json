@@ -2,9 +2,23 @@
   "network": "testnet",
   "publishedAt": "2026-06-06",
   "deployer": "0x87e487cd6b1c7a53f91999eb3a5372ced201b614b26924ba4cc1d282a2240c07",
-  "packageId": "0xb2af3cb8af06e9754f442680ff2d191b8cc3a16ee661197534e6dc435e1eabce",
+  "packageId": "0x2e368e00532771eedd2df288bd61b0cb2324471b9fc6e14160a7f3079310ae6e",
   "packageIdV2": "0xa2207e87710e301341f57eb7c1a739d93b87dd833e4d587fc4167706ccf5b5ab",
-  "upgradeTx": "J35J3KzVnnE1Jg6NXoNoPmekkwbbmAtKig3mpo3XBv4Q",
+  "packageIdV1": "0xb2af3cb8af06e9754f442680ff2d191b8cc3a16ee661197534e6dc435e1eabce",
+  "upgradeTx": "8K2jBvsTUK9FQAmncX7KsbFhTu4RpZvqidL4vMMqWmob",
+  "upgradeHistory": [
+    {
+      "digest": "J35J3KzVnnE1Jg6NXoNoPmekkwbbmAtKig3mpo3XBv4Q",
+      "packageId": "0xa2207e87710e301341f57eb7c1a739d93b87dd833e4d587fc4167706ccf5b5ab",
+      "note": "v2"
+    },
+    {
+      "digest": "8K2jBvsTUK9FQAmncX7KsbFhTu4RpZvqidL4vMMqWmob",
+      "packageId": "0x2e368e00532771eedd2df288bd61b0cb2324471b9fc6e14160a7f3079310ae6e",
+      "at": "2026-06-06",
+      "note": "v3 prophet_registry unlock_price=0 fix"
+    }
+  ],
   "publishTx": "A8NrigzuHn5yULenJdS5uAWQPqUfUYnvDh6XXTKLrvb6",
   "globalConfig": "0x9ce278547f0590cc04a79f76cf97d103940557e7a3ff5bfecf5a99f198012b08",
   "adminCap": "0xb18fdb5f7ceaf2ccc9f94f35594043de3773422520666ec391e54e6b02b5b8c2",
@@ -62,7 +76,9 @@
     "note": "v1 种子池已弃用，请使用本文件 seedMarkets"
   },
   "explorer": {
-    "package": "https://testnet.suivision.xyz/package/0xb2af3cb8af06e9754f442680ff2d191b8cc3a16ee661197534e6dc435e1eabce",
-    "packageV2": "https://testnet.suivision.xyz/package/0xa2207e87710e301341f57eb7c1a739d93b87dd833e4d587fc4167706ccf5b5ab"
+    "package": "https://testnet.suivision.xyz/package/0x2e368e00532771eedd2df288bd61b0cb2324471b9fc6e14160a7f3079310ae6e",
+    "packageV2": "https://testnet.suivision.xyz/package/0xa2207e87710e301341f57eb7c1a739d93b87dd833e4d587fc4167706ccf5b5ab",
+    "packageV1": "https://testnet.suivision.xyz/package/0xb2af3cb8af06e9754f442680ff2d191b8cc3a16ee661197534e6dc435e1eabce",
+    "upgradeV3": "https://testnet.suivision.xyz/txblock/8K2jBvsTUK9FQAmncX7KsbFhTu4RpZvqidL4vMMqWmob"
   }
 }

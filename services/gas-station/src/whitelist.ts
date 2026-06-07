@@ -18,7 +18,7 @@ export const DEFAULT_WHITELIST: WhitelistRule[] = [
     module: "prophet_registry",
     function: "commit_private_prophecy",
     pureU64ArgIndex: 6,
-    pureU64Allowed: [0n, 1n],
+    pureU64Allowed: [0n],
   },
   { module: "prophet_registry", function: "unlock_prophecy" },
   { module: "prophet_registry", function: "audit_prophecy" },

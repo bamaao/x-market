@@ -23,6 +23,7 @@ const baseConfig: KeeperConfig = {
   decayFactor: 0.85,
   updateThresholdBps: 200,
   dryRun: true,
+  healthPort: 8788,
   secretKey: "",
 };
 

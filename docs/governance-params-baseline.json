@@ -1,0 +1,60 @@
+{
+  "version": "1.0.0",
+  "lockedAt": "2026-06-06",
+  "network": "testnet-baseline-for-mainnet",
+  "packageId": "0x2e368e00532771eedd2df288bd61b0cb2324471b9fc6e14160a7f3079310ae6e",
+  "deployJson": "deploy/testnet-v2.json",
+  "lpGuard": {
+    "chainConstants": {},
+    "keeperEnv": {
+      "LP_GUARD_POLL_MS": 30000,
+      "LP_GUARD_WINDOW_SAMPLES": 10,
+      "LP_GUARD_MAX_EFFECTIVE_FEE_BPS": 800,
+      "LP_GUARD_MAX_FEE_MULTIPLIER_BPS": 30000,
+      "LP_GUARD_MAX_SIGMA_VIRTUAL_TENTHS": 20,
+      "LP_GUARD_MAX_CONCENTRATION_VIRTUAL": 50,
+      "LP_GUARD_DECAY_FACTOR": 0.85,
+      "LP_GUARD_UPDATE_THRESHOLD_BPS": 200
+    },
+    "mainnetSeedPoolDefaults": {
+      "fee_bps": 200,
+      "deposit_cutoff_bps": 1000,
+      "resolution_window_ts": 86400
+    },
+    "testnetSeedPoolActual": {
+      "fee_bps": 30,
+      "deposit_cutoff_bps": 0,
+      "resolution_window_ts": 0
+    }
+  },
+  "slash": {
+    "timelock_secs": 1800,
+    "max_single_bps": 3000,
+    "max_cycle_bps": 5000,
+    "request_ttl_secs": 86400,
+    "slash_governance_mainnet": "enabled"
+  },
+  "zkCoprocessor": {
+    "challenge_window_secs": 3600,
+    "finalize_owner": "protocol-ops-oncall"
+  },
+  "macroOracle": {
+    "minimum_bond_usdc_base_units": 10000000,
+    "default_liveness_secs": 86400,
+    "arbitration_mainnet": "oracle_arbitrator_multisig",
+    "arbitration_future": "evaluate_uma_dvm_p2"
+  },
+  "suiProphet": {
+    "protocol_fee_bps": 500,
+    "min_audited_for_paid": 3,
+    "min_score_bps_for_paid": 4000,
+    "unlock_cutoff_secs": 300,
+    "max_cheats_for_paid": 0
+  },
+  "gasStation": {
+    "sponsor_rate_limit_per_min": 30,
+    "gas_min_balance_mist": 500000000,
+    "require_package_id_production": true,
+    "cors_origin_mainnet": "<production-frontend-origin>"
+  }
+}

@@ -20,7 +20,6 @@ import {
   PROPHECY_STATUS_OPEN,
   appendAuditProphecy,
   appendCommitPrivateProphecy,
-  resolveCommitUnlockPrice,
   appendUnlockProphecy,
   auditOutcomeLabel,
   buildProphecyPayload,
@@ -30,8 +29,9 @@ import {
   canSealDecryptProphecy,
   computeBuyerRefundPerBuyer,
   decryptProphecyContent,
+  decryptFromIndexerCache,
   deriveProphetWorkflowStep,
-  discoverPropheciesForPool,
+  discoverPropheciesForPoolWithIndexer,
   extractProphecyIdFromTx,
   fetchProphetRegistry,
   fetchProphetStats,
@@ -137,7 +137,7 @@ export default function ProphetPage() {
     }
     let cancelled = false;
     setLoadingList(true);
-    void discoverPropheciesForPool(client, poolId, PROPHET_REGISTRY_ID).then(
+    void discoverPropheciesForPoolWithIndexer(client, poolId, PROPHET_REGISTRY_ID).then(
       (ids) => {
         if (cancelled) return;
         setProphecyIds(ids);
@@ -275,14 +275,17 @@ export default function ProphetPage() {
   ) {
     if (!account?.address) return;
     setDecrypting(true);
-    setMsg("Walrus 拉取密文 → Seal 会话签名 → 解密…");
+    setMsg("尝试 Indexer 明文缓存 → Walrus + Seal…");
     try {
-      const content = await decryptProphecyContent(
-        target,
-        account.address,
-        signForSeal,
-        nowSec,
-      );
+      const cached = await decryptFromIndexerCache(target.id);
+      const content =
+        cached ??
+        (await decryptProphecyContent(
+          target,
+          account.address,
+          signForSeal,
+          nowSec,
+        ));
       setDecryptedAnalysis(content.analysis);
       setStoredPlaintext(content.json);
       setMsg(successMsg);
@@ -296,7 +299,7 @@ export default function ProphetPage() {
   async function afterTxSuccess(successMsg: string, onDone?: () => void | Promise<void>) {
     setMsg(successMsg);
     if (poolId) {
-      const ids = await discoverPropheciesForPool(
+      const ids = await discoverPropheciesForPoolWithIndexer(
         client,
         poolId,
         PROPHET_REGISTRY_ID,
@@ -395,7 +398,7 @@ export default function ProphetPage() {
         sealId,
         plaintextHash: hash,
         predictedValue: pv,
-        unlockPrice: resolveCommitUnlockPrice(price),
+        unlockPrice: price,
         lockTime: maturityTs,
       });
 
@@ -405,7 +408,7 @@ export default function ProphetPage() {
             ? "已 Commit（Gas 代付）：密文在 Walrus，链上锁定 hash + seal_id"
             : "已 Commit：密文在 Walrus，链上锁定 hash + seal_id",
         );
-        const ids = await discoverPropheciesForPool(
+        const ids = await discoverPropheciesForPoolWithIndexer(
           client,
           poolId,
           PROPHET_REGISTRY_ID,

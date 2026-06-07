@@ -1,0 +1,48 @@
+# P2 Indexer + PostgreSQL
+# 用法:
+#   docker compose -f docker-compose.indexer.yml up -d
+#   .\scripts\bootstrap-indexer-env.ps1
+#   .\scripts\start-indexer.ps1
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: xmarket
+      POSTGRES_PASSWORD: xmarket
+      POSTGRES_DB: xmarket_indexer
+    ports:
+      - "5432:5432"
+    volumes:
+      - xmarket_indexer_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U xmarket -d xmarket_indexer"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  indexer:
+    profiles: ["full"]
+    build:
+      context: .
+      dockerfile: services/indexer/Dockerfile
+    ports:
+      - "8800:8800"
+    environment:
+      INDEXER_DATABASE_URL: postgresql://xmarket:xmarket@postgres:5432/xmarket_indexer
+    env_file:
+      - path: ./services/indexer/.env.local
+        required: false
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8800/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 25s
+
+volumes:
+  xmarket_indexer_pg:

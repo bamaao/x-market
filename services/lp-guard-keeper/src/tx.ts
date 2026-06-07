@@ -30,7 +30,9 @@ export async function submitSetLpGuard(
   snapshot: PoolSnapshot,
   target: TargetGuardParams,
 ): Promise<string> {
+  const sender = keypair.getPublicKey().toSuiAddress();
   const tx = buildSetLpGuardTx(config, snapshot, target);
+  tx.setSender(sender);
   const built = await tx.build({ client });
   const { signature } = await keypair.signTransaction(built);
   const result = await client.executeTransactionBlock({

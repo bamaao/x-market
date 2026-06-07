@@ -2,6 +2,11 @@
 
 本文将当前实现状态转成可执行上线步骤，默认面向 **Phase 3 已完成后的主网发布**。
 
+> **基础设施优先级（P0–P3）：** [mainnet-infra-priority.md](./mainnet-infra-priority.md)  
+> **治理参数签字版：** [mainnet-governance-params.md](./mainnet-governance-params.md) · [governance-params-signoff.md](./governance-params-signoff.md)  
+> **参数校验：** `.\scripts\verify-governance-params.ps1`  
+> **P0 自动化检查：** `.\scripts\verify-p0-readiness.ps1`
+
 ---
 
 ## 1. 发布冻结与版本标记

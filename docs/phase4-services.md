@@ -72,8 +72,8 @@ Indexer **不参与**付费开通判定；门槛由链上 `paid_unlock_eligible`
 
 新预言家须先发布 **`unlock_price = 0`** 免费预测，经 Oracle 审计积累战绩后方可收费。
 
-### Testnet 已知问题（v2 链上字节码）
+### Testnet v3（已升级）
 
-当前 Testnet 包 v2 仍部署了旧版逻辑：`unlock_price == 0` 会 `abort code 3`（逻辑写反）。源码已修正，待 **package v3 upgrade**（`scripts/upgrade-testnet.ps1`，需约 2 SUI gas）。
+**Package v3**（`0x2e368e…ae6e`）已修复 `unlock_price == 0` 免费 Commit。升级交易见 `deploy/testnet-v2.json` → `upgradeTx` / `explorer.upgradeV3`。
 
-**临时联调：** 前端 `resolveCommitUnlockPrice()` 将 UI 中的 `0` 映射为 `1` USDC 最小单位（0.000001 USDC）；Gas Station 白名单允许 `unlock_price ∈ {0, 1}`。升级后可移除该 workaround。
+Gas Station 白名单仅允许赞助 `unlock_price = 0` 的 `commit_private_prophecy`。

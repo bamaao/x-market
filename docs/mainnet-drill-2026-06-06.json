@@ -1,0 +1,111 @@
+{
+  "ranAt": "2026-06-07T00:15:12.250Z",
+  "commit": "e3e3ec16b9ea96255915c9baab15b0dc81dbc4a9",
+  "packageId": "0x2e368e00532771eedd2df288bd61b0cb2324471b9fc6e14160a7f3079310ae6e",
+  "sender": "0x87e487cd6b1c7a53f91999eb3a5372ced201b614b26924ba4cc1d282a2240c07",
+  "steps": [
+    {
+      "drill": "SETUP",
+      "step": "merge USDC coins",
+      "status": "success",
+      "digest": "njp6bH3QqX6qv5tEShQH3XGLqbuqJh6M7uMm7umKRvu"
+    },
+    {
+      "drill": "A",
+      "step": "deposit_liquidity 50 USDC (buy 准备)",
+      "status": "success",
+      "digest": "D6T3GrTQaScRSYzDkAFqy1dygyUbaavQ1cpF8NMK2kgh"
+    },
+    {
+      "drill": "A",
+      "step": "buy_poisson_digital k=7 0.01 USDC",
+      "status": "success",
+      "digest": "GzYo8Shz5Sc7JU212TLsubR7Ydx6TQ3EUWp4LrMrN8yN"
+    },
+    {
+      "drill": "A",
+      "step": "report_resolution + claim_position",
+      "status": "skipped",
+      "note": "池 maturity 在未来；到期后用 settlement_oracle::report_resolution 再 claim"
+    },
+    {
+      "drill": "B",
+      "step": "deposit_liquidity 10 USDC (slash 准备)",
+      "status": "success",
+      "digest": "H79aq96MNkrrEXxALKa1JCUnBy9kFB2NhbnP7KfFU3q"
+    },
+    {
+      "drill": "B",
+      "step": "slash_pool 1 USDC",
+      "status": "success",
+      "digest": "9xLZfHSrG1qbrTeUsDSrAKWqkKSCyvUG28eFGiNnW8mj"
+    },
+    {
+      "drill": "B",
+      "step": "verify pool.paused",
+      "status": "success",
+      "digest": "9xLZfHSrG1qbrTeUsDSrAKWqkKSCyvUG28eFGiNnW8mj",
+      "note": "paused=true"
+    },
+    {
+      "drill": "B",
+      "step": "unslash_resume_pool",
+      "status": "manual",
+      "note": "需等待 slash timelock 1800s 后由 Admin 调用 unslash_resume_pool"
+    },
+    {
+      "drill": "SETUP",
+      "step": "merge USDC coins",
+      "status": "success",
+      "digest": "2yHUfJzS11DedcVnx52hN3chma7BDaU8feGb5TrxVyzx"
+    },
+    {
+      "drill": "C",
+      "step": "deposit_liquidity 5 USDC (gov 准备)",
+      "status": "success",
+      "digest": "Ervev8J7rbXZBWZL9BZYk898dAfKyDL49zr41uSCqfbb"
+    },
+    {
+      "drill": "C",
+      "step": "init_slash_governance threshold=1",
+      "status": "success",
+      "digest": "HKki2pB9ScBdawhVuFW1ASxEQJ7JJ7Y3RVLcaNFJwSmL"
+    },
+    {
+      "drill": "C",
+      "step": "propose_slash_request 0.5 USDC",
+      "status": "success",
+      "digest": "CcXVAQxf9yox2FUjawY7QuwFyKPZCvMZgFfK5t8M8Vav"
+    },
+    {
+      "drill": "C",
+      "step": "execute_slash_request (threshold=1)",
+      "status": "success",
+      "digest": "9zbRnu669BW5WQf3ScTfxLJtpNsjty9TVskmdxRLyg4i"
+    },
+    {
+      "drill": "D",
+      "step": "submit_proof",
+      "status": "success",
+      "digest": "FwjL1XQnfY8MVfyKLgSX81mvAPePwbHMMPG9VS5JDVkA"
+    },
+    {
+      "drill": "D",
+      "step": "verify_proof accepted",
+      "status": "success",
+      "digest": "322hKSKstbsbrmHNQTG4TLHw7Ns1F31aS77o1LJcGmzV"
+    },
+    {
+      "drill": "D",
+      "step": "challenge_verification",
+      "status": "skipped",
+      "note": "verifier 与 challenger 不可为同一地址（链上约束）；主网需独立挑战者钱包"
+    },
+    {
+      "drill": "D",
+      "step": "finalize_verification",
+      "status": "manual",
+      "note": "需 challenge 窗口 3600s 结束后 Admin finalize"
+    }
+  ]
+}

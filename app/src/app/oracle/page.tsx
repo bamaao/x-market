@@ -42,6 +42,7 @@ import {
   workflowStepLabel,
 } from "@/lib/oracle";
 import { PACKAGE_ID } from "@/lib/markets";
+import { ArbitrationCasesPanel } from "@/components/ArbitrationCasesPanel";
 
 const ARBITRATION_CASE_TYPE = `${PACKAGE_ID}::oracle_arbitrator::ArbitrationCase`;
 
@@ -788,6 +789,8 @@ export default function OraclePage() {
         Feed 通过 <code>FeedRegistry</code> 按 <code>market_id</code> 链上发现，无需{" "}
         <code>ORACLE_FEED_*</code> env。
       </p>
+
+      <ArbitrationCasesPanel />
     </>
   );
 }

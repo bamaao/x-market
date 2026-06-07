@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   useCurrentAccount,
   useSignAndExecuteTransaction,
@@ -17,6 +17,7 @@ import {
 } from "@/lib/trade";
 import { MintUsdcButton } from "./MintUsdcButton";
 import { UsdcBalance } from "./UsdcBalance";
+import { fetchQuotePreview, type QuotePreview } from "@/lib/pricing";
 
 type Props = { market: SeedMarket };
 
@@ -29,6 +30,7 @@ export function TradePanel({ market }: Props) {
   const [stakeUsdc, setStakeUsdc] = useState("1");
   const [status, setStatus] = useState<string | null>(null);
   const [balanceKey, setBalanceKey] = useState(0);
+  const [quote, setQuote] = useState<QuotePreview | null>(null);
 
   const [poissonA, setPoissonA] = useState("2");
   const [poissonB, setPoissonB] = useState("3");
@@ -58,6 +60,35 @@ export function TradePanel({ market }: Props) {
       return "Barrier Note：到期结果达到阈值 B（X>=B）即触发固定票息。";
     return null;
   })();
+
+  useEffect(() => {
+    const stakeBase = Math.max(1, Math.floor(Number(stakeUsdc || "1") * 1e6));
+    const q = new URLSearchParams({
+      kind: market.kind,
+      stake_usdc: String(stakeBase),
+      mode: market.kind === "poisson" && mode === "digital" ? "digital" : "interval",
+      lambda_tenths: String(market.params.lambda_tenths ?? 25),
+      poisson_a: poissonA,
+      poisson_b: poissonB,
+      poisson_k: poissonK,
+      alphas: "10,10,10",
+      outcome: dirichletOutcome,
+      mu_tenths: String(market.params.mu_tenths ?? 25),
+      sigma_tenths: String(market.params.sigma_tenths ?? 4),
+      threshold_tenths: normalThreshold,
+    });
+    void fetchQuotePreview(q).then(setQuote);
+  }, [
+    market.kind,
+    market.params,
+    mode,
+    stakeUsdc,
+    poissonA,
+    poissonB,
+    poissonK,
+    dirichletOutcome,
+    normalThreshold,
+  ]);
 
   const buildBuyTx = async () => {
     if (!account?.address) {
@@ -285,6 +316,14 @@ export function TradePanel({ market }: Props) {
         自动合并钱包内多枚 USDC 后支付；Gas 仍为 SUI。
         {showDirichletOnly && " Dirichlet 为单结果买入（类数字期权）。"}
       </p>
+
+      {quote && (
+        <ul className="pos-meta">
+          <li>定价预览：胜率约 {quote.entryProbPercent.toFixed(2)}%</li>
+          <li>命中兑付约 {(Number(quote.payoutUsdc) / 1e6).toFixed(4)} USDC</li>
+          <li>隐含 ROI {(quote.impliedRoiBps / 100).toFixed(2)}%（链下估算）</li>
+        </ul>
+      )}
 
       <button
         type="button"

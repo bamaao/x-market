@@ -47,6 +47,7 @@ export function loadConfig(): KeeperConfig {
     decayFactor: numEnv("LP_GUARD_DECAY_FACTOR", 0.85),
     updateThresholdBps: numEnv("LP_GUARD_UPDATE_THRESHOLD_BPS", 200),
     dryRun: boolEnv("LP_GUARD_DRY_RUN", true),
+    healthPort: numEnv("LP_GUARD_HEALTH_PORT", 8788),
     secretKey: requireEnv("LP_GUARD_KEEPER_SECRET_KEY"),
   };
 }

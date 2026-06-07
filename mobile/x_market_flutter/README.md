@@ -75,4 +75,4 @@ flutter_rust_bridge_codegen generate
 - 仅 Phantom 完整联调；OKX/Slush 为模板
 - Release 包当前使用 debug 签名（上架需配置 keystore）
 - 持仓领取需手动填写 Pool ID（与 Web 一致）
-- Testnet 专用，非主网配置
+- 网络配置由 `scripts/bootstrap-mobile-env.ps1` 生成（支持 `-Network mainnet`）

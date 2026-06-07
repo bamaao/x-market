@@ -26,18 +26,35 @@ POST /v1/sponsor { txBytes, sender, allowedMoveCalls[] }
 
 ## 白名单（MVP）
 
-- `prophet_registry::commit_private_prophecy`（unlock_price = 0 免费练手）
+- `prophet_registry::commit_private_prophecy`（仅 `unlock_price = 0` 免费练手，v3 包已链上支持）
 - `prophet_registry::unlock_prophecy`
 - `prophet_registry::audit_prophecy`
 - `market_pool::buy_*`（可选）
 
 ## 环境变量（服务端）
 
+见 [.env.example](./.env.example)。生产部署：
+
+```bash
+cp .env.example .env.local
+# 填写 GAS_PAYER_PRIVATE_KEY、PACKAGE_ID、CORS_ORIGIN
+GAS_STATION_PRODUCTION=true npm start
 ```
-GAS_PAYER_PRIVATE_KEY=...
-SUI_RPC_URL=https://fullnode.testnet.sui.io
-SPONSOR_RATE_LIMIT_PER_MIN=30
+
+| 变量 | 说明 |
+| --- | --- |
+| `GAS_PAYER_PRIVATE_KEY` | Gas Payer 私钥（生产必须） |
+| `PACKAGE_ID` | 白名单包 ID（生产必须） |
+| `GAS_STATION_PRODUCTION` | `true` 时强制密钥 + 非 `*` CORS |
+| `GAS_MIN_BALANCE_MIST` | 低于此余额 `/health` 返回 503（默认 0.5 SUI） |
+
+## 健康检查
+
 ```
+GET /health
+```
+
+返回 `gasOwner`、`gasBalanceMist`、`gasBalanceLow`；余额不足或配置缺失时 `ok: false`。
 
 ## 状态
 

@@ -18,16 +18,6 @@ export const PROPHET_REGISTRY_ID =
 export const MIN_AUDITED_FOR_PAID = 3;
 export const MIN_SCORE_BPS_FOR_PAID = 4000;
 
-/**
- * Testnet v2 on-chain bytecode still rejects unlock_price == 0 (fixed in source, pending upgrade).
- * Use 1 USDC base unit (0.000001 USDC) for free commits until package v3 upgrade lands.
- */
-export const FREE_COMMIT_UNLOCK_PRICE = 1n;
-
-export function resolveCommitUnlockPrice(requested: bigint): bigint {
-  return requested === 0n ? FREE_COMMIT_UNLOCK_PRICE : requested;
-}
-
 export type ProphetWorkflowStep =
   | "commit"
   | "unlock"
@@ -473,6 +463,47 @@ export async function discoverPropheciesForPool(
     if (indexed.length > 0) return indexed;
   }
   return discoverPropheciesByScan(client, poolId);
+}
+
+/** P4: Indexer 预言列表优先，回退链上扫描。 */
+export async function discoverPropheciesForPoolWithIndexer(
+  client: XMarketRpc,
+  poolId: string,
+  registryId: string = PROPHET_REGISTRY_ID,
+): Promise<string[]> {
+  const { fetchIndexerProphecies, indexerEnabled } = await import("./indexer");
+  if (indexerEnabled()) {
+    const rows = await fetchIndexerProphecies({ poolId, limit: 100 });
+    const ids = rows
+      .map((r) => String((r as { prophecy_id?: string }).prophecy_id ?? ""))
+      .filter(Boolean);
+    if (ids.length > 0) return ids;
+  }
+  return discoverPropheciesForPool(client, poolId, registryId);
+}
+
+/** P4: 到期公开预测优先读 Indexer 明文缓存。 */
+export async function decryptFromIndexerCache(
+  prophecyId: string,
+): Promise<DecryptedProphecyContent | null> {
+  const { fetchCachedProphecyPlaintext, indexerEnabled } = await import("./indexer");
+  if (!indexerEnabled()) return null;
+  const cache = await fetchCachedProphecyPlaintext(prophecyId);
+  const payload = cache?.plaintext_json;
+  if (!payload || typeof payload.market_id !== "string") return null;
+  const json = canonicalProphecyJson({
+    market_id: payload.market_id,
+    predicted_value: Number(payload.predicted_value ?? 0),
+    analysis_content: String(payload.analysis_content ?? ""),
+  });
+  const parsed = JSON.parse(json) as ProphecyPayload & {
+    analysis_content?: string;
+  };
+  return {
+    json,
+    analysis: parsed.analysis_content ?? "",
+    payload: parsed,
+  };
 }
 
 async function discoverPropheciesByScan(

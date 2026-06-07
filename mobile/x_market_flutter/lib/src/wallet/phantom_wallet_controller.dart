@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:x_market_flutter/src/rust/api/phantom.dart';
+import 'package:x_market_flutter/src/sui_config.dart';
 import 'package:x_market_flutter/src/trade/buy_transaction_service.dart';
 import 'package:x_market_flutter/src/wallet/deep_link_bridge.dart';
 import 'package:x_market_flutter/src/wallet/wallet_callback.dart';
@@ -79,7 +80,7 @@ class PhantomWalletController extends ChangeNotifier {
         app: WalletDeepLinkService.apps.first,
         dappUrl: dappUrl,
         redirectUri: _callbackService.buildCallbackUri(walletId: 'phantom'),
-        network: 'testnet',
+        network: SuiConfig.network,
         extras: {'phantom_key': pubkey},
       );
       statusMessage = '正在打开 Phantom…';

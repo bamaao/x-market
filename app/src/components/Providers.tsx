@@ -5,13 +5,14 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { getJsonRpcFullnodeUrl } from "@mysten/sui/jsonRpc";
 import "@mysten/dapp-kit/dist/index.css";
 import { NETWORK } from "@/lib/markets";
+import { primaryRpcUrl } from "@/lib/rpc-urls";
 
 const queryClient = new QueryClient();
 
 const networks = {
-  testnet: { url: getJsonRpcFullnodeUrl("testnet"), network: "testnet" as const },
+  testnet: { url: primaryRpcUrl("testnet"), network: "testnet" as const },
   devnet: { url: getJsonRpcFullnodeUrl("devnet"), network: "devnet" as const },
-  mainnet: { url: getJsonRpcFullnodeUrl("mainnet"), network: "mainnet" as const },
+  mainnet: { url: primaryRpcUrl("mainnet"), network: "mainnet" as const },
 };
 
 export function Providers({ children }: { children: React.ReactNode }) {

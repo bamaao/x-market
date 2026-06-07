@@ -115,5 +115,6 @@ Seal Testnet 密钥服务器（配置于 `app/src/lib/seal-prophet.ts` → `SEAL
 
 ## 待办
 
-- Gas Station 赞助交易
-- 主网 Walrus publisher（需自建或 Upload Relay）
+- [x] Gas Station 赞助交易（`services/gas-station/`）
+- [x] Walrus Upload Relay（`services/walrus-relay/`）
+- [x] Prophet Audit Keeper（`services/prophet-audit-keeper/`，P4.1）

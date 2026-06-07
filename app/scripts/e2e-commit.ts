@@ -32,7 +32,6 @@ async function main() {
   const { fromBase64 } = await import("@mysten/sui/utils");
   const {
     appendCommitPrivateProphecy,
-    resolveCommitUnlockPrice,
     buildProphecyPayload,
     canonicalProphecyJson,
     extractProphecyIdFromTx,
@@ -107,7 +106,7 @@ async function main() {
     sealId,
     plaintextHash: hash,
     predictedValue: 2,
-    unlockPrice: resolveCommitUnlockPrice(0n),
+    unlockPrice: 0n,
     lockTime: maturity,
   });
 
