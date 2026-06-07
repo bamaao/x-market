@@ -59,4 +59,7 @@ foreach ($svc in $services) {
 }
 
 Start-Sleep -Seconds 4
-& "$PSScriptRoot\verify-services-health.ps1" -IncludeP1:(-not $P0Only)
+$healthArgs = @()
+if (-not $P0Only) { $healthArgs += "-IncludeP1" }
+if ($IncludeP4) { $healthArgs += "-IncludeP4" }
+& "$PSScriptRoot\verify-services-health.ps1" @healthArgs

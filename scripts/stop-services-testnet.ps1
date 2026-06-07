@@ -3,7 +3,7 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path $PSScriptRoot -Parent
 $runDir = Join-Path $root ".run"
 
-foreach ($name in @("gas-station", "lp-guard-keeper", "chain-monitor", "oracle-relayer", "walrus-relay")) {
+foreach ($name in @("gas-station", "lp-guard-keeper", "chain-monitor", "oracle-relayer", "walrus-relay", "prophet-audit-keeper")) {
   $pidFile = Join-Path $runDir "$name.pid"
   if (-not (Test-Path $pidFile)) { continue }
   $procId = [int](Get-Content $pidFile)
@@ -15,7 +15,7 @@ foreach ($name in @("gas-station", "lp-guard-keeper", "chain-monitor", "oracle-r
   Remove-Item $pidFile -Force -ErrorAction SilentlyContinue
 }
 
-foreach ($port in @(8787, 8788, 8789, 8790, 8791)) {
+foreach ($port in @(8787, 8788, 8789, 8790, 8791, 8792)) {
   $lines = netstat -ano | Select-String "LISTENING\s+$port\s"
   foreach ($line in $lines) {
     if ($line -match "\s+(\d+)\s*$") {
