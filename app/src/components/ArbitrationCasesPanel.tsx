@@ -36,6 +36,7 @@ export function ArbitrationCasesPanel() {
             <tr style={{ color: "var(--muted)", textAlign: "left" }}>
               <th>Case</th>
               <th>Pool</th>
+              <th>Adapter</th>
               <th>Status</th>
               <th>Proposer</th>
               <th>Disputer</th>
@@ -46,6 +47,7 @@ export function ArbitrationCasesPanel() {
               <tr key={c.case_id}>
                 <td style={{ padding: "0.25rem 0" }}>{c.case_id.slice(0, 10)}…</td>
                 <td>{c.pool_id.slice(0, 10)}…</td>
+                <td>{c.arbitration_adapter === "uma_dvm" ? "UMA DVM" : "Builtin"}</td>
                 <td>{c.status === 0 ? "Open" : "Executed"}</td>
                 <td>{c.proposer.slice(0, 8)}…</td>
                 <td>{c.disputer.slice(0, 8)}…</td>

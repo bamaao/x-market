@@ -73,12 +73,11 @@ NEXT_PUBLIC_INDEXER_URL=http://localhost:8800
 - Checkpoint：`indexer_checkpoints` 表（事件游标）
 - RPC：`SUI_RPC_URL` + `SUI_RPC_URL_FALLBACK`
 
-## P2.6 UMA DVM 适配器评估
+## P2.6 UMA DVM 适配器（已实现）
 
-当前 Testnet 使用内置 `OracleArbitrator` 多签委员会。主网若需 UMA DVM：
+- Move：`create_uma_dvm_arbitrator` · `UmaDvmArbitrationRequested` · `execute_uma_dvm_arbitration`
+- Relayer：`services/uma-dvm-relayer/`（`mock` / `live`）
+- Indexer：`arbitration_cases.arbitration_adapter`（`builtin` | `uma_dvm`），迁移 `004_uma_dvm.sql`
+- 脚本：`scripts/init-uma-dvm-arbitrator.ps1`
 
-1. 实现 `oracle_arbitrator` 可插拔 adapter 入口（Move 已预留委员会模式）
-2. Indexer 增加 `arbitration_adapter` 字段区分 `builtin` / `uma_dvm`
-3. 争议案件 API 不变，前端按 adapter 展示流程差异
-
-**结论：** 2.6 为协议层决策项；Indexer 已索引 `arbitration_cases`，切换 adapter 无需改表结构。
+争议案件 API 不变；前端 `/oracle` 与 `ArbitrationCasesPanel` 按 adapter 展示流程差异。

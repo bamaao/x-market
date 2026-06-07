@@ -13,10 +13,10 @@
 | 能力 | 完整实现？ | 已有替代 | 主网前必做？ |
 | --- | --- | --- | --- |
 | **Beta 分布** | ❌ | Dirichlet 二/三分类近似 | 否 |
-| **UMA DVM** | ❌ | `OracleArbitrator` 内置多签委员会 | 否（治理已选内置委员会） |
+| **UMA DVM** | ✅ | `OracleArbitrator` 内置多签委员会（`adapter_type=0`） | 可选（双适配器并存） |
 | **Normal Opening Auction** | ✅ | `create_normal_pool` 仍可用于直连 Trading | 否 |
 
-**建议立项优先级（主网后）：** UMA DVM > Beta CDF（Normal 竞价已于 2026-06-08 实现）
+**建议立项优先级（主网后）：** Beta CDF（UMA DVM 与 Normal 竞价已于 2026-06-08 实现）
 
 ---
 
@@ -62,50 +62,33 @@ math-spec 原文：
 
 ---
 
-## 2. UMA DVM 适配器
+## 2. UMA DVM 适配器 — 已实现（2026-06-08）
 
-### 2.1 规划 vs 实现
+### 2.1 实现摘要
 
 | 项 | 状态 | 位置 |
 | --- | --- | --- |
-| 宏观 Oracle 乐观提议 + 争议 | ✅ | `macro_oracle.move` |
-| 内置多签 `OracleArbitrator` | ✅ | `oracle_arbitrator.move` |
-| `dispute_and_request_arbitration` → `callback_arbitration_result` | ✅ | 同 PTB 开箱 + 回调闭环 |
-| **UMA DVM 跨链适配器** | ❌ | 无 Move / TS 实现 |
-| Indexer `arbitration_adapter` 字段 | ❌ | [p2-indexer-runbook.md](./p2-indexer-runbook.md) §P2.6 仅评估 |
-| `uma1.md` / `uma2.md` | 📄 设计参考 | 非运行时代码 |
+| `adapter_type`（builtin / uma_dvm） | ✅ | `OracleArbitrator` |
+| `create_uma_dvm_arbitrator` | ✅ | `oracle_arbitrator.move` |
+| 出站 `UmaDvmArbitrationRequested` | ✅ | 争议同 PTB 发射 |
+| 入站 `execute_uma_dvm_arbitration` | ✅ | allowlisted Relayer |
+| 链下 Relayer（mock / live 占位） | ✅ | `services/uma-dvm-relayer/` |
+| Indexer `arbitration_adapter` | ✅ | `migrations/004_uma_dvm.sql` |
+| 前端 Oracle / 案件面板 | ✅ | adapter 徽章 + UMA 流程提示 |
 
-`oracle_arbitrator.move` 模块注释：
+**Testnet 初始化：**
 
-> Pluggable arbitration committee……  
-> Outbound: `request_arbitration` · Inbound: `execute_arbitration` → `callback_arbitration_result`
+```powershell
+.\scripts\init-uma-dvm-arbitrator.ps1 -PackageId 0x... -RelayerAddress 0x...
+.\scripts\bootstrap-services-env.ps1
+cd services/uma-dvm-relayer && npm install && npm start
+```
 
-当前 **仅委员会模式**；PRD §10 仍标 **待增强：外部 UMA DVM 适配器**。
+**`UMA_DVM_MODE=mock`：** Relayer 在延迟后自动调用 `execute_uma_dvm_arbitration`（无需真实以太坊 UMA 合约）。
 
-[mainnet-governance-params.md](./mainnet-governance-params.md) 终裁方案：**主网采用内置委员会**；UMA DVM 为 P2.6 协议层决策项 `[~]`。
+**`UMA_DVM_MODE=live`：** 预留 `UMA_API_URL` 轮询；需对接 UMA Optimistic Oracle / DVM HTTP（生产未完成）。
 
-### 2.2 缺口说明
-
-- 无 `requestArbitration` 至 UMA 链的跨链出站。
-- 无 UMA 投票完成后的 `callbackArbitrationResult` 入站（链下 Relayer 或跨链消息）。
-- 无 2–3 天 DVM 投票期的链上状态机与下游 `revert` 重试规范落地。
-- Indexer / 前端无法区分 `builtin` vs `uma_dvm` 案件流程。
-
-### 2.3 何时需要补
-
-- 治理决议从内置委员会 **切换为 UMA DVM** 终裁。
-- 需要以太坊生态已有 DVM 投票人与经济安全，而非自建委员会。
-- 合规或品牌要求对接 UMA Optimistic Oracle 标准栈。
-
-### 2.4 若立项：实现要点
-
-1. **协议层：** `OracleArbitrator` 增加 adapter 类型字段；UMA 路径下 `request_arbitration` 发事件供 Relayer 订阅。
-2. **链下：** `services/oracle-relayer`（或新 `uma-dvm-relayer`）对接 UMA OO / DVM API。
-3. **入站：** Relayer 在投票结束后调用 `callback_arbitration_result`（需治理白名单）。
-4. **Indexer：** `arbitration_cases.arbitration_adapter`；API / Oracle 页展示流程差异。
-5. **运维：** 争议期 + DVM 投票期 Runbook；[oracle-playbook.md](./oracle-playbook.md) 增补。
-
-**工期粗估：** 2–4 周（含 Testnet 端到端争议演练）。
+内置委员会路径（`create_oracle_arbitrator`）保持不变，治理可二选一绑定 `OracleConfig`。
 
 ---
 
@@ -139,8 +122,8 @@ math-spec 原文：
   └── 不依赖本文任一项
 
 主网后增强（建议顺序）
-  1. UMA DVM（若治理切换）   — 终裁去信任化
-  2. Beta CDF                — 长尾得票率 / 合规命名
+  1. Beta CDF                — 长尾得票率 / 合规命名
+  2. UMA `live` 模式对接真实 DVM API（当前 mock 已可用）
 ```
 
 ---
@@ -155,9 +138,11 @@ math-spec 原文：
 
 ### UMA DVM
 
-- [ ] Testnet 完整争议 → DVM 投票 → callback 闭环交易哈希
-- [ ] Indexer `arbitration_adapter=uma_dvm` 案件可查询
-- [ ] [oracle-playbook.md](./oracle-playbook.md) DVM 值班章节
+- [x] Move 适配器 + `execute_uma_dvm_arbitration` + `UmaDvmArbitrationRequested`
+- [x] `services/uma-dvm-relayer` mock 模式
+- [x] Indexer `arbitration_adapter=uma_dvm` 案件可查询
+- [ ] Testnet 完整争议 → mock Relayer → callback 闭环（需 publish 新包后演练）
+- [ ] `UMA_DVM_MODE=live` 对接真实 UMA API
 - [ ] 治理签字：委员会 vs UMA 终裁路径
 
 ### Normal 竞价
@@ -174,3 +159,4 @@ math-spec 原文：
 | --- | --- | --- |
 | 2026-06-08 | v1.0 | 初版：Beta / UMA DVM / Normal 竞价缺口、替代方案与立项优先级 |
 | 2026-06-08 | v1.1 | Normal Opening Auction 已实现；更新 §3 与优先级 |
+| 2026-06-08 | v1.2 | UMA DVM 适配器 + Relayer 已实现；更新 §2 |

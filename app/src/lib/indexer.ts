@@ -84,6 +84,7 @@ export interface IndexerArbitrationCase {
   claimed_value: string;
   verdict_type: number;
   status: number;
+  arbitration_adapter?: string;
   created_at: string;
   expires_at: string;
 }

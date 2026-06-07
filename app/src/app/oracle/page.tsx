@@ -17,9 +17,11 @@ import {
   VERDICT_DISPUTER_WINS,
   VERDICT_PROPOSER_WINS,
   VERDICT_UNRESOLVED,
+  ADAPTER_UMA_DVM,
   appendApproveVerdict,
   appendDisputeAndRequestArbitration,
   appendExecuteArbitration,
+  fetchArbitratorAdapterType,
   appendFinalizeAssertion,
   appendNullifyFeed,
   appendProposeData,
@@ -105,7 +107,9 @@ export default function OraclePage() {
   const [arbitrationValue, setArbitrationValue] = useState("7");
   const [bondMist, setBondMist] = useState("10000000");
   const [msg, setMsg] = useState<string | null>(null);
+  const [arbitratorAdapter, setArbitratorAdapter] = useState(0);
   const [nowSec, setNowSec] = useState(() => Math.floor(Date.now() / 1000));
+  const isUmaDvmAdapter = arbitratorAdapter === ADAPTER_UMA_DVM;
 
   const marketMeta = marketsWithPool.find((m) => m.poolId === selectedPoolId);
   const poolId = selectedPoolId;
@@ -114,6 +118,13 @@ export default function OraclePage() {
     const id = setInterval(() => setNowSec(Math.floor(Date.now() / 1000)), 1000);
     return () => clearInterval(id);
   }, []);
+
+  useEffect(() => {
+    if (!ORACLE_ARBITRATOR_ID) return;
+    void fetchArbitratorAdapterType(client, ORACLE_ARBITRATOR_ID).then(
+      setArbitratorAdapter,
+    );
+  }, [client]);
 
   useEffect(() => {
     if (!ORACLE_CONFIG_ID) return;
@@ -508,7 +519,8 @@ export default function OraclePage() {
               <> · 剩余: {formatCountdown(livenessRemain)}</>
             )}
             {canFinalize && " · 可 finalize"}
-            {isInArbitration && " · 等待委员会终裁"}
+            {isInArbitration &&
+              (isUmaDvmAdapter ? " · 等待 UMA DVM Relayer 终裁" : " · 等待委员会终裁")}
           </p>
         )}
         <div className="btn-row">
@@ -596,9 +608,11 @@ export default function OraclePage() {
       </div>
 
       <div className="card panel">
-        <h2>委员会终裁</h2>
+        <h2>{isUmaDvmAdapter ? "UMA DVM 终裁" : "委员会终裁"}</h2>
         <p className="hint">
-          委员多签投票 → 达阈值后执行回调。非 Admin 单方裁决。
+          {isUmaDvmAdapter
+            ? "争议已出站至 UMA DVM；allowlisted Relayer 在投票完成后调用 execute_uma_dvm_arbitration。委员多签按钮已禁用。"
+            : "委员多签投票 → 达阈值后执行回调。非 Admin 单方裁决。"}
         </p>
         <label>ArbitrationCase ID</label>
         <input
@@ -652,7 +666,12 @@ export default function OraclePage() {
             type="button"
             className="secondary"
             disabled={
-              !account || isPending || !caseId || !ORACLE_ARBITRATOR_ID || caseExecuted
+              isUmaDvmAdapter ||
+              !account ||
+              isPending ||
+              !caseId ||
+              !ORACLE_ARBITRATOR_ID ||
+              caseExecuted
             }
             onClick={() =>
               void runTx(
@@ -674,7 +693,12 @@ export default function OraclePage() {
             type="button"
             className="secondary"
             disabled={
-              !account || isPending || !caseId || !ORACLE_ARBITRATOR_ID || caseExecuted
+              isUmaDvmAdapter ||
+              !account ||
+              isPending ||
+              !caseId ||
+              !ORACLE_ARBITRATOR_ID ||
+              caseExecuted
             }
             onClick={() =>
               void runTx(
@@ -696,7 +720,12 @@ export default function OraclePage() {
             type="button"
             className="secondary"
             disabled={
-              !account || isPending || !caseId || !ORACLE_ARBITRATOR_ID || caseExecuted
+              isUmaDvmAdapter ||
+              !account ||
+              isPending ||
+              !caseId ||
+              !ORACLE_ARBITRATOR_ID ||
+              caseExecuted
             }
             onClick={() =>
               void runTx(
@@ -718,7 +747,12 @@ export default function OraclePage() {
             type="button"
             className="secondary"
             disabled={
-              !account || isPending || !caseId || !ORACLE_ARBITRATOR_ID || caseExecuted
+              isUmaDvmAdapter ||
+              !account ||
+              isPending ||
+              !caseId ||
+              !ORACLE_ARBITRATOR_ID ||
+              caseExecuted
             }
             onClick={() =>
               void runTx(
@@ -733,6 +767,7 @@ export default function OraclePage() {
             type="button"
             className="secondary"
             disabled={
+              isUmaDvmAdapter ||
               !account ||
               isPending ||
               !caseId ||

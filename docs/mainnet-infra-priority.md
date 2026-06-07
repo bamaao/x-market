@@ -79,7 +79,7 @@
 | 2.3 | Feed / 市场发现 API | [x] | 3–5 天 | `GET /v1/markets` `/v1/feeds`；首页 `MarketsGrid` |
 | 2.4 | Prophet 排行缓存 | [x] | 3–5 天 | `prophet_stats` + `/leaderboard` Indexer 优先 |
 | 2.5 | ArbitrationCase 索引 | [x] | 2–3 天 | `arbitration_cases` + Oracle 争议面板 |
-| 2.6 | UMA DVM 适配器评估 | [~] | 2–4 周 | 评估结论见 p2-indexer-runbook §P2.6；协议层待决策 |
+| 2.6 | UMA DVM 适配器 | [x] | 2–4 周 | Move + `uma-dvm-relayer` + Indexer；见 p2-indexer-runbook §P2.6 |
 
 ### P2 自动化检查
 

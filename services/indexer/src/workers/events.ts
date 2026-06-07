@@ -72,12 +72,15 @@ export async function runEventWorker(
 
         if (short === "ArbitrationCaseOpened") {
           const caseId = String(parsed.case_id ?? "");
+          const adapterType = Number(parsed.adapter_type ?? 0);
+          const arbitrationAdapter =
+            adapterType === 1 ? "uma_dvm" : "builtin";
           await query(
             config.databaseUrl,
             `INSERT INTO arbitration_cases (
               case_id, assertion_id, feed_id, pool_id, proposer, disputer, claimed_value,
-              created_at, expires_at, opened_tx_digest, updated_at
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW())
+              arbitration_adapter, created_at, expires_at, opened_tx_digest, updated_at
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NOW())
             ON CONFLICT (case_id) DO NOTHING`,
             [
               caseId,
@@ -87,6 +90,7 @@ export async function runEventWorker(
               String(parsed.proposer ?? ""),
               String(parsed.disputer ?? ""),
               String(parsed.claimed_value ?? "0"),
+              arbitrationAdapter,
               Math.floor(Number(ev.timestampMs ?? 0) / 1000),
               Math.floor(Number(ev.timestampMs ?? 0) / 1000) + 604800,
               ev.id.txDigest,

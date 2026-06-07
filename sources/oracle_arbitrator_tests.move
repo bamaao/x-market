@@ -11,6 +11,13 @@ fun threshold_validation() {
 }
 
 #[test]
+fun adapter_type_validation() {
+    assert!(oracle_arbitrator::is_valid_adapter_type(oracle_arbitrator::adapter_builtin()), 0);
+    assert!(oracle_arbitrator::is_valid_adapter_type(oracle_arbitrator::adapter_uma_dvm()), 1);
+    assert!(!oracle_arbitrator::is_valid_adapter_type(2), 2);
+}
+
+#[test]
 fun quorum_and_case_lifecycle() {
     assert!(oracle_arbitrator::quorum_reached(2, 2), 0);
     assert!(!oracle_arbitrator::quorum_reached(1, 2), 1);
@@ -21,15 +28,28 @@ fun quorum_and_case_lifecycle() {
 #[test]
 fun verdict_propose_and_approve_guards() {
     assert!(
-        oracle_arbitrator::can_propose_verdict(0, 100, 200, oracle_arbitrator::verdict_proposer_wins()),
+        oracle_arbitrator::can_propose_verdict(
+            oracle_arbitrator::adapter_builtin(),
+            0,
+            100,
+            200,
+            oracle_arbitrator::verdict_proposer_wins(),
+        ),
         0,
     );
     assert!(
-        !oracle_arbitrator::can_propose_verdict(0, 201, 200, oracle_arbitrator::verdict_proposer_wins()),
+        !oracle_arbitrator::can_propose_verdict(
+            oracle_arbitrator::adapter_uma_dvm(),
+            0,
+            100,
+            200,
+            oracle_arbitrator::verdict_proposer_wins(),
+        ),
         1,
     );
     assert!(
         oracle_arbitrator::can_approve_verdict(
+            oracle_arbitrator::adapter_builtin(),
             0,
             100,
             200,
@@ -43,13 +63,14 @@ fun verdict_propose_and_approve_guards() {
     );
     assert!(
         !oracle_arbitrator::can_approve_verdict(
+            oracle_arbitrator::adapter_uma_dvm(),
             0,
             100,
             200,
             oracle_arbitrator::verdict_disputer_wins(),
             oracle_arbitrator::verdict_disputer_wins(),
             28,
-            30,
+            28,
             false,
         ),
         3,
@@ -60,6 +81,7 @@ fun verdict_propose_and_approve_guards() {
 fun execute_requires_quorum_and_verdict() {
     assert!(
         oracle_arbitrator::can_execute_arbitration(
+            oracle_arbitrator::adapter_builtin(),
             0,
             100,
             200,
@@ -71,10 +93,11 @@ fun execute_requires_quorum_and_verdict() {
     );
     assert!(
         !oracle_arbitrator::can_execute_arbitration(
+            oracle_arbitrator::adapter_uma_dvm(),
             0,
             100,
             200,
-            1,
+            2,
             2,
             oracle_arbitrator::verdict_unresolved(),
         ),
@@ -82,12 +105,47 @@ fun execute_requires_quorum_and_verdict() {
     );
     assert!(
         !oracle_arbitrator::can_execute_arbitration(
+            oracle_arbitrator::adapter_builtin(),
             0,
             100,
             200,
+            1,
             2,
-            2,
-            oracle_arbitrator::verdict_none(),
+            oracle_arbitrator::verdict_unresolved(),
+        ),
+        2,
+    );
+}
+
+#[test]
+fun uma_dvm_execute_guards() {
+    assert!(
+        oracle_arbitrator::can_execute_uma_dvm(
+            oracle_arbitrator::adapter_uma_dvm(),
+            0,
+            100,
+            200,
+            oracle_arbitrator::verdict_disputer_wins(),
+        ),
+        0,
+    );
+    assert!(
+        !oracle_arbitrator::can_execute_uma_dvm(
+            oracle_arbitrator::adapter_builtin(),
+            0,
+            100,
+            200,
+            oracle_arbitrator::verdict_disputer_wins(),
+        ),
+        1,
+    );
+    assert!(
+        !oracle_arbitrator::can_execute_uma_dvm(
+            oracle_arbitrator::adapter_uma_dvm(),
+            1,
+            100,
+            200,
+            oracle_arbitrator::verdict_disputer_wins(),
         ),
         2,
     );

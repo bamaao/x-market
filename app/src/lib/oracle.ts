@@ -18,6 +18,9 @@ export const VERDICT_PROPOSER_WINS = 1;
 export const VERDICT_DISPUTER_WINS = 2;
 export const VERDICT_UNRESOLVED = 3;
 
+export const ADAPTER_BUILTIN = 0;
+export const ADAPTER_UMA_DVM = 1;
+
 const DATA_FEED_TYPE = `${PACKAGE_ID}::macro_oracle::DataFeed`;
 const ARBITRATION_CASE_TYPE = `${PACKAGE_ID}::oracle_arbitrator::ArbitrationCase`;
 const ARBITRATION_CASE_OPENED_EVENT = `${PACKAGE_ID}::oracle_arbitrator::ArbitrationCaseOpened`;
@@ -560,6 +563,46 @@ export function appendExecuteArbitration(
       tx.object(SUI_CLOCK_ID),
     ],
   });
+}
+
+export function appendExecuteUmaDvmArbitration(
+  tx: Transaction,
+  arbitratorId: string,
+  oracleConfigId: string,
+  caseId: string,
+  feedId: string,
+  poolId: string,
+  assertionId: string,
+  verdictType: number,
+  resolvedValue: bigint,
+) {
+  tx.moveCall({
+    target: `${PACKAGE_ID}::oracle_arbitrator::execute_uma_dvm_arbitration`,
+    arguments: [
+      tx.object(arbitratorId),
+      tx.object(oracleConfigId),
+      tx.object(caseId),
+      tx.object(feedId),
+      tx.object(poolId),
+      tx.object(assertionId),
+      tx.pure.u8(verdictType),
+      tx.pure.u64(resolvedValue),
+      tx.object(SUI_CLOCK_ID),
+    ],
+  });
+}
+
+export async function fetchArbitratorAdapterType(
+  client: XMarketRpc,
+  arbitratorId: string,
+): Promise<number> {
+  if (!arbitratorId) return ADAPTER_BUILTIN;
+  const obj = await client.getObject({
+    id: arbitratorId,
+    options: { showContent: true },
+  });
+  const fields = parseMoveFields(obj.data?.content);
+  return Number(fields?.adapter_type ?? ADAPTER_BUILTIN);
 }
 
 export function appendNullifyFeed(tx: Transaction, feedId: string) {
