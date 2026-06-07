@@ -2,7 +2,7 @@
 
 本文用于在 **Sui Testnet** 上完整跑通 Phase 1.5：
 
-- Opening Auction（Poisson + Dirichlet）
+- Opening Auction（Poisson + Dirichlet；**Normal 竞价未实现**，见 [deferred-features.md](./deferred-features.md) §3）
 - Auction -> Trading 状态切换
 - NAV 申购 `deposit_liquidity`
 - LP 份额对象 `LpShare`
