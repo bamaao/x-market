@@ -4,6 +4,8 @@ module x_market::risk;
 use x_market::errors;
 
 const OUTCOME_SLOTS: u64 = 15;
+/// Beta vote-share pools: liability indexed by integer percent 0–100.
+const BETA_LIABILITY_SLOTS: u64 = 101;
 const LINEAR_PAYOUT_DIVISOR: u64 = 10;
 const LINEAR_CALL_KIND: u8 = 2;
 const LINEAR_PUT_KIND: u8 = 3;
@@ -124,6 +126,24 @@ public fun zero_liability(): vector<u64> {
     let mut v = vector::empty<u64>();
     let mut i = 0u64;
     while (i < OUTCOME_SLOTS) {
+        vector::push_back(&mut v, 0);
+        i = i + 1;
+    };
+    v
+}
+
+public fun beta_liability_slots(): u64 {
+    BETA_LIABILITY_SLOTS
+}
+
+public fun is_valid_beta_percent(p: u64): bool {
+    p <= 100
+}
+
+public fun zero_liability_beta(): vector<u64> {
+    let mut v = vector::empty<u64>();
+    let mut i = 0u64;
+    while (i < BETA_LIABILITY_SLOTS) {
         vector::push_back(&mut v, 0);
         i = i + 1;
     };

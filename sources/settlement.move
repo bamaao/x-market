@@ -96,6 +96,12 @@ fun is_winner(pool: &MarketPool, pos: &Position): bool {
         } else {
             v >= (position::interval_a(pos) as u64) && v <= (position::interval_b(pos) as u64)
         }
+    } else if (market_pool::is_beta(pool)) {
+        if (!risk::is_valid_beta_percent(rv)) {
+            abort errors::out_of_bounds()
+        };
+        let pct = rv as u8;
+        pct >= position::interval_a(pos) && pct <= position::interval_b(pos)
     } else {
         false
     }

@@ -217,6 +217,8 @@ export function claimedValueHint(kind: MarketKind): string {
       return "胜出 bucket 0=主胜 1=平 2=客胜";
     case "normal":
       return "宏观数值（tenths，如 CPI 2.8% → 28）";
+    case "beta":
+      return "得票率整数百分比 0–100（如 38% → 38）";
   }
 }
 

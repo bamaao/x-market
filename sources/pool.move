@@ -8,6 +8,7 @@ use x_market::coin_util;
 use x_market::errors;
 use x_market::macro_oracle::{Self, FeedRegistry, OracleConfig};
 use x_market::market_pool::{Self, MarketPool};
+use x_market::math_beta;
 use x_market::math_dirichlet;
 use x_market::math_fixed_point as fp;
 use x_market::math_normal;
@@ -73,6 +74,25 @@ public entry fun create_normal_pool(
         ctx.sender(),
         mu_tenths,
         sigma_tenths,
+        maturity_ts,
+        fee_bps,
+        ctx,
+    );
+    market_pool::share_pool(pool);
+}
+
+public entry fun create_beta_pool(
+    alpha: u32,
+    beta: u32,
+    maturity_ts: u64,
+    fee_bps: u16,
+    ctx: &mut TxContext,
+) {
+    math_beta::assert_shape(alpha, beta);
+    let pool = market_pool::new_beta_trading(
+        ctx.sender(),
+        alpha,
+        beta,
         maturity_ts,
         fee_bps,
         ctx,
@@ -202,6 +222,40 @@ public entry fun create_normal_pool_with_feed(
         ctx.sender(),
         mu_tenths,
         sigma_tenths,
+        maturity_ts,
+        fee_bps,
+        ctx,
+    );
+    macro_oracle::register_feed_for_pool(
+        oracle,
+        registry,
+        &pool,
+        identifier,
+        maturity_ts,
+        0,
+        0,
+        ancillary_data,
+        ctx,
+    );
+    market_pool::share_pool(pool);
+}
+
+public entry fun create_beta_pool_with_feed(
+    oracle: &OracleConfig,
+    registry: &mut FeedRegistry,
+    alpha: u32,
+    beta: u32,
+    maturity_ts: u64,
+    fee_bps: u16,
+    identifier: vector<u8>,
+    ancillary_data: vector<u8>,
+    ctx: &mut TxContext,
+) {
+    math_beta::assert_shape(alpha, beta);
+    let pool = market_pool::new_beta_trading(
+        ctx.sender(),
+        alpha,
+        beta,
         maturity_ts,
         fee_bps,
         ctx,
@@ -401,6 +455,13 @@ public entry fun deposit_liquidity(
         math_dirichlet::scale_dirichlet_alphas(
             market_pool::dirichlet_alphas_mut(pool),
             len,
+            vault_before,
+            vault_after,
+        );
+    };
+    if (market_pool::is_beta(pool) && vault_before > 0) {
+        math_beta::scale_beta_shapes(
+            market_pool::dirichlet_alphas_mut(pool),
             vault_before,
             vault_after,
         );
@@ -621,6 +682,80 @@ public entry fun buy_dirichlet_outcome(
     let pos = position::new_digital(
         market_id,
         outcome,
+        stake,
+        entry_prob_ppb,
+        ctx,
+    );
+    position::transfer_to_sender(pos, ctx);
+}
+
+// --- Beta (vote share on [0, 1]) ---
+
+public entry fun buy_beta_interval(
+    pool: &mut MarketPool,
+    payment: Coin<USDC>,
+    a_permille: u64,
+    b_permille: u64,
+    clock: &Clock,
+    ctx: &mut TxContext,
+) {
+    assert_beta_trading(pool);
+    let now = clock::timestamp_ms(clock) / 1000;
+    lp_guard::assert_buy_window_open(
+        now,
+        market_pool::maturity_ts(pool),
+        market_pool::resolution_window_ts(pool),
+    );
+    if (a_permille > b_permille || b_permille > math_beta::permille_max()) {
+        abort errors::invalid_interval()
+    };
+    let a_pct = a_permille / 10;
+    let b_pct = b_permille / 10;
+    if (!risk::is_valid_beta_percent(a_pct) || !risk::is_valid_beta_percent(b_pct)) {
+        abort errors::out_of_bounds()
+    };
+    let stake_raw = sui::coin::value(&payment);
+    if (stake_raw == 0) {
+        abort errors::out_of_bounds()
+    };
+    let fee_eff = lp_guard::effective_fee_bps(
+        market_pool::fee_bps(pool),
+        market_pool::fee_multiplier_bps(pool),
+    );
+    let stake = lp_guard::net_stake_after_fee(stake_raw, fee_eff);
+    let alpha = market_pool::beta_alpha(pool);
+    let beta = market_pool::beta_beta(pool);
+    let entry_prob = math_beta::beta_interval_permille(alpha, beta, a_permille, b_permille);
+    let entry_prob_ppb = prob_to_ppb(entry_prob);
+    let vault_usdc = market_pool::collateral_value(pool);
+    risk::assert_max_loss_bounded(
+        market_pool::liability_by_k(pool),
+        (a_pct as u8),
+        (b_pct as u8),
+        stake,
+        entry_prob_ppb,
+        vault_usdc,
+    );
+    coin_util::deposit_to_vault(pool, payment);
+    math_beta::update_beta_buy_u32(
+        market_pool::dirichlet_alphas_mut(pool),
+        a_permille,
+        b_permille,
+        stake,
+        vault_usdc,
+    );
+    let payout = risk::position_payout_usdc(stake, entry_prob_ppb);
+    risk::add_position_liability(
+        market_pool::liability_by_k_mut(pool),
+        (a_pct as u8),
+        (b_pct as u8),
+        payout,
+    );
+    let market_id = market_pool::pool_id(pool);
+    let pos = position::new_interval(
+        market_id,
+        (a_pct as u8),
+        (b_pct as u8),
         stake,
         entry_prob_ppb,
         ctx,
@@ -1244,6 +1379,18 @@ fun assert_normal_trading(pool: &MarketPool) {
         abort errors::not_trading()
     };
     if (!market_pool::is_normal(pool)) {
+        abort errors::unsupported_distribution()
+    };
+}
+
+fun assert_beta_trading(pool: &MarketPool) {
+    if (market_pool::is_paused(pool)) {
+        abort errors::market_paused()
+    };
+    if (!market_pool::is_trading(pool)) {
+        abort errors::not_trading()
+    };
+    if (!market_pool::is_beta(pool)) {
         abort errors::unsupported_distribution()
     };
 }

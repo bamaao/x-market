@@ -26,6 +26,8 @@ class _MarketDetailScreenState extends State<MarketDetailScreen>
   final _poissonB = TextEditingController(text: '3');
   final _poissonK = TextEditingController(text: '2');
   final _dirichletOutcome = TextEditingController(text: '0');
+  final _betaA = TextEditingController(text: '350');
+  final _betaB = TextEditingController(text: '400');
   final _normalA = TextEditingController(text: '25');
   final _normalB = TextEditingController(text: '27');
   final _normalThreshold = TextEditingController(text: '30');
@@ -52,6 +54,8 @@ class _MarketDetailScreenState extends State<MarketDetailScreen>
     _poissonB.dispose();
     _poissonK.dispose();
     _dirichletOutcome.dispose();
+    _betaA.dispose();
+    _betaB.dispose();
     _normalA.dispose();
     _normalB.dispose();
     _normalThreshold.dispose();
@@ -70,7 +74,9 @@ class _MarketDetailScreenState extends State<MarketDetailScreen>
     return BuyParams(
       poolId: widget.market.poolId,
       marketKind: widget.market.kind,
-      mode: widget.market.kind == 'dirichlet' ? ContractMode.interval : _mode,
+      mode: widget.market.kind == 'dirichlet' || widget.market.kind == 'beta'
+          ? ContractMode.interval
+          : _mode,
       poissonA: int.parse(_poissonA.text.trim()),
       poissonB: int.parse(_poissonB.text.trim()),
       poissonK: int.parse(_poissonK.text.trim()),
@@ -83,6 +89,8 @@ class _MarketDetailScreenState extends State<MarketDetailScreen>
       normalLower: int.parse(_normalLower.text.trim()),
       normalUpper: int.parse(_normalUpper.text.trim()),
       normalBarrier: int.parse(_normalBarrier.text.trim()),
+      betaA: int.parse(_betaA.text.trim()),
+      betaB: int.parse(_betaB.text.trim()),
     );
   }
 
@@ -137,6 +145,8 @@ class _MarketDetailScreenState extends State<MarketDetailScreen>
             decoration: const InputDecoration(labelText: '结果 0/1/2'),
             keyboardType: TextInputType.number,
           )
+        else if (kind == 'beta')
+          const SizedBox.shrink()
         else
           DropdownButtonFormField<ContractMode>(
             initialValue: modes.contains(_mode) ? _mode : modes.first,
@@ -165,6 +175,28 @@ class _MarketDetailScreenState extends State<MarketDetailScreen>
   }
 
   List<Widget> _paramFields(String kind) {
+    if (kind == 'beta') {
+      return [
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _betaA,
+                decoration: const InputDecoration(labelText: '下界 ‰'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextField(
+                controller: _betaB,
+                decoration: const InputDecoration(labelText: '上界 ‰'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+      ];
+    }
     if (kind == 'poisson' && _mode == ContractMode.interval) {
       return [
         Row(

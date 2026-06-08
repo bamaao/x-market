@@ -44,6 +44,8 @@ export function TradePanel({ market }: Props) {
   const [normalLower, setNormalLower] = useState("24");
   const [normalUpper, setNormalUpper] = useState("28");
   const [normalBarrier, setNormalBarrier] = useState("26");
+  const [betaA, setBetaA] = useState("350");
+  const [betaB, setBetaB] = useState("400");
 
   const modeHint = (() => {
     if (market.kind !== "normal") return null;
@@ -137,6 +139,8 @@ export function TradePanel({ market }: Props) {
         normalLower: Number(normalLower),
         normalUpper: Number(normalUpper),
         normalBarrier: Number(normalBarrier),
+        betaA: Number(betaA),
+        betaB: Number(betaB),
       });
 
       signAndExecute(
@@ -155,7 +159,8 @@ export function TradePanel({ market }: Props) {
     }
   };
 
-  const showDirichletOnly = market.kind === "dirichlet";
+  const showDirichletOnly =
+    market.kind === "dirichlet" || market.kind === "beta";
 
   return (
     <div className="card panel">
@@ -219,6 +224,19 @@ export function TradePanel({ market }: Props) {
           <label>结果 k（P(X=k)）</label>
           <input value={poissonK} onChange={(e) => setPoissonK(e.target.value)} />
         </>
+      )}
+
+      {market.kind === "beta" && (
+        <div className="field-row">
+          <div>
+            <label>区间下界 (‰，350=35%)</label>
+            <input value={betaA} onChange={(e) => setBetaA(e.target.value)} />
+          </div>
+          <div>
+            <label>区间上界 (‰，400=40%)</label>
+            <input value={betaB} onChange={(e) => setBetaB(e.target.value)} />
+          </div>
+        </div>
       )}
 
       {market.kind === "dirichlet" && (
@@ -314,7 +332,8 @@ export function TradePanel({ market }: Props) {
       />
       <p className="hint">
         自动合并钱包内多枚 USDC 后支付；Gas 仍为 SUI。
-        {showDirichletOnly && " Dirichlet 为单结果买入（类数字期权）。"}
+        {market.kind === "dirichlet" && " Dirichlet 为单结果买入（类数字期权）。"}
+        {market.kind === "beta" && " Beta 为得票率区间买入（链上 CDF 定价）。"}
       </p>
 
       {quote && (

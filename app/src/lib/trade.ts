@@ -32,6 +32,9 @@ export interface TradeParams {
   normalLower?: number;
   normalUpper?: number;
   normalBarrier?: number;
+  /** Beta interval bounds in permille (350 = 35.0%) */
+  betaA?: number;
+  betaB?: number;
 }
 
 export function appendBuyMoveCall(
@@ -73,6 +76,22 @@ export function appendBuyMoveCall(
     tx.moveCall({
       target: `${pkg}::pool::buy_dirichlet_outcome`,
       arguments: [pool, payment, tx.pure.u8(outcome), tx.object(SUI_CLOCK_ID)],
+    });
+    return;
+  }
+
+  if (kind === "beta") {
+    const a = params.betaA ?? 350;
+    const b = params.betaB ?? 400;
+    tx.moveCall({
+      target: `${pkg}::pool::buy_beta_interval`,
+      arguments: [
+        pool,
+        payment,
+        tx.pure.u64(a),
+        tx.pure.u64(b),
+        tx.object(SUI_CLOCK_ID),
+      ],
     });
     return;
   }
@@ -166,6 +185,9 @@ export function defaultTradeParams(
   }
   if (kind === "dirichlet") {
     return { dirichletOutcome: 0 };
+  }
+  if (kind === "beta") {
+    return { betaA: 350, betaB: 400 };
   }
   if (mode === "digital") return { normalThreshold: 30 };
   if (

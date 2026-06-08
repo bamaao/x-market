@@ -1,5 +1,5 @@
 /** Phase 1 Testnet 种子市场（PRD §6） */
-export type MarketKind = "poisson" | "dirichlet" | "normal";
+export type MarketKind = "poisson" | "dirichlet" | "normal" | "beta";
 
 export interface SeedMarket {
   id: string;
@@ -13,6 +13,7 @@ export interface SeedMarket {
 const poolPoisson = process.env.NEXT_PUBLIC_POOL_POISSON ?? "";
 const poolDirichlet = process.env.NEXT_PUBLIC_POOL_DIRICHLET ?? "";
 const poolNormal = process.env.NEXT_PUBLIC_POOL_NORMAL ?? "";
+const poolBeta = process.env.NEXT_PUBLIC_POOL_BETA ?? "";
 
 export const SEED_MARKETS: SeedMarket[] = [
   {
@@ -49,6 +50,18 @@ export const SEED_MARKETS: SeedMarket[] = [
       sigma_tenths: 4,
       fee_bps: 30,
       poolId: poolNormal,
+    },
+  },
+  {
+    id: "beta-vote",
+    title: "得票率 · Beta",
+    description: "α=β=10 先验；链上 Beta CDF 区间买入（如 35%–40%）。",
+    kind: "beta",
+    params: {
+      alpha: 10,
+      beta: 10,
+      fee_bps: 30,
+      poolId: poolBeta,
     },
   },
 ];

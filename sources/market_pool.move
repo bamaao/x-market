@@ -6,10 +6,11 @@ use x_market::market_status;
 use x_market::risk;
 use x_market::usdc::USDC;
 
-/// 0 = Poisson, 1 = Dirichlet, 2 = Normal
+/// 0 = Poisson, 1 = Dirichlet, 2 = Normal, 3 = Beta
 const KIND_POISSON: u8 = 0;
 const KIND_DIRICHLET: u8 = 1;
 const KIND_NORMAL: u8 = 2;
+const KIND_BETA: u8 = 3;
 
 public struct MarketPool has key {
     id: UID,
@@ -62,6 +63,18 @@ public fun is_dirichlet(pool: &MarketPool): bool {
 
 public fun is_normal(pool: &MarketPool): bool {
     pool.kind == KIND_NORMAL
+}
+
+public fun is_beta(pool: &MarketPool): bool {
+    pool.kind == KIND_BETA
+}
+
+public fun beta_alpha(pool: &MarketPool): u32 {
+    *vector::borrow(&pool.dirichlet_alphas, 0)
+}
+
+public fun beta_beta(pool: &MarketPool): u32 {
+    *vector::borrow(&pool.dirichlet_alphas, 1)
 }
 
 public fun is_trading(pool: &MarketPool): bool {
@@ -332,6 +345,53 @@ public(package) fun new_dirichlet_trading(
         vault: balance::zero(),
         collateral_usdc: 0,
         liability_by_k: risk::zero_liability(),
+        auction_end_ts: 0,
+        auction_buckets: vector[0, 0, 0],
+        margin_locked_positions: vector[],
+        slash_cycle_base_collateral_usdc: 0,
+        slash_cycle_total_usdc: 0,
+        slash_resume_after_ts: 0,
+        lp_shares: 0,
+        created_ts: 0,
+        maturity_ts,
+        fee_bps,
+        fee_multiplier_bps: 0,
+        sigma_virtual_tenths: 0,
+        concentration_virtual: 0,
+        deposit_cutoff_bps: 0,
+        resolution_window_ts: 0,
+        paused: false,
+        resolved: false,
+        resolved_value: 0,
+    }
+}
+
+public(package) fun new_beta_trading(
+    authority: address,
+    alpha: u32,
+    beta: u32,
+    maturity_ts: u64,
+    fee_bps: u16,
+    ctx: &mut TxContext,
+): MarketPool {
+    if (alpha < 1 || beta < 1) {
+        abort x_market::errors::out_of_bounds()
+    };
+    MarketPool {
+        id: object::new(ctx),
+        authority,
+        kind: KIND_BETA,
+        status: market_status::status_trading(),
+        lambda_tenths: 0,
+        mu_tenths: 0,
+        sigma_tenths: 0,
+        mu_units: 0,
+        sigma_units: 0,
+        dirichlet_alphas: vector[alpha, beta],
+        dirichlet_len: 2,
+        vault: balance::zero(),
+        collateral_usdc: 0,
+        liability_by_k: risk::zero_liability_beta(),
         auction_end_ts: 0,
         auction_buckets: vector[0, 0, 0],
         margin_locked_positions: vector[],

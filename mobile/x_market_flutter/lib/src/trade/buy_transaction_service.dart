@@ -73,6 +73,8 @@ class BuyParams {
     this.normalLower = 24,
     this.normalUpper = 28,
     this.normalBarrier = 26,
+    this.betaA = 350,
+    this.betaB = 400,
   });
 
   final String poolId;
@@ -90,6 +92,8 @@ class BuyParams {
   final int normalLower;
   final int normalUpper;
   final int normalBarrier;
+  final int betaA;
+  final int betaB;
 
   void validate() {
     if (marketKind == 'normal' && mode == ContractMode.structuredNote) {
@@ -121,6 +125,8 @@ class ChainTransactionService {
       case 'poisson':
         return const [ContractMode.interval, ContractMode.digital];
       case 'dirichlet':
+        return const [];
+      case 'beta':
         return const [];
       case 'normal':
         return ContractMode.values;
@@ -254,6 +260,17 @@ class ChainTransactionService {
             clock,
           ],
         );
+      case 'beta':
+        tx.moveCall(
+          '$pkg::pool::buy_beta_interval',
+          arguments: [
+            pool,
+            payment,
+            tx.pure.u64(BigInt.from(params.betaA)),
+            tx.pure.u64(BigInt.from(params.betaB)),
+            clock,
+          ],
+        );
       case 'normal':
         _appendNormalBuyMoveCall(tx, pool, payment, clock, params);
       default:
@@ -376,6 +393,8 @@ class ChainTransactionService {
         return 'Poisson interval [${params.poissonA},${params.poissonB}] stake=$stake USDC';
       case 'dirichlet':
         return 'Dirichlet outcome=${params.dirichletOutcome} stake=$stake USDC';
+      case 'beta':
+        return 'Beta interval [${params.betaA},${params.betaB}] ‰ stake=$stake USDC';
       case 'normal':
         return 'Normal ${params.mode.label} stake=$stake USDC';
       default:
