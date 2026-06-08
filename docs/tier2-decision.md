@@ -10,7 +10,7 @@
 
 **当前阶段（Testnet → 主网 → 增长期前 6–12 个月）不上 Tier 2 模型。**
 
-全力投入 **Tier 1 链上数学引擎**（Poisson / Dirichlet / Normal）及已有结构化票据、LP 防守、Oracle、SuiProphet 生态。`zk_coprocessor` 模块保留为接口占位，不接入交易热路径，不投入 Brevis 真集成。
+全力投入 **Tier 1 链上数学引擎**（Poisson / Dirichlet / Normal）及已有结构化票据、LP 防守、Oracle、SuiProphet 生态。`zk_coprocessor` 不接入 `buy_*` 热路径；**异步 Brevis 监督线**已由 `services/brevis-zk-prover/` 落地（mock/live，机构合规可选启用）。
 
 ---
 
@@ -60,7 +60,7 @@ Tier 2 引入额外运维与信任成本：
 
 - 链下计算节点 + 验证委员会 + 挑战 / slash 争议处理
 - `zk_coprocessor` **尚未接入** `pool::buy_*` 热路径
-- Brevis 无集成代码；当前为 Attestation 过渡层（见 [phase3-playbook.md](./phase3-playbook.md) §4）
+- Brevis 链下 Prover Keeper 已集成（`services/brevis-zk-prover/`）；链上仍为 Attestation 过渡层，待 Sui 原生验算器（见 [phase3-playbook.md](./phase3-playbook.md) §4.5）
 - 信任模型从「链上可验」退为「乐观执行 + 事后追责」
 
 主网阻断项（外部审计、治理签字、应急演练）尚未完成，不宜分散投入 Tier 2。

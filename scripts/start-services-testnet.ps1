@@ -2,7 +2,8 @@
 param(
   [switch]$SkipInstall,
   [switch]$P0Only,
-  [switch]$IncludeP4
+  [switch]$IncludeP4,
+  [switch]$IncludeZk
 )
 
 $ErrorActionPreference = "Stop"
@@ -17,6 +18,9 @@ if (-not $P0Only) {
 }
 if ($IncludeP4) {
   $services += @("prophet-audit-keeper")
+}
+if ($IncludeZk) {
+  $services += @("brevis-zk-prover")
 }
 
 foreach ($svc in $services) {
@@ -62,4 +66,5 @@ Start-Sleep -Seconds 4
 $healthArgs = @()
 if (-not $P0Only) { $healthArgs += "-IncludeP1" }
 if ($IncludeP4) { $healthArgs += "-IncludeP4" }
+if ($IncludeZk) { $healthArgs += "-IncludeZk" }
 & "$PSScriptRoot\verify-services-health.ps1" @healthArgs

@@ -6,8 +6,10 @@ param(
   [string]$RelayerUrl = "http://localhost:8790",
   [string]$WalrusRelayUrl = "http://localhost:8791",
   [string]$AuditKeeperUrl = "http://localhost:8792",
+  [string]$ZkProverUrl = "http://localhost:8794",
   [switch]$IncludeP1,
-  [switch]$IncludeP4
+  [switch]$IncludeP4,
+  [switch]$IncludeZk
 )
 
 $ErrorActionPreference = "Stop"
@@ -41,6 +43,10 @@ if ($IncludeP1) {
 
 if ($IncludeP4) {
   if (-not (Check-Health "prophet-audit-keeper" $AuditKeeperUrl)) { $failed += "prophet-audit-keeper" }
+}
+
+if ($IncludeZk) {
+  if (-not (Check-Health "brevis-zk-prover" $ZkProverUrl)) { $failed += "brevis-zk-prover" }
 }
 
 if ($failed.Count -gt 0) {

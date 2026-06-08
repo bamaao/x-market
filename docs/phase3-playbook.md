@@ -123,6 +123,37 @@ NEXT_PUBLIC_SUI_CLOCK=0x6
   - 无未裁决挑战
 - 结果：`ZkVerification.finalized=true`
 
+### 4.5 Brevis 异步 Prover（链下，真集成）
+
+> **不阻塞交易热路径**；池状态变更后由 Keeper 异步提交证明哈希。Brevis 尚无原生 Sui 验算器，证明输出映射为 `proof_hash` / `public_inputs_hash` 登记在链上。
+
+**服务：** `services/brevis-zk-prover/`
+
+```
+池 checkpoint 变更
+  → 链下审计（max-loss / 参数边界）
+  → mock: 本地 SHA-256
+  → live: Brevis RPC（BREVIS_RPC_URL）→ 失败回退本地
+  → submit_proof → verify_proof_with_policy
+```
+
+**Testnet 初始化：**
+
+```powershell
+.\scripts\init-zk-verifier-policy.ps1 -PackageId 0x... -VerifierAddress 0x...
+.\scripts\bootstrap-services-env.ps1
+cd services/brevis-zk-prover && npm install && npm start
+```
+
+| 变量 | 默认 | 说明 |
+| --- | --- | --- |
+| `ZK_PROVER_MODE` | `mock` | `live` 时尝试 Brevis RPC |
+| `ZK_PROVER_DRY_RUN` | `true` | `false` 才实际上链 |
+| `ZK_VERIFIER_POLICY_ID` | — | `init_verifier_policy` 共享对象 |
+| `BREVIS_RPC_URL` | 空 | Brevis Prover HTTP 端点 |
+
+健康检查：`GET http://localhost:8794/health`
+
 ---
 
 ## 5. Slash 机制（链上）
