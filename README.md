@@ -110,6 +110,7 @@ Dev 币种：`x_market::usdc::USDC`（包 `init`）；主网改用 Circle 官方
 - [docs/phase2-playbook.md](./docs/phase2-playbook.md)
 - [docs/phase3-playbook.md](./docs/phase3-playbook.md)
 - [docs/tier2-decision.md](./docs/tier2-decision.md)
+- [docs/slash-and-attestation.md](./docs/slash-and-attestation.md)
 - [docs/deferred-features.md](./docs/deferred-features.md)
 - [docs/mainnet-readiness-checklist.md](./docs/mainnet-readiness-checklist.md)
 - [docs/mainnet-infra-priority.md](./docs/mainnet-infra-priority.md)
