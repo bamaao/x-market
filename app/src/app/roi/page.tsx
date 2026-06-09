@@ -10,6 +10,8 @@ import {
   type IndexerBuyerRoi,
   type IndexerBuyerRoiSummary,
 } from "@/lib/indexer";
+import { DataTable } from "@/components/DataTable";
+import { PageHeader } from "@/components/PageHeader";
 
 function formatUsdc(mist: string): string {
   const n = Number(mist) / 1e6;
@@ -42,10 +44,14 @@ export default function RoiPage() {
 
   return (
     <div>
-      <h1>跟单 ROI</h1>
-      <p className="sub">
-        订阅者解锁 Prophet 预测后的收益聚合（Indexer <code>buyer_roi</code>）。
-      </p>
+      <PageHeader
+        title="跟单 ROI"
+        subtitle={
+          <>
+            订阅者解锁 Prophet 预测后的收益聚合（Indexer <code>buyer_roi</code>）。
+          </>
+        }
+      />
 
       {!indexerEnabled() && (
         <div className="card">
@@ -90,9 +96,9 @@ export default function RoiPage() {
             {rows.length === 0 ? (
               <p className="hint">无明细</p>
             ) : (
-              <table style={{ width: "100%", fontSize: "0.85rem", borderCollapse: "collapse" }}>
+              <DataTable>
                 <thead>
-                  <tr style={{ color: "var(--muted)", textAlign: "left" }}>
+                  <tr>
                     <th>预言</th>
                     <th>预言家</th>
                     <th>成本</th>
@@ -103,15 +109,19 @@ export default function RoiPage() {
                 <tbody>
                   {rows.map((r) => (
                     <tr key={`${r.buyer}-${r.prophecy_id}`}>
-                      <td>{r.prophecy_id.slice(0, 10)}…</td>
-                      <td>{r.prophet.slice(0, 8)}…</td>
+                      <td>
+                        <code>{r.prophecy_id.slice(0, 10)}…</code>
+                      </td>
+                      <td>
+                        <code>{r.prophet.slice(0, 8)}…</code>
+                      </td>
                       <td>{formatUsdc(r.unlock_cost)}</td>
                       <td>{r.outcome}</td>
                       <td>{roiLabel(r.roi_bps)}</td>
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </DataTable>
             )}
           </div>
         </>

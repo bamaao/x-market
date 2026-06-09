@@ -45,6 +45,7 @@ import {
 } from "@/lib/oracle";
 import { PACKAGE_ID } from "@/lib/markets";
 import { ArbitrationCasesPanel } from "@/components/ArbitrationCasesPanel";
+import { PageHeader } from "@/components/PageHeader";
 
 const ARBITRATION_CASE_TYPE = `${PACKAGE_ID}::oracle_arbitrator::ArbitrationCase`;
 
@@ -341,10 +342,10 @@ export default function OraclePage() {
 
   return (
     <>
-      <h1>Oracle 结算</h1>
-      <p className="sub">
-        乐观预言机：提议 → 争议窗口 → 委员会终裁或 Finalize → 市场结算 → 领取
-      </p>
+      <PageHeader
+        title="Oracle 结算"
+        subtitle="乐观预言机：提议 → 争议窗口 → 委员会终裁或 Finalize → 市场结算 → 领取"
+      />
 
       <div className="oracle-flow" aria-label="结算流程">
         {FLOW_STEPS.map((s, i) => {

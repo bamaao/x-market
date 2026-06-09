@@ -8,6 +8,8 @@ import {
   type IndexerProphetGmvDay,
   type IndexerProphetGmvTotals,
 } from "@/lib/indexer";
+import { DataTable } from "@/components/DataTable";
+import { PageHeader } from "@/components/PageHeader";
 
 function formatUsdc(mist: string): string {
   return `${(Number(mist) / 1e6).toFixed(2)} USDC`;
@@ -30,10 +32,14 @@ export default function MetricsPage() {
 
   return (
     <div>
-      <h1>Prophet 运营指标</h1>
-      <p className="sub">
-        付费解锁 GMV 与审计量（Indexer <code>prophet_gmv_daily</code>，P4.4）。
-      </p>
+      <PageHeader
+        title="Prophet 运营指标"
+        subtitle={
+          <>
+            付费解锁 GMV 与审计量（Indexer <code>prophet_gmv_daily</code>，P4.4）。
+          </>
+        }
+      />
 
       {!indexerEnabled() && (
         <div className="card">
@@ -66,15 +72,9 @@ export default function MetricsPage() {
       {indexerEnabled() && daily.length > 0 && (
         <div className="card">
           <h2>日明细</h2>
-          <table
-            style={{
-              width: "100%",
-              fontSize: "0.85rem",
-              borderCollapse: "collapse",
-            }}
-          >
+          <DataTable>
             <thead>
-              <tr style={{ color: "var(--muted)", textAlign: "left" }}>
+              <tr>
                 <th>日期</th>
                 <th>解锁 GMV</th>
                 <th>笔数</th>
@@ -83,18 +83,15 @@ export default function MetricsPage() {
             </thead>
             <tbody>
               {daily.map((row) => (
-                <tr
-                  key={row.day}
-                  style={{ borderTop: "1px solid var(--border)" }}
-                >
-                  <td style={{ padding: "0.5rem 0" }}>{row.day.slice(0, 10)}</td>
+                <tr key={row.day}>
+                  <td>{row.day.slice(0, 10)}</td>
                   <td>{formatUsdc(row.unlock_gmv)}</td>
                   <td>{row.unlock_count}</td>
                   <td>{row.prophecies_audited}</td>
                 </tr>
               ))}
             </tbody>
-          </table>
+          </DataTable>
         </div>
       )}
 

@@ -63,6 +63,7 @@ import {
   sealIdHex,
 } from "@/lib/seal-prophet";
 import { uploadBlobToWalrus } from "@/lib/walrus";
+import { PageHeader } from "@/components/PageHeader";
 
 function parseMoveFields(content: unknown): Record<string, unknown> | undefined {
   if (!content || typeof content !== "object") return undefined;
@@ -518,10 +519,10 @@ export default function ProphetPage() {
   if (!PROPHET_REGISTRY_ID) {
     return (
       <div>
-        <h1>SuiProphet Network</h1>
-        <p className="sub">
-          知识付费预言模块 — 私密预测 Commit、USDC 解锁、Oracle 审计战绩。
-        </p>
+        <PageHeader
+          title="SuiProphet Network"
+          subtitle="知识付费预言模块 — 私密预测 Commit、USDC 解锁、Oracle 审计战绩"
+        />
         <div className="card">
           <p>
             部署后调用 <code>create_prophet_registry</code>，并配置{" "}
@@ -534,10 +535,10 @@ export default function ProphetPage() {
 
   return (
     <div>
-      <h1>SuiProphet Network</h1>
-      <p className="sub">
-        Seal 加密 · Walrus 存储 · 双重 OR 解密 · 共用 L0 Oracle 审计（PRD §11）
-      </p>
+      <PageHeader
+        title="SuiProphet Network"
+        subtitle="Seal 加密 · Walrus 存储 · 双重 OR 解密 · 共用 L0 Oracle 审计（PRD §11）"
+      />
 
       <div className="oracle-flow" aria-label="Prophet 流程">
         {PROPHET_FLOW_STEPS.map((s, i) => {

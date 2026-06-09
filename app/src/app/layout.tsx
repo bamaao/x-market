@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Providers } from "@/components/Providers";
+import { SiteNav } from "@/components/SiteNav";
 import { WalletButton } from "@/components/WalletButton";
 import "./globals.css";
 
@@ -19,22 +20,24 @@ export default function RootLayout({
         <Providers>
           <header className="header">
             <a href="/" className="logo">
+              <span className="logo-mark">X</span>
               X-Market <span>Sui</span>
             </a>
-            <nav>
-              <a href="/">市场</a>
-              <a href="/positions">持仓</a>
-              <a href="/lp">LP</a>
-              <a href="/margin">保证金</a>
-              <a href="/oracle">Oracle</a>
-              <a href="/prophet">Prophet</a>
-              <a href="/leaderboard">排行榜</a>
-              <a href="/roi">跟单 ROI</a>
-              <a href="/metrics">GMV</a>
-            </nav>
-            <WalletButton />
+            <SiteNav />
+            <div className="header-actions">
+              <WalletButton />
+            </div>
           </header>
           <main className="main">{children}</main>
+          <footer className="footer">
+            <div className="footer-links">
+              <a href="/">市场</a>
+              <a href="/prophet">Prophet</a>
+              <a href="/oracle">Oracle</a>
+              <a href="/leaderboard">排行榜</a>
+            </div>
+            <p>链上 PDF 预测市场 · Sui Testnet</p>
+          </footer>
         </Providers>
       </body>
     </html>

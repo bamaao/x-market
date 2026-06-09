@@ -20,6 +20,8 @@ import {
   indexerEnabled,
   type IndexerProphetStats,
 } from "@/lib/indexer";
+import { DataTable } from "@/components/DataTable";
+import { PageHeader } from "@/components/PageHeader";
 
 export default function LeaderboardPage() {
   const account = useCurrentAccount();
@@ -65,10 +67,15 @@ export default function LeaderboardPage() {
 
   return (
     <div>
-      <h1>Prophet 排行榜</h1>
-      <p className="sub">
-        优先读 Indexer 缓存排行；回退链上 <code>ProphetRegistry</code> 动态字段（权威真相源仍在链上）。
-      </p>
+      <PageHeader
+        title="Prophet 排行榜"
+        subtitle={
+          <>
+            优先读 Indexer 缓存排行；回退链上 <code>ProphetRegistry</code>{" "}
+            动态字段（权威真相源仍在链上）。
+          </>
+        }
+      />
 
       {!PROPHET_REGISTRY_ID && (
         <div className="card">
@@ -123,16 +130,10 @@ export default function LeaderboardPage() {
         ) : rows.length === 0 ? (
           <p className="hint">暂无数据 — 完成首笔 audit_prophecy 后出现。</p>
         ) : (
-          <table
-            style={{
-              width: "100%",
-              fontSize: "0.85rem",
-              borderCollapse: "collapse",
-            }}
-          >
+          <DataTable>
             <thead>
-              <tr style={{ color: "var(--muted)", textAlign: "left" }}>
-                <th style={{ padding: "0.35rem 0" }}>#</th>
+              <tr>
+                <th>#</th>
                 <th>预言家</th>
                 <th>胜/负/作弊</th>
                 <th>胜率</th>
@@ -144,11 +145,8 @@ export default function LeaderboardPage() {
             </thead>
             <tbody>
               {rows.map((row) => (
-                <tr
-                  key={row.prophet}
-                  style={{ borderTop: "1px solid var(--border)" }}
-                >
-                  <td style={{ padding: "0.5rem 0" }}>{row.rank}</td>
+                <tr key={row.prophet}>
+                  <td>{row.rank}</td>
                   <td>
                     <code>
                       {row.prophet.slice(0, 10)}…
@@ -168,7 +166,7 @@ export default function LeaderboardPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </DataTable>
         )}
         <p className="hint" style={{ marginTop: "1rem" }}>
           生产环境可选部署 <strong>Indexer</strong> 缓存排行与订阅者 ROI，但链上{" "}

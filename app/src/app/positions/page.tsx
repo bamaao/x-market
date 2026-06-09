@@ -2,6 +2,7 @@
 
 import { useCurrentAccount, useSuiClientQuery } from "@mysten/dapp-kit";
 import { PACKAGE_ID, SEED_MARKETS } from "@/lib/markets";
+import { PageHeader } from "@/components/PageHeader";
 import { PositionCard } from "@/components/PositionCard";
 import { formatUsdcBaseUnits } from "@/lib/usdc";
 
@@ -121,8 +122,10 @@ export default function PositionsPage() {
 
   return (
     <>
-      <h1>持仓</h1>
-      <p className="sub">钱包中的 Position 对象（类 NFT）</p>
+      <PageHeader
+        title="持仓"
+        subtitle="钱包中的 Position 对象（类 NFT），支持 Cross-Margin VaR 估算"
+      />
       <div className="pool-refs">
         {SEED_MARKETS.map((m) => (
           <p key={m.id} className="hint">

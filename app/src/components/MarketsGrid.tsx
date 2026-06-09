@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { SEED_MARKETS, type SeedMarket } from "@/lib/markets";
+import { SEED_MARKETS, type MarketKind, type SeedMarket } from "@/lib/markets";
 import { fetchIndexerMarkets, indexerEnabled, type IndexerMarket } from "@/lib/indexer";
 
 function indexerToSeed(m: IndexerMarket): SeedMarket {
@@ -22,6 +22,17 @@ function indexerToSeed(m: IndexerMarket): SeedMarket {
   };
 }
 
+const KIND_LABELS: Record<MarketKind, string> = {
+  poisson: "Poisson",
+  dirichlet: "Dirichlet",
+  normal: "Normal",
+  beta: "Beta",
+};
+
+function kindBadgeClass(kind: MarketKind): string {
+  return `badge badge-${kind}`;
+}
+
 export function MarketsGrid() {
   const [markets, setMarkets] = useState<SeedMarket[]>(SEED_MARKETS);
   const [source, setSource] = useState<"env" | "indexer">("env");
@@ -38,24 +49,56 @@ export function MarketsGrid() {
 
   return (
     <>
+      <div className="stats-row">
+        <div className="stat-card">
+          <div className="label">市场数量</div>
+          <div className="value accent">{markets.length}</div>
+        </div>
+        <div className="stat-card">
+          <div className="label">分布类型</div>
+          <div className="value">4</div>
+        </div>
+        {indexerEnabled() && (
+          <div className="stat-card">
+            <div className="label">数据源</div>
+            <div className="value" style={{ fontSize: "0.95rem" }}>
+              {source === "indexer" ? "Indexer" : "Env"}
+            </div>
+          </div>
+        )}
+      </div>
+
       {indexerEnabled() && (
-        <p className="hint">
-          市场列表来源：{source === "indexer" ? "Indexer API" : "环境变量（Indexer 回退）"}
+        <p style={{ marginBottom: "1rem" }}>
+          <span className="source-badge">
+            <span className={`dot${source === "indexer" ? "" : " offline"}`} />
+            {source === "indexer" ? "Indexer API 实时同步" : "环境变量种子市场（Indexer 回退）"}
+          </span>
         </p>
       )}
-      <div className="grid">
+
+      <div className="grid grid-markets">
         {markets.map((m) => (
-          <article key={m.id} className="card">
-            <span className="badge">{m.kind}</span>
-            <h2>{m.title}</h2>
+          <Link
+            key={m.id}
+            href={`/markets/${m.id}`}
+            className="card card-interactive"
+            style={{ display: "flex", flexDirection: "column", textDecoration: "none" }}
+          >
+            <span className={kindBadgeClass(m.kind)}>{KIND_LABELS[m.kind]}</span>
+            <h2 style={{ color: "var(--text)" }}>{m.title}</h2>
             <p>{m.description}</p>
-            {m.params.poolId ? (
-              <p className="hint" style={{ fontSize: "0.75rem" }}>
-                Pool: {String(m.params.poolId).slice(0, 10)}…
-              </p>
-            ) : null}
-            <Link href={`/markets/${m.id}`}>交易 →</Link>
-          </article>
+            <div className="card-footer">
+              {m.params.poolId ? (
+                <span className="hint" style={{ margin: 0, fontSize: "0.72rem" }}>
+                  Pool {String(m.params.poolId).slice(0, 8)}…
+                </span>
+              ) : (
+                <span />
+              )}
+              <span className="card-cta">交易 →</span>
+            </div>
+          </Link>
         ))}
       </div>
     </>

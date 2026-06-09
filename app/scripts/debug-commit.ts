@@ -32,10 +32,16 @@ async function main() {
     id: poolId,
     options: { showContent: true },
   });
-  const maturity = Number(
-    (pool.data?.content as { fields: { maturity_ts: string } }).fields
-      .maturity_ts,
-  );
+  const content = pool.data?.content;
+  const fields =
+    content &&
+    typeof content === "object" &&
+    "dataType" in content &&
+    content.dataType === "moveObject" &&
+    "fields" in content
+      ? (content.fields as Record<string, unknown>)
+      : undefined;
+  const maturity = Number(fields?.maturity_ts ?? 0);
   const payload = buildProphecyPayload(poolId, 25, "debug");
   const hash = hashProphecyPlaintext(payload);
   const sealId = new Uint8Array(32).fill(7);
