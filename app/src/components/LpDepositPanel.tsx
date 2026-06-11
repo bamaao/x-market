@@ -20,7 +20,7 @@ export function LpDepositPanel({ market }: Props) {
   const account = useCurrentAccount();
   const client = useSuiClient();
   const { mutate: signAndExecute, isPending } = useSignAndExecuteTransaction();
-  const [poolId, setPoolId] = useState(() => defaultPoolId(market.id));
+  const [poolId, setPoolId] = useState(() => defaultPoolId(market));
   const [amount, setAmount] = useState("100");
   const [status, setStatus] = useState<string | null>(null);
   const [balanceKey, setBalanceKey] = useState(0);

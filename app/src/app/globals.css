@@ -839,6 +839,328 @@ textarea {
   margin: 0 0 1rem;
 }
 
+.positions-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-end;
+  margin-bottom: 1.5rem;
+}
+
+.positions-group {
+  margin-bottom: 2rem;
+}
+
+.positions-group-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.positions-group-head h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.position-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.position-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.position-card-head h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+}
+
+.position-market-link {
+  text-decoration: none;
+  color: var(--text);
+}
+
+.position-market-link:hover h3 {
+  color: var(--accent);
+}
+
+.position-market-unknown {
+  margin: 0 0 0.35rem;
+  color: var(--muted);
+}
+
+.position-market-desc {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.position-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: flex-end;
+}
+
+.position-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem 1rem;
+  margin: 0;
+}
+
+.position-facts dt {
+  margin: 0;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.position-facts dd {
+  margin: 0.15rem 0 0;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.position-pool-panel {
+  padding: 0.75rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+}
+
+.position-pool-panel h4 {
+  margin: 0 0 0.35rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.position-settlement {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.position-settlement--pending {
+  border-color: var(--border);
+  color: var(--muted);
+}
+
+.position-settlement--hit {
+  border-color: var(--accent-dim);
+  background: rgba(45, 212, 168, 0.08);
+}
+
+.position-settlement--miss {
+  border-color: #3f2a2a;
+  color: var(--danger);
+}
+
+.position-settlement--claimed {
+  border-color: #1e3a2f;
+  color: var(--accent);
+}
+
+.position-settlement-label {
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.position-settlement-payout {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--accent);
+}
+
+.position-object-id {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.positions-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.filter-chip {
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.filter-chip:hover {
+  border-color: var(--accent-dim);
+  color: var(--text);
+}
+
+.filter-chip.active {
+  border-color: var(--accent-dim);
+  background: rgba(45, 212, 168, 0.1);
+  color: var(--accent);
+}
+
+.positions-market-panel {
+  margin-bottom: 1rem;
+  padding: 1rem 1.1rem;
+}
+
+.positions-market-panel h3 {
+  margin: 0 0 0.35rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.positions-market-panel-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.positions-market-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.btn-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.45rem 0.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  text-decoration: none;
+  font-size: 0.85rem;
+  color: var(--accent);
+}
+
+.btn-link:hover {
+  border-color: var(--accent-dim);
+  background: rgba(45, 212, 168, 0.06);
+}
+
+.positions-claimable-chip {
+  padding: 0.35rem 0.65rem;
+  border-radius: var(--radius-sm);
+  background: rgba(45, 212, 168, 0.12);
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.positions-group-title h2 {
+  margin: 0 0 0.35rem;
+}
+
+.positions-group-title {
+  flex: 1;
+  min-width: 200px;
+}
+
+.market-cover {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+}
+
+.market-cover--card {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+}
+
+.market-cover--hero {
+  width: 100%;
+  max-width: 720px;
+  aspect-ratio: 21 / 9;
+  margin-bottom: 1.25rem;
+}
+
+.market-cover--thumb {
+  width: 96px;
+  height: 64px;
+  flex-shrink: 0;
+}
+
+.market-cover-img {
+  object-fit: cover;
+}
+
+.market-cover-fallback {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    135deg,
+    rgba(45, 212, 168, 0.15),
+    rgba(59, 130, 246, 0.12)
+  );
+}
+
+.market-card {
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  padding: 0;
+  overflow: hidden;
+}
+
+.market-card-body {
+  padding: 1rem 1.1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.market-card-body h2 {
+  color: var(--text);
+  margin: 0.5rem 0 0.35rem;
+  font-size: 1.05rem;
+}
+
+.market-card-body p {
+  flex: 1;
+  margin: 0 0 0.75rem;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.position-card-head--compact {
+  justify-content: flex-start;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.position-facts-full {
+  grid-column: 1 / -1;
+}
+
 /* ── Responsive ── */
 
 @media (max-width: 768px) {
@@ -865,5 +1187,38 @@ textarea {
 
   .main {
     padding: 1.5rem 1rem 3rem;
+  }
+}
+
+/* ── Create market (P3) ── */
+
+.create-market-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(260px, 0.8fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.create-market-form h2,
+.create-market-preview h2 {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  margin: 0 0 0.75rem;
+}
+
+.create-market-form input,
+.create-market-form select,
+.create-market-form textarea {
+  max-width: 100%;
+}
+
+.create-market-preview h3 {
+  font-size: 1.05rem;
+  margin-bottom: 0.35rem;
+}
+
+@media (max-width: 900px) {
+  .create-market-layout {
+    grid-template-columns: 1fr;
   }
 }

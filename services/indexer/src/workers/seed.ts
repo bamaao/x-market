@@ -62,15 +62,16 @@ export async function seedMarketsFromDeploy(
     await query(
       config.databaseUrl,
       `INSERT INTO markets (
-        pool_id, slug, title, description, kind, package_id, authority, status,
+        pool_id, slug, title, description, image_url, kind, package_id, authority, status,
         lambda_tenths, mu_tenths, sigma_tenths, mu_units, sigma_units, dirichlet_alphas,
         fee_bps, maturity_ts, resolution_window_ts, created_ts, paused, resolved, resolved_value,
         event_root_id, feed_id, updated_at, indexed_at
       ) VALUES (
-        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,NOW(),NOW()
+        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,NOW(),NOW()
       )
       ON CONFLICT (pool_id) DO UPDATE SET
         slug = EXCLUDED.slug, title = EXCLUDED.title, description = EXCLUDED.description,
+        image_url = EXCLUDED.image_url,
         kind = EXCLUDED.kind, authority = EXCLUDED.authority, status = EXCLUDED.status,
         lambda_tenths = EXCLUDED.lambda_tenths, mu_tenths = EXCLUDED.mu_tenths,
         sigma_tenths = EXCLUDED.sigma_tenths, fee_bps = EXCLUDED.fee_bps,
@@ -81,6 +82,7 @@ export async function seedMarketsFromDeploy(
         meta.slug,
         meta.title,
         meta.description,
+        meta.imageUrl,
         kindFromCode(Number(fields.kind ?? 0)),
         config.packageId,
         String(fields.authority ?? ""),

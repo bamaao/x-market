@@ -7,13 +7,30 @@ type Handler = (
   params: Record<string, string>,
 ) => Promise<{ status: number; body: unknown }>;
 
-function json(res: http.ServerResponse, status: number, body: unknown, cors: string) {
+function json(
+  res: http.ServerResponse,
+  status: number,
+  body: unknown,
+  cors: string,
+  methods = "GET, OPTIONS",
+) {
   res.writeHead(status, {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": cors,
-    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Methods": methods,
+    "Access-Control-Allow-Headers": "Content-Type, X-Market-Register-Secret",
   });
   res.end(JSON.stringify(body));
+}
+
+async function readJsonBody(req: http.IncomingMessage): Promise<unknown> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  const text = Buffer.concat(chunks).toString("utf8").trim();
+  if (!text) return {};
+  return JSON.parse(text) as unknown;
 }
 
 function matchRoute(
@@ -320,24 +337,97 @@ export function createApiServer(config: IndexerConfig, state: { lastEventAt: str
 
   const host = process.env.HOST ?? "0.0.0.0";
   const server = http.createServer(async (req, res) => {
+    const urlPath = (req.url ?? "/").split("?")[0];
+
     if (req.method === "OPTIONS") {
-      json(res, 204, {}, config.corsOrigin);
+      json(res, 204, {}, config.corsOrigin, "GET, POST, OPTIONS");
       return;
     }
+
+    if (req.method === "POST" && urlPath === "/v1/markets/register") {
+      try {
+        if (config.marketRegisterSecret) {
+          const header = req.headers["x-market-register-secret"];
+          if (header !== config.marketRegisterSecret) {
+            json(res, 403, { error: "invalid register secret" }, config.corsOrigin, "GET, POST, OPTIONS");
+            return;
+          }
+        }
+        const body = (await readJsonBody(req)) as Record<string, unknown>;
+        const poolId = String(body.pool_id ?? "").trim();
+        const slug = String(body.slug ?? "").trim();
+        const title = String(body.title ?? "").trim();
+        const description = String(body.description ?? "").trim();
+        const kind = String(body.kind ?? "").trim();
+        if (!poolId || !slug || !title || !kind) {
+          json(res, 400, { error: "pool_id, slug, title, kind required" }, config.corsOrigin, "GET, POST, OPTIONS");
+          return;
+        }
+        await query(
+          config.databaseUrl,
+          `INSERT INTO markets (
+            pool_id, slug, title, description, image_url, kind, package_id, authority, status,
+            lambda_tenths, mu_tenths, sigma_tenths, fee_bps, maturity_ts, paused, resolved, updated_at, indexed_at
+          ) VALUES (
+            $1,$2,$3,$4,$5,$6,$7,$8,1,$9,$10,$11,$12,$13,false,false,NOW(),NOW()
+          )
+          ON CONFLICT (pool_id) DO UPDATE SET
+            slug = EXCLUDED.slug,
+            title = EXCLUDED.title,
+            description = EXCLUDED.description,
+            image_url = EXCLUDED.image_url,
+            kind = EXCLUDED.kind,
+            authority = EXCLUDED.authority,
+            lambda_tenths = EXCLUDED.lambda_tenths,
+            mu_tenths = EXCLUDED.mu_tenths,
+            sigma_tenths = EXCLUDED.sigma_tenths,
+            fee_bps = EXCLUDED.fee_bps,
+            maturity_ts = EXCLUDED.maturity_ts,
+            updated_at = NOW()`,
+          [
+            poolId,
+            slug,
+            title,
+            description,
+            body.image_url != null ? String(body.image_url) : null,
+            kind,
+            String(body.package_id ?? config.packageId),
+            body.authority != null ? String(body.authority) : null,
+            body.lambda_tenths != null ? Number(body.lambda_tenths) : null,
+            body.mu_tenths != null ? Number(body.mu_tenths) : null,
+            body.sigma_tenths != null ? Number(body.sigma_tenths) : null,
+            Number(body.fee_bps ?? 30),
+            Number(body.maturity_ts ?? 0),
+          ],
+        );
+        json(res, 200, { ok: true, pool_id: poolId }, config.corsOrigin, "GET, POST, OPTIONS");
+      } catch (e) {
+        json(
+          res,
+          500,
+          { error: e instanceof Error ? e.message : "internal error" },
+          config.corsOrigin,
+          "GET, POST, OPTIONS",
+        );
+      }
+      return;
+    }
+
     const matched = matchRoute(req.method ?? "GET", req.url ?? "/");
     if (!matched) {
-      json(res, 404, { error: "not found" }, config.corsOrigin);
+      json(res, 404, { error: "not found" }, config.corsOrigin, "GET, POST, OPTIONS");
       return;
     }
     try {
       const result = await handlers[matched.route](req, matched.params);
-      json(res, result.status, result.body, config.corsOrigin);
+      json(res, result.status, result.body, config.corsOrigin, "GET, POST, OPTIONS");
     } catch (e) {
       json(
         res,
         500,
         { error: e instanceof Error ? e.message : "internal error" },
         config.corsOrigin,
+        "GET, POST, OPTIONS",
       );
     }
   });

@@ -7,8 +7,7 @@ import {
   useSuiClient,
 } from "@mysten/dapp-kit";
 import { Transaction } from "@mysten/sui/transactions";
-import { defaultPoolId } from "@/lib/markets";
-import type { SeedMarket } from "@/lib/markets";
+import { defaultPoolId, type SeedMarket } from "@/lib/markets";
 import {
   appendAuctionBid,
   appendFinalizeAuction,
@@ -34,7 +33,7 @@ export function AuctionPanel({ market }: Props) {
   const account = useCurrentAccount();
   const client = useSuiClient();
   const { mutate: signAndExecute, isPending } = useSignAndExecuteTransaction();
-  const [poolId, setPoolId] = useState(() => defaultPoolId(market.id));
+  const [poolId, setPoolId] = useState(() => defaultPoolId(market));
   const [bucket, setBucket] = useState("0");
   const [amount, setAmount] = useState("10");
   const [status, setStatus] = useState<string | null>(null);

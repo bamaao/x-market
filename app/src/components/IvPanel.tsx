@@ -13,7 +13,7 @@ import {
 type Props = { market: SeedMarket };
 
 export function IvPanel({ market }: Props) {
-  const [poolId, setPoolId] = useState(() => defaultPoolId(market.id));
+  const [poolId, setPoolId] = useState(() => defaultPoolId(market));
   const { data, isPending, refetch } = useSuiClientQuery(
     "getObject",
     {

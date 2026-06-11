@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 const NAV_ITEMS = [
   { href: "/", label: "市场" },
+  { href: "/markets/create", label: "创建市场" },
   { href: "/positions", label: "持仓" },
   { href: "/lp", label: "LP" },
   { href: "/margin", label: "保证金" },

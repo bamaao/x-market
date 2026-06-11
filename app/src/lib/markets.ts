@@ -1,3 +1,6 @@
+import { MARKET_COVER_BY_ID, resolveMarketImageUrl } from "./market-media";
+import type { MarketRef } from "./position-display";
+
 /** Phase 1 Testnet 种子市场（PRD §6） */
 export type MarketKind = "poisson" | "dirichlet" | "normal" | "beta";
 
@@ -6,6 +9,8 @@ export interface SeedMarket {
   title: string;
   description: string;
   kind: MarketKind;
+  /** CDN / public path cover (P2 off-chain metadata) */
+  imageUrl?: string;
   /** `create_*` 参数说明 */
   params: Record<string, string | number>;
 }
@@ -21,6 +26,7 @@ export const SEED_MARKETS: SeedMarket[] = [
     title: "足球总进球 · Poisson",
     description: "λ≈2.5，区间 [2,3] 与大球尾部；链上 Tier-1 Poisson PMF。",
     kind: "poisson",
+    imageUrl: MARKET_COVER_BY_ID["poisson-goals"],
     params: {
       lambda_tenths: 25,
       fee_bps: 30,
@@ -32,6 +38,7 @@ export const SEED_MARKETS: SeedMarket[] = [
     title: "胜平负 · Dirichlet",
     description: "三分类先验 α=[10,10,10]；买入主胜/平局/客胜。",
     kind: "dirichlet",
+    imageUrl: MARKET_COVER_BY_ID["dirichlet-wdl"],
     params: {
       alpha0: 10,
       alpha1: 10,
@@ -45,6 +52,7 @@ export const SEED_MARKETS: SeedMarket[] = [
     title: "CPI 区间 · Normal",
     description: "μ=2.5%、σ=0.4%（tenths）；宏观区间与数字期权。",
     kind: "normal",
+    imageUrl: MARKET_COVER_BY_ID["normal-cpi"],
     params: {
       mu_tenths: 25,
       sigma_tenths: 4,
@@ -57,6 +65,7 @@ export const SEED_MARKETS: SeedMarket[] = [
     title: "得票率 · Beta",
     description: "α=β=10 先验；链上 Beta CDF 区间买入（如 35%–40%）。",
     kind: "beta",
+    imageUrl: MARKET_COVER_BY_ID["beta-vote"],
     params: {
       alpha: 10,
       beta: 10,
@@ -66,10 +75,72 @@ export const SEED_MARKETS: SeedMarket[] = [
   },
 ];
 
-export function defaultPoolId(marketId: string): string {
-  const m = SEED_MARKETS.find((x) => x.id === marketId);
+export function defaultPoolId(marketOrId: string | SeedMarket): string {
+  if (typeof marketOrId === "object") {
+    const direct = marketOrId.params.poolId;
+    if (typeof direct === "string" && direct) return direct;
+    marketOrId = marketOrId.id;
+  }
+  const m = SEED_MARKETS.find((x) => x.id === marketOrId);
   const id = m?.params.poolId;
   return typeof id === "string" ? id : "";
+}
+
+/** Map Indexer row → frontend seed market (incl. cover). */
+export function indexerMarketToSeed(m: {
+  pool_id: string;
+  slug: string | null;
+  title: string;
+  description: string;
+  kind: string;
+  image_url?: string | null;
+  fee_bps: number;
+  lambda_tenths?: number | null;
+  mu_tenths?: number | null;
+  sigma_tenths?: number | null;
+}): SeedMarket {
+  const id = m.slug ?? m.pool_id;
+  return {
+    id,
+    title: m.title,
+    description: m.description,
+    kind: m.kind as MarketKind,
+    imageUrl: resolveMarketImageUrl({
+      id,
+      slug: m.slug,
+      imageUrl: m.image_url,
+    }),
+    params: {
+      poolId: m.pool_id,
+      fee_bps: m.fee_bps,
+      ...(m.lambda_tenths != null ? { lambda_tenths: m.lambda_tenths } : {}),
+      ...(m.mu_tenths != null ? { mu_tenths: m.mu_tenths } : {}),
+      ...(m.sigma_tenths != null ? { sigma_tenths: m.sigma_tenths } : {}),
+    },
+  };
+}
+
+export function indexerMarketToRef(m: {
+  pool_id: string;
+  slug: string | null;
+  title: string;
+  description: string;
+  kind: string;
+  image_url?: string | null;
+}): MarketRef {
+  const id = m.slug ?? m.pool_id;
+  return {
+    id,
+    title: m.title,
+    description: m.description,
+    kind: m.kind as MarketKind,
+    poolId: m.pool_id,
+    imageUrl: resolveMarketImageUrl({
+      id,
+      slug: m.slug,
+      imageUrl: m.image_url,
+    }),
+  };
 }
 
 export const PACKAGE_ID =

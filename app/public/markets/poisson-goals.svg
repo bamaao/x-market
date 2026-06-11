@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-label="³;Û">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0d2818"/>
+      <stop offset="100%" stop-color="#081018"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="360" fill="url(#bg)"/>
+  <rect x="80" y="60" width="480" height="240" rx="8" fill="none" stroke="#2dd4a8" stroke-opacity="0.35" stroke-width="2"/>
+  <line x1="320" y1="60" x2="320" y2="300" stroke="#2dd4a8" stroke-opacity="0.2"/>
+  <circle cx="320" cy="180" r="36" fill="none" stroke="#2dd4a8" stroke-opacity="0.25"/>
+  <circle cx="520" cy="180" r="28" fill="#eef1f6" fill-opacity="0.9"/>
+  <path d="M520 158l8 12-8 12-8-12z" fill="#0d2818"/>
+  <text x="48" y="48" fill="#5eead4" font-family="system-ui,sans-serif" font-size="22" font-weight="700">Poisson</text>
+  <text x="48" y="330" fill="#8b95a8" font-family="system-ui,sans-serif" font-size="16">³;Û</text>
+</svg>

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-label="—h‡">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1a1028"/>
+      <stop offset="100%" stop-color="#080a0f"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="360" fill="url(#bg)"/>
+  <rect x="120" y="110" width="400" height="28" rx="14" fill="#232a38"/>
+  <rect x="120" y="110" width="260" height="28" rx="14" fill="#a78bfa" fill-opacity="0.7"/>
+  <rect x="120" y="160" width="400" height="28" rx="14" fill="#232a38"/>
+  <rect x="120" y="160" width="180" height="28" rx="14" fill="#5eead4" fill-opacity="0.55"/>
+  <rect x="120" y="210" width="400" height="28" rx="14" fill="#232a38"/>
+  <rect x="120" y="210" width="320" height="28" rx="14" fill="#fbbf24" fill-opacity="0.45"/>
+  <text x="48" y="48" fill="#5eead4" font-family="system-ui,sans-serif" font-size="22" font-weight="700">Beta</text>
+  <text x="48" y="330" fill="#8b95a8" font-family="system-ui,sans-serif" font-size="16">—h‡:ô</text>
+</svg>

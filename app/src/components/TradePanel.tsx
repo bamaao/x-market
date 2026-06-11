@@ -25,7 +25,7 @@ export function TradePanel({ market }: Props) {
   const account = useCurrentAccount();
   const client = useSuiClient();
   const { mutate: signAndExecute, isPending } = useSignAndExecuteTransaction();
-  const [poolId, setPoolId] = useState(() => defaultPoolId(market.id));
+  const [poolId, setPoolId] = useState(() => defaultPoolId(market));
   const [mode, setMode] = useState<ContractMode>("interval");
   const [stakeUsdc, setStakeUsdc] = useState("1");
   const [status, setStatus] = useState<string | null>(null);

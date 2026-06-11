@@ -37,6 +37,9 @@ export default function HomePage() {
 
       <div className="section-head">
         <h2>活跃市场</h2>
+        <Link href="/markets/create" className="hero-link primary">
+          创建市场
+        </Link>
       </div>
       <MarketsGrid />
     </>

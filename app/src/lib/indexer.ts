@@ -29,6 +29,7 @@ export interface IndexerMarket {
   title: string;
   description: string;
   kind: string;
+  image_url?: string | null;
   package_id: string;
   fee_bps: number;
   maturity_ts: string;
@@ -99,6 +100,49 @@ export async function fetchIndexerMarket(poolId: string): Promise<IndexerMarket 
     `/v1/markets/${encodeURIComponent(poolId)}`,
   );
   return data?.market ?? null;
+}
+
+export interface RegisterMarketPayload {
+  pool_id: string;
+  slug: string;
+  title: string;
+  description: string;
+  kind: string;
+  image_url?: string | null;
+  fee_bps: number;
+  maturity_ts: number;
+  package_id: string;
+  authority?: string;
+  lambda_tenths?: number | null;
+  mu_tenths?: number | null;
+  sigma_tenths?: number | null;
+}
+
+export async function registerMarketMetadata(
+  payload: RegisterMarketPayload,
+): Promise<{ ok: boolean; error?: string }> {
+  if (!INDEXER_URL) {
+    return { ok: false, error: "Indexer 未配置" };
+  }
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  const secret = process.env.NEXT_PUBLIC_MARKET_REGISTER_SECRET?.trim();
+  if (secret) headers["X-Market-Register-Secret"] = secret;
+  try {
+    const res = await fetch(`${INDEXER_URL}/v1/markets/register`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      return { ok: false, error: body.error ?? `HTTP ${res.status}` };
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
 }
 
 export async function fetchIndexerFeeds(): Promise<IndexerFeed[]> {

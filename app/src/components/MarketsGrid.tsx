@@ -2,25 +2,18 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { SEED_MARKETS, type MarketKind, type SeedMarket } from "@/lib/markets";
-import { fetchIndexerMarkets, indexerEnabled, type IndexerMarket } from "@/lib/indexer";
-
-function indexerToSeed(m: IndexerMarket): SeedMarket {
-  const slug = m.slug ?? m.pool_id;
-  return {
-    id: slug,
-    title: m.title,
-    description: m.description,
-    kind: m.kind as SeedMarket["kind"],
-    params: {
-      poolId: m.pool_id,
-      fee_bps: m.fee_bps,
-      ...(m.lambda_tenths != null ? { lambda_tenths: m.lambda_tenths } : {}),
-      ...(m.mu_tenths != null ? { mu_tenths: m.mu_tenths } : {}),
-      ...(m.sigma_tenths != null ? { sigma_tenths: m.sigma_tenths } : {}),
-    },
-  };
-}
+import {
+  SEED_MARKETS,
+  type MarketKind,
+  type SeedMarket,
+} from "@/lib/markets";
+import { fetchIndexerMarkets, indexerEnabled } from "@/lib/indexer";
+import {
+  indexerRowsToSeeds,
+  loadUserMarkets,
+  mergeMarkets,
+} from "@/lib/market-catalog";
+import { MarketCover } from "@/components/MarketCover";
 
 const KIND_LABELS: Record<MarketKind, string> = {
   poisson: "Poisson",
@@ -38,12 +31,15 @@ export function MarketsGrid() {
   const [source, setSource] = useState<"env" | "indexer">("env");
 
   useEffect(() => {
+    const user = loadUserMarkets();
+    const base = mergeMarkets(SEED_MARKETS, user, []);
+    setMarkets(base);
+
     if (!indexerEnabled()) return;
     void fetchIndexerMarkets().then((rows) => {
-      if (rows.length) {
-        setMarkets(rows.map(indexerToSeed));
-        setSource("indexer");
-      }
+      const indexer = rows.length ? indexerRowsToSeeds(rows) : [];
+      setMarkets(mergeMarkets(SEED_MARKETS, user, indexer));
+      if (rows.length) setSource("indexer");
     });
   }, []);
 
@@ -82,21 +78,29 @@ export function MarketsGrid() {
           <Link
             key={m.id}
             href={`/markets/${m.id}`}
-            className="card card-interactive"
-            style={{ display: "flex", flexDirection: "column", textDecoration: "none" }}
+            className="card card-interactive market-card"
           >
-            <span className={kindBadgeClass(m.kind)}>{KIND_LABELS[m.kind]}</span>
-            <h2 style={{ color: "var(--text)" }}>{m.title}</h2>
-            <p>{m.description}</p>
-            <div className="card-footer">
-              {m.params.poolId ? (
-                <span className="hint" style={{ margin: 0, fontSize: "0.72rem" }}>
-                  Pool {String(m.params.poolId).slice(0, 8)}…
-                </span>
-              ) : (
-                <span />
-              )}
-              <span className="card-cta">交易 →</span>
+            <MarketCover
+              id={m.id}
+              imageUrl={m.imageUrl}
+              title={m.title}
+              kind={m.kind}
+              variant="card"
+            />
+            <div className="market-card-body">
+              <span className={kindBadgeClass(m.kind)}>{KIND_LABELS[m.kind]}</span>
+              <h2>{m.title}</h2>
+              <p>{m.description}</p>
+              <div className="card-footer">
+                {m.params.poolId ? (
+                  <span className="hint" style={{ margin: 0, fontSize: "0.72rem" }}>
+                    Pool {String(m.params.poolId).slice(0, 8)}…
+                  </span>
+                ) : (
+                  <span />
+                )}
+                <span className="card-cta">交易 →</span>
+              </div>
             </div>
           </Link>
         ))}
