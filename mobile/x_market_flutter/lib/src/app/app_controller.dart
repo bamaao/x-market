@@ -1,7 +1,13 @@
 import 'package:flutter/foundation.dart';
+import 'package:x_market_flutter/src/models/indexer_models.dart';
 import 'package:x_market_flutter/src/models/owned_models.dart';
 import 'package:x_market_flutter/src/models/sui_models.dart';
+import 'package:x_market_flutter/src/services/gas_station_service.dart';
+import 'package:x_market_flutter/src/services/indexer_service.dart';
+import 'package:x_market_flutter/src/services/market_catalog.dart';
 import 'package:x_market_flutter/src/services/owned_objects_service.dart';
+import 'package:x_market_flutter/src/services/pricing_service.dart';
+import 'package:x_market_flutter/src/services/prophet_service.dart';
 import 'package:x_market_flutter/src/services/sui_rpc_service.dart';
 import 'package:x_market_flutter/src/risk/cross_margin_var.dart';
 import 'package:x_market_flutter/src/trade/buy_transaction_service.dart';
@@ -14,17 +20,34 @@ class AppController extends ChangeNotifier {
     SuiRpcService? rpc,
     ChainTransactionService? tx,
     OwnedObjectsService? owned,
+    IndexerService? indexer,
+    GasStationService? gasStation,
+    PricingService? pricing,
+    ProphetService? prophet,
   }) : wallet = wallet ?? PhantomWalletController(),
        rpc = rpc ?? SuiRpcService(),
        tx = tx ?? ChainTransactionService(),
-       owned = owned ?? OwnedObjectsService();
+       owned = owned ?? OwnedObjectsService(),
+       indexer = indexer ?? IndexerService(),
+       gasStation = gasStation ?? GasStationService(),
+       pricing = pricing ?? PricingService(),
+       prophet = prophet ?? ProphetService();
 
   final PhantomWalletController wallet;
   final SuiRpcService rpc;
   final ChainTransactionService tx;
   final OwnedObjectsService owned;
+  final IndexerService indexer;
+  final GasStationService gasStation;
+  final PricingService pricing;
+  final ProphetService prophet;
 
   List<MarketPoolSnapshot> markets = const [];
+  Map<String, MarketRef> marketRefsByPoolId = const {};
+  bool marketSourceIsIndexer = false;
+  bool indexerReachable = false;
+  bool gasStationReachable = false;
+
   WalletSummary? walletSummary;
   List<PositionSnapshot> positions = const [];
   List<LpShareSnapshot> lpShares = const [];
@@ -34,10 +57,17 @@ class AppController extends ChangeNotifier {
   bool loadingWallet = false;
   String? lastTxMessage;
 
+  bool get indexerEnabled => IndexerService.enabled;
+  bool get gasStationEnabled => GasStationService.enabled;
+  bool get pricingEnabled => PricingService.enabled;
+
   Future<void> bootstrap() async {
     wallet.addListener(notifyListeners);
     await wallet.initialize();
     await refreshMarkets();
+    if (gasStationEnabled) {
+      gasStationReachable = await gasStation.checkHealth();
+    }
     if (wallet.isConnected) {
       await refreshWalletData();
     }
@@ -54,7 +84,27 @@ class AppController extends ChangeNotifier {
     loadingMarkets = true;
     notifyListeners();
     try {
-      markets = await rpc.fetchSeedMarkets();
+      final seeds = await rpc.fetchSeedMarkets();
+      if (indexerEnabled) {
+        indexerReachable = await indexer.checkHealth();
+        final rows =
+            indexerReachable ? await indexer.fetchMarkets() : <IndexerMarket>[];
+        final merged = await MarketCatalog.merge(
+          seeds: seeds,
+          indexerRows: rows,
+          rpc: rpc,
+        );
+        markets = merged.markets;
+        marketRefsByPoolId = merged.refsByPoolId;
+        marketSourceIsIndexer = merged.usedIndexer;
+      } else {
+        indexerReachable = false;
+        marketSourceIsIndexer = false;
+        markets = seeds;
+        marketRefsByPoolId = {
+          for (final s in seeds) s.poolId: MarketCatalog.seedToRef(s),
+        };
+      }
     } finally {
       loadingMarkets = false;
       notifyListeners();
@@ -73,8 +123,31 @@ class AppController extends ChangeNotifier {
       positions = await owned.fetchPositions(address);
       lpShares = await owned.fetchLpShares(address);
       marginAccounts = await owned.fetchMarginAccounts(address);
+      await _ensureMarketRefsForPositions();
     } finally {
       loadingWallet = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _ensureMarketRefsForPositions() async {
+    if (!indexerEnabled) return;
+    var updated = false;
+    for (final position in positions) {
+      final poolId = position.poolId;
+      if (poolId == null || poolId.isEmpty) continue;
+      if (MarketCatalog.findRefByPoolId(poolId, marketRefsByPoolId) != null) {
+        continue;
+      }
+      final row = await indexer.fetchMarket(poolId);
+      if (row == null) continue;
+      marketRefsByPoolId = {
+        ...marketRefsByPoolId,
+        row.poolId: MarketCatalog.indexerToRef(row),
+      };
+      updated = true;
+    }
+    if (updated) {
       notifyListeners();
     }
   }
@@ -95,6 +168,7 @@ class AppController extends ChangeNotifier {
   Future<void> submitChainTx(
     Future<PendingBuyTransaction> Function(String sender) build, {
     PhantomSubmitMode mode = PhantomSubmitMode.signAndSend,
+    bool preferGasStation = true,
   }) async {
     final address = wallet.address;
     if (address == null) {
@@ -103,10 +177,29 @@ class AppController extends ChangeNotifier {
       return;
     }
     try {
-      final pending = await build(address);
+      var pending = await build(address);
+      var submitMode = mode;
+
+      if (preferGasStation &&
+          gasStationEnabled &&
+          gasStationReachable &&
+          pending.transactionKindBase64 != null) {
+        try {
+          final sponsor = await gasStation.requestSponsor(
+            transactionKindBase64: pending.transactionKindBase64!,
+            sender: address,
+          );
+          pending = pending.withSponsor(sponsor);
+          submitMode = PhantomSubmitMode.signOnly;
+        } catch (e) {
+          lastTxMessage = 'Gas 赞助不可用，改用自付 Gas：$e';
+        }
+      }
+
       await wallet.submitTransaction(
         pending,
-        mode: mode,
+        sender: address,
+        mode: submitMode,
         onSuccess: (_) async {
           lastTxMessage = pending.description;
           await refreshWalletData();
@@ -126,7 +219,15 @@ class AppController extends ChangeNotifier {
     return trimmed.isEmpty ? '$major' : '$major.$trimmed';
   }
 
+  MarketRef? marketRefFor(String? poolId) {
+    return MarketCatalog.findRefByPoolId(poolId, marketRefsByPoolId);
+  }
+
   String poolLabelFor(String? poolId) {
+    final ref = marketRefFor(poolId);
+    if (ref != null && ref.title.isNotEmpty) {
+      return ref.title;
+    }
     if (poolId == null || poolId.isEmpty) {
       return '未知市场';
     }

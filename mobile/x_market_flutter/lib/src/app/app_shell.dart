@@ -3,6 +3,7 @@ import 'package:x_market_flutter/src/app/app_controller.dart';
 import 'package:x_market_flutter/src/screens/lp_screen.dart';
 import 'package:x_market_flutter/src/screens/margin_screen.dart';
 import 'package:x_market_flutter/src/screens/markets_screen.dart';
+import 'package:x_market_flutter/src/screens/prophet_screen.dart';
 import 'package:x_market_flutter/src/screens/positions_screen.dart';
 import 'package:x_market_flutter/src/screens/wallet_screen.dart';
 
@@ -24,6 +25,7 @@ class _AppShellState extends State<AppShell> {
       MarketsScreen(app: widget.app),
       PositionsScreen(app: widget.app),
       LpScreen(app: widget.app),
+      ProphetScreen(app: widget.app),
       MarginScreen(app: widget.app),
       WalletScreen(app: widget.app),
     ];
@@ -66,6 +68,11 @@ class _AppShellState extends State<AppShell> {
             icon: Icon(Icons.water_drop_outlined),
             selectedIcon: Icon(Icons.water_drop),
             label: 'LP',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.auto_awesome_outlined),
+            selectedIcon: Icon(Icons.auto_awesome),
+            label: 'Prophet',
           ),
           NavigationDestination(
             icon: Icon(Icons.security_outlined),

@@ -37,6 +37,7 @@ class PositionsScreen extends StatelessWidget {
                         itemBuilder: (context, index) {
                           final p = app.positions[index];
                           final poolId = p.poolId;
+                          final marketRef = app.marketRefFor(poolId);
                           final canClaim =
                               !p.claimed && poolId != null && poolId.isNotEmpty;
                           return Card(
@@ -46,12 +47,21 @@ class PositionsScreen extends StatelessWidget {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    p.kindLabel,
+                                    app.poolLabelFor(poolId),
                                     style:
                                         Theme.of(context).textTheme.titleSmall,
                                   ),
+                                  if (marketRef != null &&
+                                      marketRef.description.isNotEmpty)
+                                    Text(
+                                      marketRef.description,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style:
+                                          Theme.of(context).textTheme.bodySmall,
+                                    ),
                                   Text(
-                                    app.poolLabelFor(poolId),
+                                    '${p.kindLabel} · ${marketRef?.kind.toUpperCase() ?? '—'}',
                                     style:
                                         Theme.of(context).textTheme.labelLarge,
                                   ),

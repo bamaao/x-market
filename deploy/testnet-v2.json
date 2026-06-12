@@ -27,6 +27,11 @@
     "poisson_goals": {
       "lambdaTenths": 25,
       "poolId": "0xd06cc96ccceb7f974821613216388f1a63bee0c94af76946c7d405e62582bdfa"
+    },
+    "beta_vote": {
+      "alpha": 10,
+      "beta": 10,
+      "poolId": "0x4ef004ec7e21ce04c5a085ee45ac30309133b90f46e950a6a3dec3354c1018f6"
     }
   },
   "treasuryCapUsdc": "0xf1d2ae673044bee56c8c0342b6294274c57103648e5abba0266b8d65acdfcd95",
@@ -64,6 +69,13 @@
       "eventId": "POISSON_FEED",
       "poolId": "0xd06cc96ccceb7f974821613216388f1a63bee0c94af76946c7d405e62582bdfa",
       "eventRootId": "0x679c17fd7e8432acf06ba0ad1d02834ed7335582c23f22641aaf2a40b2f59824"
+    },
+    "beta_vote": {
+      "eventRootId": "0x86b99682c0046425fe4f38df382dda349acb16575076956718a27ffa39e48c29",
+      "feedId": "0x7b1b69e344f8b8e5656b01eb37f97697cb1c4a1b2b90d8a7e5c21ac1d56746cf",
+      "lockTime": 1783827038,
+      "poolId": "0x4ef004ec7e21ce04c5a085ee45ac30309133b90f46e950a6a3dec3354c1018f6",
+      "eventId": "BETA_FEED"
     }
   }
 }

@@ -39,6 +39,7 @@ dependencies:
     path: rust_builder
   sui: ^0.3.7
   url_launcher: ^6.3.2
+  pointycastle: ^3.7.3
 
 dev_dependencies:
   flutter_test:

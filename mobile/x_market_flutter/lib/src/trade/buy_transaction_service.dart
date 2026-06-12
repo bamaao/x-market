@@ -4,6 +4,7 @@ import 'package:sui/builder/transaction.dart';
 import 'package:sui/sui_client.dart';
 import 'package:sui/types/framework.dart';
 import 'package:sui/types/transactions.dart';
+import 'package:x_market_flutter/src/services/gas_station_service.dart';
 import 'package:x_market_flutter/src/sui_config.dart';
 
 class PendingBuyTransaction {
@@ -11,11 +12,31 @@ class PendingBuyTransaction {
     required this.txJson,
     required this.txBytesBase64,
     required this.description,
+    this.transactionKindBase64,
+    this.sponsorSignature,
+    this.gasOwner,
   });
 
   final String txJson;
   final String txBytesBase64;
   final String description;
+  final String? transactionKindBase64;
+  final String? sponsorSignature;
+  final String? gasOwner;
+
+  bool get isSponsored =>
+      sponsorSignature != null && sponsorSignature!.isNotEmpty;
+
+  PendingBuyTransaction withSponsor(SponsorResponse sponsor) {
+    return PendingBuyTransaction(
+      txJson: txJson,
+      txBytesBase64: sponsor.transactionBytes,
+      description: description,
+      transactionKindBase64: transactionKindBase64,
+      sponsorSignature: sponsor.sponsorSignature,
+      gasOwner: sponsor.gasOwner,
+    );
+  }
 }
 
 enum ContractMode {
@@ -175,6 +196,28 @@ class ChainTransactionService {
     required BuyParams params,
     required int stakeUsdcMist,
   }) async {
+    final assembled = await _assembleBuyTx(
+      sender: sender,
+      params: params,
+      stakeUsdcMist: stakeUsdcMist,
+    );
+    final kindBytes = await assembled.tx.build(
+      BuildOptions(client: _client, onlyTransactionKind: true),
+    );
+    final bytes = await assembled.tx.build(BuildOptions(client: _client));
+    return PendingBuyTransaction(
+      txJson: assembled.tx.toJson(),
+      txBytesBase64: base64Encode(bytes),
+      transactionKindBase64: base64Encode(kindBytes),
+      description: assembled.description,
+    );
+  }
+
+  Future<({Transaction tx, String description})> _assembleBuyTx({
+    required String sender,
+    required BuyParams params,
+    required int stakeUsdcMist,
+  }) async {
     params.validate();
     if (stakeUsdcMist <= 0) {
       throw Exception('金额须大于 0');
@@ -214,10 +257,8 @@ class ChainTransactionService {
     final payment = tx.splitCoins(tx.object(primary), [stake]);
     _appendBuyMoveCall(tx, payment, params);
 
-    final bytes = await tx.build(BuildOptions(client: _client));
-    return PendingBuyTransaction(
-      txJson: tx.toJson(),
-      txBytesBase64: base64Encode(bytes),
+    return (
+      tx: tx,
       description: _describeBuy(params, stakeUsdcMist),
     );
   }
@@ -417,10 +458,20 @@ class ChainTransactionService {
   Future<String> executeWithSignature({
     required String txBytesBase64,
     required String signature,
+  }) {
+    return executeWithSignatures(
+      txBytesBase64: txBytesBase64,
+      signatures: [signature],
+    );
+  }
+
+  Future<String> executeWithSignatures({
+    required String txBytesBase64,
+    required List<String> signatures,
   }) async {
     final result = await _client.executeTransactionBlock(
       txBytesBase64,
-      [signature],
+      signatures,
       options: SuiTransactionBlockResponseOptions(showEffects: true),
     );
     if (result.digest.isEmpty) {
@@ -616,10 +667,14 @@ class ChainTransactionService {
     final tx = Transaction();
     tx.setSender(sender);
     build(tx);
+    final kindBytes = await tx.build(
+      BuildOptions(client: _client, onlyTransactionKind: true),
+    );
     final bytes = await tx.build(BuildOptions(client: _client));
     return PendingBuyTransaction(
       txJson: tx.toJson(),
       txBytesBase64: base64Encode(bytes),
+      transactionKindBase64: base64Encode(kindBytes),
       description: description,
     );
   }
@@ -660,10 +715,14 @@ class ChainTransactionService {
     }
     final payment = tx.splitCoins(tx.object(primary), [stake]);
     build(tx, payment);
+    final kindBytes = await tx.build(
+      BuildOptions(client: _client, onlyTransactionKind: true),
+    );
     final bytes = await tx.build(BuildOptions(client: _client));
     return PendingBuyTransaction(
       txJson: tx.toJson(),
       txBytesBase64: base64Encode(bytes),
+      transactionKindBase64: base64Encode(kindBytes),
       description: description,
     );
   }

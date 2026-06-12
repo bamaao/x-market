@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:x_market_flutter/src/app/app_controller.dart';
+import 'package:x_market_flutter/src/models/pricing_models.dart';
 import 'package:x_market_flutter/src/models/sui_models.dart';
+import 'package:x_market_flutter/src/services/pricing_service.dart';
 import 'package:x_market_flutter/src/trade/buy_transaction_service.dart';
 
 class MarketDetailScreen extends StatefulWidget {
@@ -40,14 +44,82 @@ class _MarketDetailScreenState extends State<MarketDetailScreen>
   final _auctionAmount = TextEditingController(text: '5');
   final _auctionBucket = TextEditingController(text: '0');
 
+  QuotePreview? _quote;
+  bool _loadingQuote = false;
+  Timer? _quoteDebounce;
+
   @override
   void initState() {
     super.initState();
     _tabs = TabController(length: 3, vsync: this);
+    for (final controller in _quoteControllers) {
+      controller.addListener(_scheduleQuoteRefresh);
+    }
+    _scheduleQuoteRefresh();
+  }
+
+  List<TextEditingController> get _quoteControllers => [
+    _stake,
+    _poissonA,
+    _poissonB,
+    _poissonK,
+    _dirichletOutcome,
+    _betaA,
+    _betaB,
+    _normalA,
+    _normalB,
+    _normalThreshold,
+    _normalStrike,
+    _normalCap,
+    _normalLower,
+    _normalUpper,
+    _normalBarrier,
+  ];
+
+  void _scheduleQuoteRefresh() {
+    _quoteDebounce?.cancel();
+    _quoteDebounce = Timer(const Duration(milliseconds: 350), () {
+      unawaited(_refreshQuote());
+    });
+  }
+
+  Future<void> _refreshQuote() async {
+    if (!widget.app.pricingEnabled ||
+        !PricingService.supportsMarketKind(widget.market.kind)) {
+      if (mounted) setState(() => _quote = null);
+      return;
+    }
+    setState(() => _loadingQuote = true);
+    try {
+      final params = _buyParams();
+      final stake = widget.app.tx.parseUsdcAmount(_stake.text);
+      final quote = await widget.app.pricing.fetchQuotePreview(
+        market: widget.market,
+        params: params,
+        stakeUsdcMist: stake,
+      );
+      if (mounted) {
+        setState(() {
+          _quote = quote;
+          _loadingQuote = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _quote = null;
+          _loadingQuote = false;
+        });
+      }
+    }
   }
 
   @override
   void dispose() {
+    _quoteDebounce?.cancel();
+    for (final controller in _quoteControllers) {
+      controller.removeListener(_scheduleQuoteRefresh);
+    }
     _tabs.dispose();
     _stake.dispose();
     _poissonA.dispose();
@@ -139,6 +211,16 @@ class _MarketDetailScreenState extends State<MarketDetailScreen>
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        if (widget.app.gasStationEnabled)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(
+              widget.app.gasStationReachable
+                  ? 'Gas Station 已启用：交易 Gas 由赞助方代付（USDC 仍自付）'
+                  : 'Gas Station 离线：Gas 将从钱包 SUI 扣除',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
         if (kind == 'dirichlet')
           TextField(
             controller: _dirichletOutcome,
@@ -156,7 +238,10 @@ class _MarketDetailScreenState extends State<MarketDetailScreen>
                   (m) => DropdownMenuItem(value: m, child: Text(m.label)),
                 )
                 .toList(),
-            onChanged: (v) => setState(() => _mode = v ?? _mode),
+            onChanged: (v) {
+              setState(() => _mode = v ?? _mode);
+              _scheduleQuoteRefresh();
+            },
           ),
         const SizedBox(height: 12),
         ..._paramFields(kind),
@@ -165,10 +250,14 @@ class _MarketDetailScreenState extends State<MarketDetailScreen>
           decoration: const InputDecoration(labelText: 'Stake (USDC)'),
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
         ),
+        const SizedBox(height: 12),
+        _QuotePreviewPanel(quote: _quote, loading: _loadingQuote, kind: kind),
         const SizedBox(height: 16),
         FilledButton(
           onPressed: widget.app.wallet.busy ? null : _buy,
-          child: const Text('Phantom 签名并买入'),
+          child: Text(
+            widget.app.gasStationReachable ? 'Phantom 签名并买入（Gas 赞助）' : 'Phantom 签名并买入',
+          ),
         ),
       ],
     );
@@ -394,6 +483,48 @@ class _MarketDetailScreenState extends State<MarketDetailScreen>
                 ),
           child: const Text('定标 finalize_auction'),
         ),
+      ],
+    );
+  }
+}
+
+class _QuotePreviewPanel extends StatelessWidget {
+  const _QuotePreviewPanel({
+    required this.quote,
+    required this.loading,
+    required this.kind,
+  });
+
+  final QuotePreview? quote;
+  final bool loading;
+  final String kind;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!PricingService.supportsMarketKind(kind)) {
+      return Text(
+        '定价预览：Beta / exotic 合约暂不支持 Pricing Engine',
+        style: Theme.of(context).textTheme.bodySmall,
+      );
+    }
+    if (loading) {
+      return const LinearProgressIndicator(minHeight: 2);
+    }
+    if (quote == null) {
+      return Text(
+        '定价预览不可用（Pricing Engine 离线或未配置）',
+        style: Theme.of(context).textTheme.bodySmall,
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('定价预览（链下估算）', style: Theme.of(context).textTheme.labelLarge),
+        Text('胜率约 ${quote!.entryProbPercent.toStringAsFixed(2)}%'),
+        Text(
+          '命中兑付约 ${AppController.formatUsdc(quote!.payoutUsdcMist)} USDC',
+        ),
+        Text('隐含 ROI ${(quote!.impliedRoiBps / 100).toStringAsFixed(2)}%'),
       ],
     );
   }

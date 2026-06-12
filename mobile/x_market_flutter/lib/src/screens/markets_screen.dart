@@ -19,6 +19,13 @@ class MarketsScreen extends StatelessWidget {
           child: CustomScrollView(
             slivers: [
               SliverToBoxAdapter(child: ConnectBanner(app: app)),
+              if (app.indexerEnabled)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: _IndexerSourceBadge(app: app),
+                  ),
+                ),
               SliverPadding(
                 padding: const EdgeInsets.all(16),
                 sliver: app.loadingMarkets && app.markets.isEmpty
@@ -50,6 +57,40 @@ class MarketsScreen extends StatelessWidget {
   }
 }
 
+class _IndexerSourceBadge extends StatelessWidget {
+  const _IndexerSourceBadge({required this.app});
+
+  final AppController app;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final online = app.indexerReachable;
+    final label = !online
+        ? 'Indexer 离线 · 使用种子池配置'
+        : app.marketSourceIsIndexer
+        ? 'Indexer API 实时同步'
+        : '种子池配置（Indexer 无匹配元数据）';
+
+    return Row(
+      children: [
+        Icon(
+          Icons.circle,
+          size: 10,
+          color: online ? colorScheme.primary : colorScheme.outline,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _MarketCard extends StatelessWidget {
   const _MarketCard({required this.market, required this.onTap});
 
@@ -71,8 +112,33 @@ class _MarketCard extends StatelessWidget {
                 market.label,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
+              if (market.description != null && market.description!.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  market.description!,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
               const SizedBox(height: 4),
               Text('${market.kind.toUpperCase()} · ${market.statusLabel}'),
+              if (market.tags.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    for (final tag in market.tags.take(4))
+                      Chip(
+                        label: Text(tag),
+                        visualDensity: VisualDensity.compact,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        padding: EdgeInsets.zero,
+                      ),
+                  ],
+                ),
+              ],
               Text(
                 '抵押 ${AppController.formatUsdc(market.collateralUsdc)} USDC · fee ${market.feeBps} bps',
                 style: Theme.of(context).textTheme.bodySmall,

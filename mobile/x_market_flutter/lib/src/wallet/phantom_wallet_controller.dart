@@ -35,6 +35,9 @@ class PhantomWalletController extends ChangeNotifier {
 
   String? _pendingTxBytesBase64;
   String? _pendingDescription;
+  String? _pendingSender;
+  String? _pendingSponsorSignature;
+  String? _pendingGasOwner;
   bool _expectingBuySign = false;
   bool _expectingSignAndSend = false;
   Future<void> Function(String digest)? _onSuccess;
@@ -96,6 +99,7 @@ class PhantomWalletController extends ChangeNotifier {
 
   Future<void> submitTransaction(
     PendingBuyTransaction pending, {
+    required String sender,
     PhantomSubmitMode mode = PhantomSubmitMode.signAndSend,
     Future<void> Function(String digest)? onSuccess,
   }) async {
@@ -139,8 +143,12 @@ class PhantomWalletController extends ChangeNotifier {
             );
       _pendingTxBytesBase64 = pending.txBytesBase64;
       _pendingDescription = pending.description;
+      _pendingSender = sender;
+      _pendingSponsorSignature = pending.sponsorSignature;
+      _pendingGasOwner = pending.gasOwner;
       _expectingBuySign = true;
-      _expectingSignAndSend = mode == PhantomSubmitMode.signAndSend;
+      _expectingSignAndSend =
+          mode == PhantomSubmitMode.signAndSend && !pending.isSponsored;
       statusMessage = '等待 Phantom 确认: ${pending.description} (${_pendingDescription ?? pending.description})';
       notifyListeners();
       await _openExternal(deeplink);
@@ -252,9 +260,20 @@ class PhantomWalletController extends ChangeNotifier {
     }
     String digest;
     if (signature != null && signature.isNotEmpty) {
-      digest = await _tx.executeWithSignature(
+      final signatures = <String>[signature];
+      final sponsor = _pendingSponsorSignature;
+      final gasOwner = _pendingGasOwner;
+      final sender = _pendingSender;
+      if (sponsor != null &&
+          sponsor.isNotEmpty &&
+          gasOwner != null &&
+          sender != null &&
+          gasOwner.toLowerCase() != sender.toLowerCase()) {
+        signatures.add(sponsor);
+      }
+      digest = await _tx.executeWithSignatures(
         txBytesBase64: pending,
-        signature: signature,
+        signatures: signatures,
       );
     } else if (signedTxB58 != null && signedTxB58.isNotEmpty) {
       final signedBytesB64 = base58ToBase64(inputB58: signedTxB58);
@@ -270,6 +289,9 @@ class PhantomWalletController extends ChangeNotifier {
   void _clearPending() {
     _pendingTxBytesBase64 = null;
     _pendingDescription = null;
+    _pendingSender = null;
+    _pendingSponsorSignature = null;
+    _pendingGasOwner = null;
     _expectingBuySign = false;
     _expectingSignAndSend = false;
     _onSuccess = null;

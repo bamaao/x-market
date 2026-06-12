@@ -12,6 +12,9 @@ class MarketPoolSnapshot {
     this.muTenths,
     this.sigmaTenths,
     this.dirichletLen,
+    this.description,
+    this.slug,
+    this.tags = const [],
   });
 
   final String poolId;
@@ -26,6 +29,9 @@ class MarketPoolSnapshot {
   final int? muTenths;
   final int? sigmaTenths;
   final int? dirichletLen;
+  final String? description;
+  final String? slug;
+  final List<String> tags;
 
   String get statusLabel {
     switch (status) {

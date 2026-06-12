@@ -24,8 +24,11 @@ if ($deploy.seedMarkets) {
     poisson_goals = @{ label = "足球总进球 · Poisson"; kind = "poisson" }
     dirichlet_wdl = @{ label = "胜平负 · Dirichlet"; kind = "dirichlet" }
     normal_cpi    = @{ label = "CPI 区间 · Normal"; kind = "normal" }
+    beta_vote     = @{ label = "得票率 · Beta"; kind = "beta" }
   }
-  foreach ($key in $deploy.seedMarkets.PSObject.Properties.Name) {
+  $order = @("poisson_goals", "dirichlet_wdl", "normal_cpi", "beta_vote")
+  foreach ($key in $order) {
+    if (-not $deploy.seedMarkets.$key) { continue }
     $s = $deploy.seedMarkets.$key
     $m = $meta[$key]
     if (-not $m) { continue }
@@ -51,6 +54,12 @@ class SuiConfig {
   static const String oracleConfigId = '$($deploy.oracle.oracleConfigId)';
   static const String gasStationUrl = 'http://localhost:8787';
   static const String indexerUrl = 'http://localhost:8800';
+  static const String pricingEngineUrl = 'http://localhost:8801';
+  static const String walrusPublisherUrl =
+      'https://publisher.walrus-testnet.walrus.space';
+  static const String walrusAggregatorUrl =
+      'https://aggregator.walrus-testnet.walrus.space';
+  static const int walrusEpochs = 2;
 
   static const List<SeedPool> seedPools = [
 $poolBlock
@@ -67,5 +76,6 @@ class SeedPool {
 "@
 
 $out = Join-Path $root "mobile/x_market_flutter/lib/src/sui_config.dart"
-Set-Content -Path $out -Value $dart.Trim() -Encoding UTF8
+$utf8NoBom = New-Object System.Text.UTF8Encoding $false
+[System.IO.File]::WriteAllText($out, $dart.Trim(), $utf8NoBom)
 Write-Host "Wrote $out ($Network)"
