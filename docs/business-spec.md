@@ -977,6 +977,7 @@ submit_proof → verify/attest → [challenge 3600s] → finalize_verification
 | [demo-walkthrough.md](./demo-walkthrough.md) | 路演演示路线 |
 | [oracle-playbook.md](./oracle-playbook.md) | Oracle 运维 |
 | [prophet-playbook.md](./prophet-playbook.md) | Prophet 运维 |
+| [prophet-market-and-encryption-guide.md](./prophet-market-and-encryption-guide.md) | 创建市场 + 公开/加密预测操作指南 |
 
 ---
 
@@ -984,5 +985,6 @@ submit_proof → verify/attest → [challenge 3600s] → finalize_verification
 
 | 日期 | 版本 | 说明 |
 | --- | --- | --- |
+| 2026-06-12 | v1.2 | 新增 [prophet-market-and-encryption-guide.md](./prophet-market-and-encryption-guide.md)：创建市场与加密预测操作指南 |
 | 2026-06-11 | v1.1 | 重定位 SuiProphet：预言家筛选为主线，知识付费为优秀预言家特权 |
 | 2026-06-11 | v1.0 | 初版：业务事件目录、10 大流程、用例、交互界面/事件/时序 |

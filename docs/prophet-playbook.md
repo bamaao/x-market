@@ -2,6 +2,8 @@
 
 知识付费预言模块（PRD §11）。共用 L0 Oracle 结算，不另建 Feed。
 
+> **操作指南：** 创建市场 + 公开/加密预测全流程见 [prophet-market-and-encryption-guide.md](./prophet-market-and-encryption-guide.md)。
+
 ## 架构
 
 ```
