@@ -1,4 +1,5 @@
 import { MARKET_COVER_BY_ID, resolveMarketImageUrl } from "./market-media";
+import { tagsForSeedMarket } from "./market-tags";
 import type { MarketRef } from "./position-display";
 
 /** Phase 1 Testnet 种子市场（PRD §6） */
@@ -11,6 +12,8 @@ export interface SeedMarket {
   kind: MarketKind;
   /** CDN / public path cover (P2 off-chain metadata) */
   imageUrl?: string;
+  /** Off-chain theme tags (P4) */
+  tags?: string[];
   /** `create_*` 参数说明 */
   params: Record<string, string | number>;
 }
@@ -27,6 +30,7 @@ export const SEED_MARKETS: SeedMarket[] = [
     description: "λ≈2.5，区间 [2,3] 与大球尾部；链上 Tier-1 Poisson PMF。",
     kind: "poisson",
     imageUrl: MARKET_COVER_BY_ID["poisson-goals"],
+    tags: tagsForSeedMarket("poisson-goals"),
     params: {
       lambda_tenths: 25,
       fee_bps: 30,
@@ -39,6 +43,7 @@ export const SEED_MARKETS: SeedMarket[] = [
     description: "三分类先验 α=[10,10,10]；买入主胜/平局/客胜。",
     kind: "dirichlet",
     imageUrl: MARKET_COVER_BY_ID["dirichlet-wdl"],
+    tags: tagsForSeedMarket("dirichlet-wdl"),
     params: {
       alpha0: 10,
       alpha1: 10,
@@ -53,6 +58,7 @@ export const SEED_MARKETS: SeedMarket[] = [
     description: "μ=2.5%、σ=0.4%（tenths）；宏观区间与数字期权。",
     kind: "normal",
     imageUrl: MARKET_COVER_BY_ID["normal-cpi"],
+    tags: tagsForSeedMarket("normal-cpi"),
     params: {
       mu_tenths: 25,
       sigma_tenths: 4,
@@ -66,6 +72,7 @@ export const SEED_MARKETS: SeedMarket[] = [
     description: "α=β=10 先验；链上 Beta CDF 区间买入（如 35%–40%）。",
     kind: "beta",
     imageUrl: MARKET_COVER_BY_ID["beta-vote"],
+    tags: tagsForSeedMarket("beta-vote"),
     params: {
       alpha: 10,
       beta: 10,
@@ -94,6 +101,7 @@ export function indexerMarketToSeed(m: {
   description: string;
   kind: string;
   image_url?: string | null;
+  tags?: string[] | null;
   fee_bps: number;
   lambda_tenths?: number | null;
   mu_tenths?: number | null;
@@ -110,6 +118,7 @@ export function indexerMarketToSeed(m: {
       slug: m.slug,
       imageUrl: m.image_url,
     }),
+    tags: tagsForSeedMarket(id, m.tags),
     params: {
       poolId: m.pool_id,
       fee_bps: m.fee_bps,

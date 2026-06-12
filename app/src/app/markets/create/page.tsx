@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -26,6 +26,9 @@ import {
   resolveFeedRegistryId,
 } from "@/lib/oracle";
 import { uploadBlobToWalrus } from "@/lib/walrus";
+import { MarketTagPicker } from "@/components/MarketTagList";
+import { catalogTagsForPicker, normalizeTagSlugs } from "@/lib/market-tags";
+import { fetchIndexerTags, indexerEnabled } from "@/lib/indexer";
 
 const KIND_OPTIONS: { value: MarketKind; label: string }[] = [
   { value: "poisson", label: "Poisson" },
@@ -63,6 +66,8 @@ export default function CreateMarketPage() {
   const [sigmaTenths, setSigmaTenths] = useState("4");
   const [betaAlpha, setBetaAlpha] = useState("10");
   const [betaBeta, setBetaBeta] = useState("10");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [tagOptions, setTagOptions] = useState(catalogTagsForPicker());
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -70,6 +75,17 @@ export default function CreateMarketPage() {
 
   const effectiveSlug = slug.trim() || slugifyTitle(title);
   const effectiveFeedId = feedIdentifier.trim() || effectiveSlug;
+
+  useEffect(() => {
+    if (!indexerEnabled()) return;
+    void fetchIndexerTags().then((rows) => {
+      if (rows.length) {
+        setTagOptions(
+          rows.map((t) => ({ slug: t.slug, label: t.label })),
+        );
+      }
+    });
+  }, []);
 
   const params: CreateMarketParams = useMemo(
     () => ({
@@ -89,6 +105,7 @@ export default function CreateMarketPage() {
       sigmaTenths: Number(sigmaTenths),
       betaAlpha: Number(betaAlpha),
       betaBeta: Number(betaBeta),
+      tags: normalizeTagSlugs(selectedTags),
     }),
     [
       title,
@@ -107,6 +124,7 @@ export default function CreateMarketPage() {
       sigmaTenths,
       betaAlpha,
       betaBeta,
+      selectedTags,
     ],
   );
 
@@ -207,6 +225,7 @@ export default function CreateMarketPage() {
                 mu_tenths: params.kind === "normal" ? (params.muTenths ?? null) : null,
                 sigma_tenths:
                   params.kind === "normal" ? (params.sigmaTenths ?? null) : null,
+                tags: params.tags,
               });
 
               if (!reg.ok) {
@@ -287,6 +306,14 @@ export default function CreateMarketPage() {
             placeholder={effectiveSlug || "auto-from-title"}
           />
           <p className="hint">访问路径：/markets/{effectiveSlug || "…"}</p>
+
+          <label>主题（可多选）</label>
+          <MarketTagPicker
+            selected={selectedTags}
+            onChange={setSelectedTags}
+            options={tagOptions}
+          />
+          <p className="hint">主题用于发现与筛选，与分布类型（kind）无关；可多选。</p>
 
           <label htmlFor="kind">分布类型</label>
           <select

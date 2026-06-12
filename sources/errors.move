@@ -47,6 +47,7 @@ const E_INVALID_HASH_LEN: u64 = 45;
 const E_MARKET_ALREADY_RESOLVED: u64 = 46;
 const E_SEAL_ID_MISMATCH: u64 = 47;
 const E_PROPHET_NOT_PAID_ELIGIBLE: u64 = 48;
+const E_PUBLIC_NO_UNLOCK: u64 = 54;
 const E_EVENT_ROOT_EMPTY_ID: u64 = 49;
 const E_EVENT_ROOT_ALREADY_LINKED: u64 = 50;
 const E_UMA_ADAPTER_ONLY_RELAYER: u64 = 51;
@@ -99,6 +100,7 @@ public fun invalid_hash_len(): u64 { E_INVALID_HASH_LEN }
 public fun market_already_resolved(): u64 { E_MARKET_ALREADY_RESOLVED }
 public fun seal_id_mismatch(): u64 { E_SEAL_ID_MISMATCH }
 public fun prophet_not_paid_eligible(): u64 { E_PROPHET_NOT_PAID_ELIGIBLE }
+public fun public_prophecy_no_unlock(): u64 { E_PUBLIC_NO_UNLOCK }
 public fun event_root_empty_id(): u64 { E_EVENT_ROOT_EMPTY_ID }
 public fun event_root_already_linked(): u64 { E_EVENT_ROOT_ALREADY_LINKED }
 public fun uma_adapter_only_relayer(): u64 { E_UMA_ADAPTER_ONLY_RELAYER }

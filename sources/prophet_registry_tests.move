@@ -38,9 +38,14 @@ fun blob_and_hash_bounds() {
 
 #[test]
 fun seal_access_policy() {
-    // Documented OR: public > paid > lock_time (tested via pure helper inputs in future e2e).
     assert!(prophet_registry::is_valid_seal_id_len(32), 0);
     assert!(!prophet_registry::is_valid_seal_id_len(31), 1);
+    assert!(prophet_registry::is_public_at_commit(0), 2);
+    assert!(!prophet_registry::is_public_at_commit(1), 3);
+    assert!(prophet_registry::is_valid_seal_id_for_commit(0, 0), 4);
+    assert!(!prophet_registry::is_valid_seal_id_for_commit(0, 32), 5);
+    assert!(prophet_registry::is_valid_seal_id_for_commit(100, 32), 6);
+    assert!(!prophet_registry::is_valid_seal_id_for_commit(100, 0), 7);
 }
 
 #[test]

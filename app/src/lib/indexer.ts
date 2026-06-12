@@ -30,6 +30,7 @@ export interface IndexerMarket {
   description: string;
   kind: string;
   image_url?: string | null;
+  tags?: string[];
   package_id: string;
   fee_bps: number;
   maturity_ts: string;
@@ -90,9 +91,32 @@ export interface IndexerArbitrationCase {
   expires_at: string;
 }
 
-export async function fetchIndexerMarkets(): Promise<IndexerMarket[]> {
-  const data = await getJson<{ markets: IndexerMarket[] }>("/v1/markets");
+export interface IndexerTag {
+  slug: string;
+  label: string;
+  parent_slug: string | null;
+  sort_order: number;
+}
+
+export async function fetchIndexerMarkets(params?: {
+  tag?: string;
+  kind?: string;
+  q?: string;
+}): Promise<IndexerMarket[]> {
+  const q = new URLSearchParams();
+  if (params?.tag) q.set("tag", params.tag);
+  if (params?.kind) q.set("kind", params.kind);
+  if (params?.q) q.set("q", params.q);
+  const qs = q.toString();
+  const data = await getJson<{ markets: IndexerMarket[] }>(
+    `/v1/markets${qs ? `?${qs}` : ""}`,
+  );
   return data?.markets ?? [];
+}
+
+export async function fetchIndexerTags(): Promise<IndexerTag[]> {
+  const data = await getJson<{ tags: IndexerTag[] }>("/v1/tags");
+  return data?.tags ?? [];
 }
 
 export async function fetchIndexerMarket(poolId: string): Promise<IndexerMarket | null> {
@@ -116,6 +140,7 @@ export interface RegisterMarketPayload {
   lambda_tenths?: number | null;
   mu_tenths?: number | null;
   sigma_tenths?: number | null;
+  tags?: string[];
 }
 
 export async function registerMarketMetadata(

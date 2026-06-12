@@ -27,6 +27,7 @@ export interface CreateMarketParams {
   sigmaTenths?: number;
   betaAlpha?: number;
   betaBeta?: number;
+  tags?: string[];
 }
 
 export function slugifyTitle(title: string): string {
@@ -163,6 +164,7 @@ export function paramsToSeedMarket(
     description: params.description.trim(),
     kind: params.kind,
     imageUrl,
+    tags: params.tags?.length ? [...params.tags] : undefined,
     params: {
       poolId,
       fee_bps: params.feeBps,

@@ -81,7 +81,27 @@ export async function resolveAuditPlaintext(
     return fromIndexer;
   }
 
-  if (!isWalrusBlobId(prophecy.blobId) || !prophecy.sealIdHex) {
+  if (!isWalrusBlobId(prophecy.blobId)) {
+    return null;
+  }
+
+  const isPublic =
+    prophecy.unlockPrice === 0n || prophecy.isPublic;
+  if (isPublic && !prophecy.sealIdHex) {
+    const raw = await readWalrusBlob(config, prophecy.blobId);
+    if (!raw?.length) return null;
+    try {
+      const json = new TextDecoder().decode(raw);
+      if (!isValidProphecyJson(json) || !hashMatches(json, prophecy)) {
+        return null;
+      }
+      return json;
+    } catch {
+      return null;
+    }
+  }
+
+  if (!prophecy.sealIdHex) {
     return null;
   }
   if (nowSec < prophecy.lockTime && !prophecy.isPublic) {

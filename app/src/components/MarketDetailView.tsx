@@ -7,6 +7,7 @@ import { IvPanel } from "@/components/IvPanel";
 import { LpDepositPanel } from "@/components/LpDepositPanel";
 import { TradePanel } from "@/components/TradePanel";
 import { MarketCover } from "@/components/MarketCover";
+import { MarketTagList } from "@/components/MarketTagList";
 import { resolveMarketById } from "@/lib/market-catalog";
 import type { SeedMarket } from "@/lib/markets";
 
@@ -62,6 +63,7 @@ export function MarketDetailView({ id }: Props) {
         <span className={`badge badge-${market.kind}`}>
           {KIND_LABELS[market.kind] ?? market.kind}
         </span>
+        <MarketTagList tags={market.tags} className="market-header-tags" />
         <h1>{market.title}</h1>
         <p className="sub" style={{ marginBottom: 0 }}>
           {market.description}

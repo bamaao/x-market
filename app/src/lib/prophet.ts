@@ -145,17 +145,32 @@ export function testnetBlobId(hashHex: string): string {
   return `testnet:local:${hashHex.slice(0, 16)}`;
 }
 
-/** Matches on-chain `seal_access_allowed` (paid OR is_public OR past lock_time). */
+/** Non-paid prophecies (unlock_price = 0) are public at commit; paid ones may become public after audit. */
+export function isPublicProphecy(prophecy: ProphecyView): boolean {
+  return prophecy.unlockPrice === 0n || prophecy.isPublic;
+}
+
+/** Whether the viewer may read prophecy content (public blob or Seal-gated private). */
+export function canReadProphecyContent(
+  prophecy: ProphecyView,
+  viewer: string | undefined,
+  nowSec: number,
+): boolean {
+  if (!isWalrusBlobId(prophecy.blobId)) return false;
+  if (isPublicProphecy(prophecy)) return true;
+  if (prophecy.sealIdHex.length !== 64) return false;
+  if (prophecy.isPublic) return true;
+  if (viewer && prophecy.paidBuyers.includes(viewer)) return true;
+  return nowSec > prophecy.lockTime;
+}
+
+/** @deprecated Use canReadProphecyContent — kept for call-site compatibility. */
 export function canSealDecryptProphecy(
   prophecy: ProphecyView,
   viewer: string | undefined,
   nowSec: number,
 ): boolean {
-  if (prophecy.sealIdHex.length !== 64) return false;
-  if (!isWalrusBlobId(prophecy.blobId)) return false;
-  if (prophecy.isPublic) return true;
-  if (viewer && prophecy.paidBuyers.includes(viewer)) return true;
-  return nowSec > prophecy.lockTime;
+  return canReadProphecyContent(prophecy, viewer, nowSec);
 }
 
 export function deriveProphetWorkflowStep(params: {
@@ -728,16 +743,60 @@ export interface DecryptedProphecyContent {
   payload: ProphecyPayload;
 }
 
+function parseProphecyPlaintextJson(json: string): DecryptedProphecyContent {
+  const parsed = JSON.parse(json) as ProphecyPayload & {
+    analysis_content?: string;
+  };
+  return {
+    json,
+    analysis: parsed.analysis_content ?? "",
+    payload: {
+      market_id: parsed.market_id,
+      predicted_value: parsed.predicted_value,
+      analysis_content: parsed.analysis_content ?? "",
+    },
+  };
+}
+
+/** Fetch prophecy body when publicly readable (no wallet / Seal required). */
+export async function fetchPublicProphecyContent(
+  prophecy: ProphecyView,
+): Promise<DecryptedProphecyContent | null> {
+  if (!isPublicProphecy(prophecy) || !isWalrusBlobId(prophecy.blobId)) {
+    return null;
+  }
+  if (prophecy.sealIdHex.length === 0) {
+    try {
+      return await readPublicProphecyContent(prophecy);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+/** Read plaintext JSON from Walrus (public / free prophecies). */
+export async function readPublicProphecyContent(
+  prophecy: ProphecyView,
+): Promise<DecryptedProphecyContent> {
+  const bytes = await readBlobFromWalrus(prophecy.blobId);
+  const json = new TextDecoder().decode(bytes);
+  return parseProphecyPlaintextJson(json);
+}
+
 export async function decryptProphecyContent(
   prophecy: ProphecyView,
   accountAddress: string,
   signPersonalMessage: (message: Uint8Array) => Promise<string>,
   nowSec: number = Math.floor(Date.now() / 1000),
 ): Promise<DecryptedProphecyContent> {
-  if (!canSealDecryptProphecy(prophecy, accountAddress, nowSec)) {
+  if (!canReadProphecyContent(prophecy, accountAddress, nowSec)) {
     throw new Error(
-      "尚未满足 Seal 解密条件：请先 unlock_prophecy，或等待 lock_time / is_public",
+      "尚未满足阅读条件：公开预测可直接读取；私密预测须 unlock 或等待 lock_time",
     );
+  }
+  if (isPublicProphecy(prophecy) && prophecy.sealIdHex.length === 0) {
+    return readPublicProphecyContent(prophecy);
   }
   const sealId = new Uint8Array(hexToBytes(prophecy.sealIdHex));
   const encrypted = await readBlobFromWalrus(prophecy.blobId);
@@ -753,18 +812,7 @@ export async function decryptProphecyContent(
     accountAddress,
   );
   const json = new TextDecoder().decode(plain);
-  const parsed = JSON.parse(json) as ProphecyPayload & {
-    analysis_content?: string;
-  };
-  return {
-    json,
-    analysis: parsed.analysis_content ?? "",
-    payload: {
-      market_id: parsed.market_id,
-      predicted_value: parsed.predicted_value,
-      analysis_content: parsed.analysis_content ?? "",
-    },
-  };
+  return parseProphecyPlaintextJson(json);
 }
 
 export function loadStoredProphecyPlaintext(sealIdHex: string): string | null {

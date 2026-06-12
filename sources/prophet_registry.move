@@ -109,6 +109,19 @@ public fun is_valid_seal_id_len(len: u64): bool {
     len == SEAL_ID_LEN
 }
 
+/// Free/public prophecies (unlock_price = 0) skip Seal; paid prophecies require seal_id.
+public fun is_public_at_commit(unlock_price: u64): bool {
+    unlock_price == 0
+}
+
+public fun is_valid_seal_id_for_commit(unlock_price: u64, len: u64): bool {
+    if (is_public_at_commit(unlock_price)) {
+        len == 0
+    } else {
+        is_valid_seal_id_len(len)
+    }
+}
+
 /// Seal OR policy (PRD §11.2): paid_buyer OR lock_time passed OR is_public.
 public fun seal_access_allowed(
     prophecy: &PrivateProphecy,
@@ -186,12 +199,13 @@ public entry fun commit_private_prophecy(
     if (!is_valid_plaintext_hash_len(vector::length(&plaintext_hash))) {
         abort errors::invalid_hash_len()
     };
-    if (!is_valid_seal_id_len(vector::length(&seal_id))) {
+    if (!is_valid_seal_id_for_commit(unlock_price, vector::length(&seal_id))) {
         abort errors::invalid_hash_len()
     };
     if (unlock_price > 0) {
         assert_paid_unlock_eligible(registry, ctx.sender());
     };
+    let is_public = is_public_at_commit(unlock_price);
     let maturity = market_pool::maturity_ts(pool);
     if (lock_time != maturity) {
         abort errors::out_of_bounds()
@@ -211,7 +225,7 @@ public entry fun commit_private_prophecy(
         paid_buyers: vector[],
         escrow: balance::zero(),
         status: PROPHECY_OPEN,
-        is_public: false,
+        is_public,
         unlock_count: 0,
     };
     let prophecy_id = object::id(&prophecy);
@@ -242,6 +256,9 @@ public entry fun unlock_prophecy(
     clock: &Clock,
     ctx: &mut TxContext,
 ) {
+    if (prophecy.unlock_price == 0) {
+        abort errors::public_prophecy_no_unlock()
+    };
     let now = clock::timestamp_ms(clock) / 1000;
     let buyer = ctx.sender();
     let already = vector::contains(&prophecy.paid_buyers, &buyer);
@@ -475,6 +492,10 @@ public fun unlock_price(prophecy: &PrivateProphecy): u64 {
 
 public fun lock_time(prophecy: &PrivateProphecy): u64 {
     prophecy.lock_time
+}
+
+public fun is_public(prophecy: &PrivateProphecy): bool {
+    prophecy.is_public
 }
 
 public fun market_id(prophecy: &PrivateProphecy): ID {

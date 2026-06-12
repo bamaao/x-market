@@ -2,6 +2,7 @@ import type { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
 import type { IndexerConfig } from "../config.js";
 import { seedMarketMeta } from "../config.js";
 import { query } from "../db.js";
+import { SEED_MARKET_TAGS, syncMarketTags } from "../market-tags.js";
 import {
   kindFromCode,
   parseMoveFields,
@@ -106,6 +107,11 @@ export async function seedMarketsFromDeploy(
         feedId,
       ],
     );
+
+    const tagSlugs = SEED_MARKET_TAGS[meta.slug] ?? [];
+    if (tagSlugs.length) {
+      await syncMarketTags(config.databaseUrl, poolId, tagSlugs);
+    }
 
     if (feedId) {
       const feedObj = await client.getObject({

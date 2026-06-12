@@ -14,7 +14,6 @@ import Link from "next/link";
 import { Transaction } from "@mysten/sui/transactions";
 import {
   PROPHET_FLOW_STEPS,
-  PROPHET_MARKETS,
   PROPHET_REGISTRY_ID,
   PROPHECY_STATUS_CHEAT,
   PROPHECY_STATUS_OPEN,
@@ -36,11 +35,13 @@ import {
   fetchProphetRegistry,
   fetchProphetStats,
   fetchProphecy,
+  fetchPublicProphecyContent,
   formatAccuracyPercent,
   formatScorePercent,
   formatUsdcBaseUnits,
   hashProphecyPlaintext,
   isPaidUnlockEligible,
+  isPublicProphecy,
   loadStoredProphecyPlaintext,
   MIN_AUDITED_FOR_PAID,
   MIN_SCORE_BPS_FOR_PAID,
@@ -64,6 +65,13 @@ import {
 } from "@/lib/seal-prophet";
 import { uploadBlobToWalrus } from "@/lib/walrus";
 import { PageHeader } from "@/components/PageHeader";
+import { ProphetMarketPicker } from "@/components/ProphetMarketPicker";
+import {
+  assessProphetMarketEligibility,
+  parsePoolSnapshotFromFields,
+  PROPHET_UNLOCK_CUTOFF_SECS,
+  type ProphetPoolOption,
+} from "@/lib/prophet-market-eligibility";
 
 function parseMoveFields(content: unknown): Record<string, unknown> | undefined {
   if (!content || typeof content !== "object") return undefined;
@@ -72,7 +80,7 @@ function parseMoveFields(content: unknown): Record<string, unknown> | undefined 
   return undefined;
 }
 
-const UNLOCK_CUTOFF_SECS = 300;
+const UNLOCK_CUTOFF_SECS = PROPHET_UNLOCK_CUTOFF_SECS;
 
 function flowStepIndex(step: ProphetWorkflowStep): number {
   switch (step) {
@@ -101,8 +109,10 @@ export default function ProphetPage() {
   } = useSponsoredTransaction();
   const isPending = walletPending || sponsorPending;
   const { mutateAsync: signPersonalMessage } = useSignPersonalMessage();
-  const markets = PROPHET_MARKETS.filter((m) => m.poolId);
-  const [poolId, setPoolId] = useState(markets[0]?.poolId ?? "");
+  const [selectedMarket, setSelectedMarket] = useState<ProphetPoolOption | null>(
+    null,
+  );
+  const [poolId, setPoolId] = useState("");
   const [prophecyIds, setProphecyIds] = useState<string[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [loadingList, setLoadingList] = useState(false);
@@ -123,7 +133,25 @@ export default function ProphetPage() {
   );
   const [myStats, setMyStats] = useState<ProphetStatsView | null>(null);
 
-  const market = markets.find((m) => m.poolId === poolId);
+  const market = selectedMarket?.market ?? null;
+
+  const handlePoolSelect = useCallback((option: ProphetPoolOption | null) => {
+    const nextPoolId = option?.poolId ?? "";
+    setPoolId((prev) => (prev === nextPoolId ? prev : nextPoolId));
+    setSelectedMarket((prev) => {
+      if (!option && !prev) return prev;
+      if (option && prev?.poolId === option.poolId) return prev;
+      return option;
+    });
+    if (!nextPoolId) {
+      setProphecyIds([]);
+      setSelectedId("");
+      setDecryptedAnalysis(null);
+      setStoredPlaintext("");
+      setProphetStats(null);
+      setMsg(null);
+    }
+  }, []);
 
   useEffect(() => {
     const id = setInterval(() => setNowSec(Math.floor(Date.now() / 1000)), 1000);
@@ -157,8 +185,10 @@ export default function ProphetPage() {
     { enabled: poolId.length > 0 },
   );
   const poolFields = parseMoveFields(poolObj?.data?.content);
-  const maturityTs = Number(poolFields?.maturity_ts ?? 0);
-  const poolResolved = Boolean(poolFields?.resolved);
+  const poolSnapshot = parsePoolSnapshotFromFields(poolId, poolFields);
+  const poolEligibility = assessProphetMarketEligibility(nowSec, poolSnapshot);
+  const maturityTs = poolSnapshot.maturityTs;
+  const poolResolved = poolSnapshot.resolved;
   const resolvedValue =
     poolFields?.resolved_value != null
       ? Number(poolFields.resolved_value)
@@ -182,15 +212,18 @@ export default function ProphetPage() {
   );
   const canUnlock = Boolean(
     prophecy &&
+      prophecy.unlockPrice > 0n &&
       prophecy.status === 0 &&
       !isPaid &&
       !isProphet &&
       nowSec + UNLOCK_CUTOFF_SECS < prophecy.lockTime,
   );
-  const canSealDecrypt = Boolean(
+  const canReadContent = Boolean(
     prophecy &&
-      account?.address &&
-      canSealDecryptProphecy(prophecy, account.address, nowSec),
+      (isPublicProphecy(prophecy) && prophecy.sealIdHex.length === 0
+        ? prophecy.blobId.length > 0
+        : account?.address &&
+          canSealDecryptProphecy(prophecy, account.address, nowSec)),
   );
   const decrypted = decryptedAnalysis !== null;
   const canAudit = Boolean(
@@ -218,7 +251,7 @@ export default function ProphetPage() {
     prophecy,
     isPaid,
     canUnlock,
-    canSealDecrypt,
+    canSealDecrypt: canReadContent,
     decrypted,
     poolResolved,
   });
@@ -250,17 +283,32 @@ export default function ProphetPage() {
 
   useEffect(() => {
     setDecryptedAnalysis(null);
-    if (!prophecy?.sealIdHex) {
+    if (!prophecy) {
       setStoredPlaintext("");
       setProphetStats(null);
       return;
     }
-    const saved = loadStoredProphecyPlaintext(prophecy.sealIdHex);
+    const saved = prophecy.sealIdHex
+      ? loadStoredProphecyPlaintext(prophecy.sealIdHex)
+      : loadStoredProphecyPlaintext(`public:${prophecy.id}`);
     setStoredPlaintext(saved ?? "");
     void fetchProphetStats(client, PROPHET_REGISTRY_ID, prophecy.prophet).then(
       setProphetStats,
     );
-  }, [client, prophecy?.id, prophecy?.prophet, prophecy?.sealIdHex]);
+    if (isPublicProphecy(prophecy) && prophecy.sealIdHex.length === 0) {
+      let cancelled = false;
+      void (async () => {
+        const cached = await decryptFromIndexerCache(prophecy.id);
+        const content = cached ?? (await fetchPublicProphecyContent(prophecy));
+        if (cancelled || !content) return;
+        setDecryptedAnalysis(content.analysis);
+        setStoredPlaintext(content.json);
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }
+  }, [client, prophecy?.id, prophecy?.prophet, prophecy?.sealIdHex, prophecy?.blobId, prophecy?.unlockPrice, prophecy?.isPublic]);
 
   const signForSeal = useCallback(
     async (message: Uint8Array) => {
@@ -272,26 +320,35 @@ export default function ProphetPage() {
 
   async function runDecrypt(
     target: ProphecyView,
-    successMsg = "Seal 解密成功",
+    successMsg = "内容读取成功",
   ) {
-    if (!account?.address) return;
     setDecrypting(true);
-    setMsg("尝试 Indexer 明文缓存 → Walrus + Seal…");
+    setMsg("尝试 Indexer 明文缓存 → Walrus…");
     try {
       const cached = await decryptFromIndexerCache(target.id);
-      const content =
+      const publicContent =
         cached ??
-        (await decryptProphecyContent(
-          target,
-          account.address,
-          signForSeal,
-          nowSec,
-        ));
+        (isPublicProphecy(target) && target.sealIdHex.length === 0
+          ? await fetchPublicProphecyContent(target)
+          : null);
+      const content =
+        publicContent ??
+        (account?.address
+          ? await decryptProphecyContent(
+              target,
+              account.address,
+              signForSeal,
+              nowSec,
+            )
+          : null);
+      if (!content) {
+        throw new Error("无法读取预测内容，请连接钱包或稍后重试");
+      }
       setDecryptedAnalysis(content.analysis);
       setStoredPlaintext(content.json);
       setMsg(successMsg);
     } catch (e) {
-      setMsg((e as Error).message ?? "解密失败");
+      setMsg((e as Error).message ?? "读取失败");
     } finally {
       setDecrypting(false);
     }
@@ -359,6 +416,10 @@ export default function ProphetPage() {
       setMsg("无法读取市场 maturity_ts");
       return;
     }
+    if (!poolEligibility.canCommit) {
+      setMsg(poolEligibility.reason);
+      return;
+    }
     if (!account) {
       setMsg("请先连接钱包");
       return;
@@ -369,26 +430,44 @@ export default function ProphetPage() {
       return;
     }
     setCommitting(true);
-    setMsg("Seal 加密 → Walrus 上传 → 链上 Commit…");
+    const isPublicCommit = price === 0n;
+    setMsg(
+      isPublicCommit
+        ? "Walrus 上传明文 → 链上 Commit（公开预测）…"
+        : "Seal 加密 → Walrus 上传 → 链上 Commit…",
+    );
     try {
       const pv = Number(predictedValue);
       const payload = buildProphecyPayload(poolId, pv, analysis.trim());
       const hash = hashProphecyPlaintext(payload);
       const json = canonicalProphecyJson(payload);
-      const sealId = generateSealId();
-      const encrypted = await encryptProphecyPayload(
-        sealId,
-        new TextEncoder().encode(json),
-      );
       let blobId: string;
-      try {
-        blobId = await uploadBlobToWalrus(encrypted);
-      } catch (walrusErr) {
-        throw new Error(
-          `Walrus 上传失败（需 Testnet 网络）：${(walrusErr as Error).message}`,
+      let sealId: Uint8Array;
+      if (isPublicCommit) {
+        try {
+          blobId = await uploadBlobToWalrus(new TextEncoder().encode(json));
+        } catch (walrusErr) {
+          throw new Error(
+            `Walrus 上传失败（需 Testnet 网络）：${(walrusErr as Error).message}`,
+          );
+        }
+        sealId = new Uint8Array(0);
+        storeProphecyPlaintext(`public:${poolId}-${Date.now()}`, json);
+      } else {
+        sealId = generateSealId();
+        const encrypted = await encryptProphecyPayload(
+          sealId,
+          new TextEncoder().encode(json),
         );
+        try {
+          blobId = await uploadBlobToWalrus(encrypted);
+        } catch (walrusErr) {
+          throw new Error(
+            `Walrus 上传失败（需 Testnet 网络）：${(walrusErr as Error).message}`,
+          );
+        }
+        storeProphecyPlaintext(sealIdHex(sealId), json);
       }
-      storeProphecyPlaintext(sealIdHex(sealId), json);
       setStoredPlaintext(json);
 
       const tx = new Transaction();
@@ -405,9 +484,13 @@ export default function ProphetPage() {
 
       const onCommitSuccess = async (digest?: string) => {
         setMsg(
-          gasStationEnabled
-            ? "已 Commit（Gas 代付）：密文在 Walrus，链上锁定 hash + seal_id"
-            : "已 Commit：密文在 Walrus，链上锁定 hash + seal_id",
+          isPublicCommit
+            ? gasStationEnabled
+              ? "已 Commit 公开预测（Gas 代付）：分析明文存 Walrus，链上 is_public=true"
+              : "已 Commit 公开预测：分析明文存 Walrus，链上 is_public=true"
+            : gasStationEnabled
+              ? "已 Commit（Gas 代付）：密文在 Walrus，链上锁定 hash + seal_id"
+              : "已 Commit：密文在 Walrus，链上锁定 hash + seal_id",
         );
         const ids = await discoverPropheciesForPoolWithIndexer(
           client,
@@ -421,6 +504,9 @@ export default function ProphetPage() {
         }
         if (newId) {
           setSelectedId(newId);
+          if (isPublicCommit) {
+            storeProphecyPlaintext(`public:${newId}`, json);
+          }
         } else if (ids[0]) {
           setSelectedId(ids[0]);
         }
@@ -555,42 +641,52 @@ export default function ProphetPage() {
         })}
       </div>
       <p className="hint">
-        当前阶段：<strong>{workflowStepLabel(workflowStep)}</strong>
-        {prophecy && (
+        {poolId ? (
           <>
-            {" "}
-            · 预测 <code>{prophecy.id.slice(0, 10)}…</code>
+            当前阶段：<strong>{workflowStepLabel(workflowStep)}</strong>
+            {prophecy && (
+              <>
+                {" "}
+                · 预测 <code>{prophecy.id.slice(0, 10)}…</code>
+              </>
+            )}
           </>
+        ) : (
+          <>请先在市场列表中选择一项，或调整筛选条件。</>
         )}
       </p>
 
-      {!account && <p className="hint">连接钱包后发布预测、解锁或解密。</p>}
+      {!account && poolId && (
+        <p className="hint">连接钱包后发布预测、解锁或解密。</p>
+      )}
 
       <div className="card">
         <h2>市场</h2>
-        <label>选择 Pool</label>
-        <select
-          value={poolId}
-          onChange={(e) => setPoolId(e.target.value)}
-        >
-          {markets.map((m) => (
-            <option key={m.poolId} value={m.poolId}>
-              {m.title}
-            </option>
-          ))}
-        </select>
-        <p className="hint">
-          lock_time = Pool maturity · 解锁截止前 5 分钟关闭 paid_buyers
-          {maturityTs > 0 && (
-            <> · 到期 {new Date(maturityTs * 1000).toLocaleString()}</>
-          )}
-          {EVENT_ROOT_BY_POOL[poolId] && (
-            <>
-              {" "}
-              · EventRoot <code>{EVENT_ROOT_BY_POOL[poolId].slice(0, 10)}…</code>
-            </>
-          )}
-        </p>
+        <ProphetMarketPicker
+          poolId={poolId}
+          nowSec={nowSec}
+          onSelect={handlePoolSelect}
+        />
+        {poolId && (
+          <p className="hint">
+            lock_time = Pool maturity · 解锁截止前 {UNLOCK_CUTOFF_SECS / 60} 分钟关闭
+            paid_buyers 与新预测提交
+            {maturityTs > 0 && (
+              <> · 到期 {new Date(maturityTs * 1000).toLocaleString()}</>
+            )}
+            {EVENT_ROOT_BY_POOL[poolId] && (
+              <>
+                {" "}
+                · EventRoot <code>{EVENT_ROOT_BY_POOL[poolId].slice(0, 10)}…</code>
+              </>
+            )}
+          </p>
+        )}
+        {!poolEligibility.canCommit && poolId && (
+          <p className="hint" style={{ color: "var(--warn, #c9a227)" }}>
+            {poolEligibility.reason} — 仍可查看该市场已有预测，但无法 Commit。
+          </p>
+        )}
         {gasStationEnabled ? (
           <p className="hint">
             Gas Station 已启用 — Commit / 解锁 / 审计由协议代付 SUI Gas，钱包仅变动
@@ -603,9 +699,16 @@ export default function ProphetPage() {
         )}
       </div>
 
+      {!poolId ? (
+        <div className="card" style={{ marginTop: "1rem" }}>
+          <p className="hint" style={{ margin: 0 }}>
+            当前筛选下无已选市场 — 请切换主题/分布，或从列表中选择一项后继续。
+          </p>
+        </div>
+      ) : (
       <div className="grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
         <div className="card">
-          <h2>1. Seal → Walrus → Commit（预言家）</h2>
+          <h2>1. {unlockPriceNum === 0n ? "Walrus → Commit（公开预测）" : "Seal → Walrus → Commit（私密付费）"}</h2>
           <label>{predictedHint}</label>
           <input
             value={predictedValue}
@@ -618,7 +721,7 @@ export default function ProphetPage() {
             onChange={(e) => setAnalysis(e.target.value)}
             placeholder="链上大户筹码、宏观路径…"
           />
-          <label>解锁价 (USDC，0 = 免费练手)</label>
+          <label>解锁价 (USDC，0 = 公开预测)</label>
           <input
             value={unlockPrice}
             onChange={(e) => setUnlockPrice(e.target.value)}
@@ -636,11 +739,14 @@ export default function ProphetPage() {
                 isPending ||
                 committing ||
                 !analysis.trim() ||
-                paidUnlockBlocked
+                paidUnlockBlocked ||
+                !poolEligibility.canCommit
               }
               onClick={() => void onCommit()}
             >
-              Seal 加密 → Walrus → Commit
+              {unlockPriceNum === 0n
+                ? "Walrus 上传 → Commit 公开预测"
+                : "Seal 加密 → Walrus → Commit 私密预测"}
             </button>
           </div>
           {isProphet && storedPlaintext && (
@@ -691,17 +797,19 @@ export default function ProphetPage() {
               <dd>
                 <code className="mono">{prophecy.blobId.slice(0, 24)}…</code>
               </dd>
-              <dt>Seal 解密</dt>
+              <dt>{isPublicProphecy(prophecy) ? "可见性" : "Seal 解密"}</dt>
               <dd>
-                {canSealDecrypt
-                  ? isPaid
-                    ? "条件 A：已付费"
-                    : prophecy.isPublic
-                      ? "条件 B：已公开"
-                      : nowSec > prophecy.lockTime
-                        ? "条件 B：lock_time 已过"
-                        : "可解密"
-                  : "需 unlock 或等待 lock_time"}
+                {isPublicProphecy(prophecy) && prophecy.sealIdHex.length === 0
+                  ? "公开预测（提交即可阅读）"
+                  : canReadContent
+                    ? isPaid
+                      ? "条件 A：已付费"
+                      : prophecy.isPublic
+                        ? "条件 B：已公开"
+                        : nowSec > prophecy.lockTime
+                          ? "条件 B：lock_time 已过"
+                          : "可解密"
+                    : "需 unlock 或等待 lock_time"}
               </dd>
             </dl>
           )}
@@ -717,25 +825,27 @@ export default function ProphetPage() {
                 2. 解锁 {formatUsdcBaseUnits(prophecy.unlockPrice)} USDC
               </button>
             )}
-            {prophecy && canSealDecrypt && !decrypted && (
+            {prophecy && canReadContent && !decrypted && (
               <button
                 type="button"
                 className="secondary"
                 disabled={decrypting || isPending}
                 onClick={() => void runDecrypt(prophecy)}
               >
-                3. Seal 解密阅读分析
+                {isPublicProphecy(prophecy) && prophecy.sealIdHex.length === 0
+                  ? "3. 阅读公开分析"
+                  : "3. Seal 解密阅读分析"}
               </button>
             )}
           </div>
 
-          {prophecy && isPaid && !decrypted && canSealDecrypt && (
+          {prophecy && isPaid && !decrypted && canReadContent && (
             <p className="hint">已满足 Seal 条件 A，可点击解密或等待自动解密。</p>
           )}
 
           {decryptedAnalysis && (
             <div className="card" style={{ marginTop: "0.75rem" }}>
-              <h3>解密内容</h3>
+              <h3>{prophecy && isPublicProphecy(prophecy) ? "预测分析" : "解密内容"}</h3>
               <p style={{ whiteSpace: "pre-wrap" }}>{decryptedAnalysis}</p>
             </div>
           )}
@@ -845,7 +955,7 @@ export default function ProphetPage() {
                     >
                       audit_prophecy（Hash → 战绩 → 分账）
                     </button>
-                    {canSealDecrypt && !decrypted && (
+                    {canReadContent && !decrypted && (
                       <button
                         type="button"
                         className="secondary"
@@ -884,6 +994,7 @@ export default function ProphetPage() {
           )}
         </div>
       </div>
+      )}
 
       <div className="card" style={{ marginTop: "1rem" }}>
         <h2>战绩与排行</h2>

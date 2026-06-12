@@ -1,6 +1,13 @@
 import http from "node:http";
 import type { IndexerConfig } from "../config.js";
 import { query } from "../db.js";
+import {
+  attachTagsToMarkets,
+  listTags,
+  normalizeTagSlugs,
+  SEED_MARKET_TAGS,
+  syncMarketTags,
+} from "../market-tags.js";
 
 type Handler = (
   req: http.IncomingMessage,
@@ -41,6 +48,7 @@ function matchRoute(
   const path = url.split("?")[0];
   const routes: { pattern: RegExp; route: string; keys: string[] }[] = [
     { pattern: /^\/health$/, route: "health", keys: [] },
+    { pattern: /^\/v1\/tags$/, route: "tags", keys: [] },
     { pattern: /^\/v1\/markets$/, route: "markets", keys: [] },
     { pattern: /^\/v1\/markets\/([^/]+)$/, route: "market", keys: ["poolId"] },
     { pattern: /^\/v1\/feeds$/, route: "feeds", keys: [] },
@@ -89,9 +97,47 @@ export function createApiServer(config: IndexerConfig, state: { lastEventAt: str
       },
     }),
 
-    markets: async () => {
-      const res = await query(config.databaseUrl, "SELECT * FROM markets ORDER BY maturity_ts ASC");
-      return { status: 200, body: { markets: res.rows } };
+    tags: async () => {
+      const rows = await listTags(config.databaseUrl);
+      return { status: 200, body: { tags: rows } };
+    },
+
+    markets: async (req) => {
+      const q = parseQuery(req.url ?? "");
+      const tag = q.get("tag")?.trim().toLowerCase() ?? "";
+      const kind = q.get("kind")?.trim().toLowerCase() ?? "";
+      const search = q.get("q")?.trim().toLowerCase() ?? "";
+
+      let sql = "SELECT * FROM markets WHERE 1=1";
+      const params: unknown[] = [];
+      let i = 1;
+
+      if (kind) {
+        sql += ` AND kind = $${i++}`;
+        params.push(kind);
+      }
+      if (tag) {
+        sql += ` AND pool_id IN (SELECT pool_id FROM market_tags WHERE tag_slug = $${i++})`;
+        params.push(tag);
+      }
+      if (search) {
+        sql += ` AND (
+          LOWER(title) LIKE $${i}
+          OR LOWER(description) LIKE $${i}
+          OR LOWER(COALESCE(slug, '')) LIKE $${i}
+          OR LOWER(pool_id) LIKE $${i}
+        )`;
+        params.push(`%${search}%`);
+        i++;
+      }
+      sql += " ORDER BY maturity_ts ASC";
+
+      const res = await query(config.databaseUrl, sql, params);
+      const markets = await attachTagsToMarkets(
+        config.databaseUrl,
+        res.rows as Array<{ pool_id: string }>,
+      );
+      return { status: 200, body: { markets } };
     },
 
     market: async (_req, params) => {
@@ -99,7 +145,11 @@ export function createApiServer(config: IndexerConfig, state: { lastEventAt: str
         params.poolId,
       ]);
       if (!res.rows.length) return { status: 404, body: { error: "not found" } };
-      return { status: 200, body: { market: res.rows[0] } };
+      const [market] = await attachTagsToMarkets(
+        config.databaseUrl,
+        res.rows as Array<{ pool_id: string }>,
+      );
+      return { status: 200, body: { market } };
     },
 
     feeds: async () => {
@@ -400,7 +450,11 @@ export function createApiServer(config: IndexerConfig, state: { lastEventAt: str
             Number(body.maturity_ts ?? 0),
           ],
         );
-        json(res, 200, { ok: true, pool_id: poolId }, config.corsOrigin, "GET, POST, OPTIONS");
+        const tagSlugs = normalizeTagSlugs(body.tags);
+        if (tagSlugs.length) {
+          await syncMarketTags(config.databaseUrl, poolId, tagSlugs);
+        }
+        json(res, 200, { ok: true, pool_id: poolId, tags: tagSlugs }, config.corsOrigin, "GET, POST, OPTIONS");
       } catch (e) {
         json(
           res,
