@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { href: "/oracle", label: "Oracle" },
   { href: "/prophet", label: "Prophet" },
   { href: "/leaderboard", label: "排行榜" },
+  { href: "/following", label: "我的关注" },
   { href: "/roi", label: "跟单 ROI" },
   { href: "/metrics", label: "GMV" },
 ] as const;

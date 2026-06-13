@@ -282,6 +282,46 @@ export async function fetchIndexerLeaderboard(
   return data?.leaderboard ?? [];
 }
 
+export async function fetchIndexerProphetStats(
+  prophet: string,
+): Promise<IndexerProphetStats | null> {
+  const data = await getJson<{ stats: IndexerProphetStats }>(
+    `/v1/prophet/${encodeURIComponent(prophet)}/stats`,
+  );
+  return data?.stats ?? null;
+}
+
+export interface IndexerProphetStatsHistoryPoint {
+  score_bps: number;
+  rank: number | null;
+  wins: number;
+  losses: number;
+  snapshot_at: string;
+}
+
+export async function fetchIndexerProphetHistory(
+  prophet: string,
+  limit = 50,
+): Promise<IndexerProphetStatsHistoryPoint[]> {
+  const data = await getJson<{ history: IndexerProphetStatsHistoryPoint[] }>(
+    `/v1/prophet/${encodeURIComponent(prophet)}/history?limit=${limit}`,
+  );
+  return data?.history ?? [];
+}
+
+export interface IndexerProphecyRow {
+  prophecy_id: string;
+  pool_id: string;
+  prophet: string;
+  lock_time: string | number;
+  unlock_price: string;
+  predicted_value: string | null;
+  status: number;
+  is_public: boolean;
+  unlock_count: number;
+  committed_at: string | null;
+}
+
 export async function fetchIndexerIvHistory(
   poolId: string,
   limit = 100,
@@ -310,12 +350,12 @@ export async function fetchIndexerProphecies(params?: {
   poolId?: string;
   prophet?: string;
   limit?: number;
-}) {
+}): Promise<IndexerProphecyRow[]> {
   const q = new URLSearchParams();
   if (params?.poolId) q.set("pool_id", params.poolId);
   if (params?.prophet) q.set("prophet", params.prophet);
   if (params?.limit) q.set("limit", String(params.limit));
-  const data = await getJson<{ prophecies: unknown[] }>(
+  const data = await getJson<{ prophecies: IndexerProphecyRow[] }>(
     `/v1/prophecies?${q.toString()}`,
   );
   return data?.prophecies ?? [];
@@ -411,4 +451,75 @@ export async function fetchCachedProphecyPlaintext(prophecyId: string) {
 export async function checkIndexerHealth(): Promise<boolean> {
   const data = await getJson<{ ok?: boolean }>("/health");
   return Boolean(data?.ok);
+}
+
+export interface IndexerFollowRow {
+  prophet: string;
+  followed_at: string;
+  wins: number | null;
+  losses: number | null;
+  cheats: number | null;
+  current_streak: number | null;
+  max_streak: number | null;
+  total_audited: number | null;
+  total_unlock_revenue: string | null;
+  score_bps: number | null;
+  rank: number | null;
+  paid_unlock_eligible: boolean | null;
+}
+
+export async function fetchIndexerFollowing(
+  follower: string,
+): Promise<IndexerFollowRow[]> {
+  const data = await fetchIndexerJson<{ follows: IndexerFollowRow[] }>(
+    `/v1/follows?follower=${encodeURIComponent(follower)}`,
+  );
+  return data?.follows ?? [];
+}
+
+export async function checkIndexerFollowing(
+  follower: string,
+  prophet: string,
+): Promise<boolean> {
+  const data = await fetchIndexerJson<{ following: boolean }>(
+    `/v1/follows/check?follower=${encodeURIComponent(follower)}&prophet=${encodeURIComponent(prophet)}`,
+  );
+  return Boolean(data?.following);
+}
+
+async function mutateIndexerJson<T>(
+  path: string,
+  method: "POST" | "DELETE",
+  body?: Record<string, string>,
+): Promise<T> {
+  if (!INDEXER_URL) throw new Error("Indexer 未配置");
+  const init: RequestInit = {
+    method,
+    headers: { "Content-Type": "application/json" },
+    cache: "no-store",
+  };
+  if (body) init.body = JSON.stringify(body);
+  const res = await fetch(`${INDEXER_URL}${path}`, init);
+  const data = (await res.json().catch(() => ({}))) as T & { error?: string };
+  if (!res.ok) {
+    throw new Error(data.error ?? `Indexer HTTP ${res.status}`);
+  }
+  return data;
+}
+
+export async function followIndexerProphet(
+  follower: string,
+  prophet: string,
+): Promise<void> {
+  await mutateIndexerJson("/v1/follows", "POST", { follower, prophet });
+}
+
+export async function unfollowIndexerProphet(
+  follower: string,
+  prophet: string,
+): Promise<void> {
+  await mutateIndexerJson(
+    `/v1/follows?follower=${encodeURIComponent(follower)}&prophet=${encodeURIComponent(prophet)}`,
+    "DELETE",
+  );
 }

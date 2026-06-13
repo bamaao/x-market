@@ -19,6 +19,7 @@ import {
   syncMarketTags,
 } from "../market-tags.js";
 import { buildOracleQueueQueries } from "../oracle-queue-query.js";
+import { isValidSuiAddress, normalizeSuiAddress, parseFollowPair } from "../follows.js";
 
 type Handler = (
   req: http.IncomingMessage,
@@ -30,7 +31,7 @@ function json(
   status: number,
   body: unknown,
   cors: string,
-  methods = "GET, OPTIONS",
+  methods = "GET, POST, DELETE, OPTIONS",
 ) {
   res.writeHead(status, {
     "Content-Type": "application/json",
@@ -103,6 +104,8 @@ function matchRoute(
     { pattern: /^\/v1\/event-roots$/, route: "eventRoots", keys: [] },
     { pattern: /^\/v1\/event-roots\/([^/]+)$/, route: "eventRoot", keys: ["rootId"] },
     { pattern: /^\/v1\/metrics\/prophet-gmv$/, route: "prophetGmv", keys: [] },
+    { pattern: /^\/v1\/follows\/check$/, route: "followsCheck", keys: [] },
+    { pattern: /^\/v1\/follows$/, route: "followsList", keys: [] },
   ];
   for (const r of routes) {
     const m = path.match(r.pattern);
@@ -596,6 +599,47 @@ export function createApiServer(config: IndexerConfig, state: { lastEventAt: str
       );
       return { status: 200, body: { events: res.rows } };
     },
+
+    followsList: async (req) => {
+      const q = parseQuery(req.url ?? "");
+      const follower = String(q.get("follower") ?? "").trim();
+      if (!follower) return { status: 400, body: { error: "follower required" } };
+      if (!isValidSuiAddress(follower)) {
+        return { status: 400, body: { error: "invalid follower address" } };
+      }
+      const normalized = normalizeSuiAddress(follower);
+      const res = await query(
+        config.databaseUrl,
+        `SELECT f.prophet, f.created_at AS followed_at,
+                s.wins, s.losses, s.cheats, s.current_streak, s.max_streak,
+                s.total_audited, s.total_unlock_revenue, s.score_bps, s.rank,
+                s.paid_unlock_eligible
+         FROM prophet_follows f
+         LEFT JOIN prophet_stats s ON s.prophet = f.prophet
+         WHERE f.follower = $1
+         ORDER BY f.created_at DESC`,
+        [normalized],
+      );
+      return { status: 200, body: { follows: res.rows } };
+    },
+
+    followsCheck: async (req) => {
+      const q = parseQuery(req.url ?? "");
+      const follower = String(q.get("follower") ?? "").trim();
+      const prophet = String(q.get("prophet") ?? "").trim();
+      if (!follower || !prophet) {
+        return { status: 400, body: { error: "follower and prophet required" } };
+      }
+      if (!isValidSuiAddress(follower) || !isValidSuiAddress(prophet)) {
+        return { status: 400, body: { error: "invalid address" } };
+      }
+      const res = await query(
+        config.databaseUrl,
+        "SELECT 1 FROM prophet_follows WHERE follower = $1 AND prophet = $2",
+        [normalizeSuiAddress(follower), normalizeSuiAddress(prophet)],
+      );
+      return { status: 200, body: { following: res.rows.length > 0 } };
+    },
   };
 
   const host = process.env.HOST ?? "0.0.0.0";
@@ -603,7 +647,61 @@ export function createApiServer(config: IndexerConfig, state: { lastEventAt: str
     const urlPath = (req.url ?? "/").split("?")[0];
 
     if (req.method === "OPTIONS") {
-      json(res, 204, {}, config.corsOrigin, "GET, POST, OPTIONS");
+      json(res, 204, {}, config.corsOrigin);
+      return;
+    }
+
+    if (req.method === "POST" && urlPath === "/v1/follows") {
+      try {
+        const body = (await readJsonBody(req)) as Record<string, unknown>;
+        const parsed = parseFollowPair(body);
+        if ("error" in parsed) {
+          json(res, 400, { error: parsed.error }, config.corsOrigin);
+          return;
+        }
+        await query(
+          config.databaseUrl,
+          `INSERT INTO prophet_follows (follower, prophet) VALUES ($1, $2)
+           ON CONFLICT (follower, prophet) DO NOTHING`,
+          [parsed.follower, parsed.prophet],
+        );
+        json(res, 200, { ok: true, follower: parsed.follower, prophet: parsed.prophet }, config.corsOrigin);
+      } catch (e) {
+        json(
+          res,
+          500,
+          { error: e instanceof Error ? e.message : "follow failed" },
+          config.corsOrigin,
+        );
+      }
+      return;
+    }
+
+    if (req.method === "DELETE" && urlPath === "/v1/follows") {
+      try {
+        const q = parseQuery(req.url ?? "");
+        const parsed = parseFollowPair({
+          follower: q.get("follower") ?? "",
+          prophet: q.get("prophet") ?? "",
+        });
+        if ("error" in parsed) {
+          json(res, 400, { error: parsed.error }, config.corsOrigin);
+          return;
+        }
+        await query(
+          config.databaseUrl,
+          "DELETE FROM prophet_follows WHERE follower = $1 AND prophet = $2",
+          [parsed.follower, parsed.prophet],
+        );
+        json(res, 200, { ok: true }, config.corsOrigin);
+      } catch (e) {
+        json(
+          res,
+          500,
+          { error: e instanceof Error ? e.message : "unfollow failed" },
+          config.corsOrigin,
+        );
+      }
       return;
     }
 

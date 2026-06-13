@@ -521,6 +521,61 @@ export async function decryptFromIndexerCache(
   };
 }
 
+export function normalizeSuiAddress(addr: string): string {
+  const trimmed = addr.trim().toLowerCase();
+  return trimmed.startsWith("0x") ? trimmed : `0x${trimmed}`;
+}
+
+export function isValidSuiAddress(addr: string): boolean {
+  return /^0x[a-f0-9]{64}$/.test(normalizeSuiAddress(addr));
+}
+
+export function prophetProfilePath(address: string): string {
+  return `/prophet/${encodeURIComponent(normalizeSuiAddress(address))}`;
+}
+
+export function shortAddress(address: string, head = 6, tail = 4): string {
+  const a = normalizeSuiAddress(address);
+  if (a.length <= head + tail + 3) return a;
+  return `${a.slice(0, head + 2)}…${a.slice(-tail)}`;
+}
+
+export async function discoverPropheciesByProphet(
+  client: XMarketRpc,
+  prophetAddress: string,
+  limit = 50,
+): Promise<string[]> {
+  if (!client.queryEvents) return [];
+  const prophet = normalizeSuiAddress(prophetAddress);
+  const out: string[] = [];
+  let cursor: string | null | undefined = null;
+  do {
+    const page = await client.queryEvents({
+      query: {
+        MoveEventType: `${PACKAGE_ID}::prophet_registry::ProphecyCommitted`,
+      },
+      cursor: cursor ?? undefined,
+      limit: 50,
+    });
+    cursor = page.hasNextPage ? page.nextCursor : null;
+    for (const ev of page.data) {
+      const p = ev.parsedJson as {
+        prophecy_id?: string;
+        prophet?: string;
+      } | null;
+      if (
+        p?.prophecy_id &&
+        p.prophet &&
+        normalizeSuiAddress(p.prophet) === prophet
+      ) {
+        out.push(p.prophecy_id);
+        if (out.length >= limit) return out;
+      }
+    }
+  } while (cursor);
+  return out;
+}
+
 async function discoverPropheciesByScan(
   client: XMarketRpc,
   poolId: string,

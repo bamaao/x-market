@@ -13,6 +13,8 @@ import {
   formatUsdcBaseUnits,
   isPaidUnlockEligible,
   paidUnlockEligibilityHint,
+  prophetProfilePath,
+  shortAddress,
   type LeaderboardEntry,
 } from "@/lib/prophet";
 import {
@@ -89,25 +91,32 @@ export default function LeaderboardPage() {
         <div className="card">
           <h2>我的战绩</h2>
           {myRow ? (
-            <dl className="meta">
-              <dt>排名</dt>
-              <dd>#{myRow.rank}</dd>
-              <dt>胜 / 负</dt>
-              <dd>
-                {myRow.wins} / {myRow.losses}
-              </dd>
-              <dt>胜率</dt>
-              <dd>{formatAccuracyPercent(myRow)}</dd>
-              <dt>Prophet Score</dt>
-              <dd>{formatScorePercent(myRow.scoreBps)} / 100</dd>
-              <dt>付费开通</dt>
-              <dd>
-                {isPaidUnlockEligible(myRow) ? "已开通" : "未开通"}
-                {!isPaidUnlockEligible(myRow) && (
-                  <span className="hint"> — {paidUnlockEligibilityHint(myRow)}</span>
-                )}
-              </dd>
-            </dl>
+            <>
+              <dl className="meta">
+                <dt>排名</dt>
+                <dd>#{myRow.rank}</dd>
+                <dt>胜 / 负</dt>
+                <dd>
+                  {myRow.wins} / {myRow.losses}
+                </dd>
+                <dt>胜率</dt>
+                <dd>{formatAccuracyPercent(myRow)}</dd>
+                <dt>Prophet Score</dt>
+                <dd>{formatScorePercent(myRow.scoreBps)} / 100</dd>
+                <dt>付费开通</dt>
+                <dd>
+                  {isPaidUnlockEligible(myRow) ? "已开通" : "未开通"}
+                  {!isPaidUnlockEligible(myRow) && (
+                    <span className="hint"> — {paidUnlockEligibilityHint(myRow)}</span>
+                  )}
+                </dd>
+              </dl>
+              <p style={{ marginTop: "0.75rem" }}>
+                <Link href={prophetProfilePath(account.address)} className="hero-link">
+                  查看我的主页 →
+                </Link>
+              </p>
+            </>
           ) : (
             <p className="hint">
               尚无链上战绩。前往{" "}
@@ -148,10 +157,10 @@ export default function LeaderboardPage() {
                 <tr key={row.prophet}>
                   <td>{row.rank}</td>
                   <td>
-                    <code>
-                      {row.prophet.slice(0, 10)}…
+                    <Link href={prophetProfilePath(row.prophet)}>
+                      <code>{shortAddress(row.prophet)}</code>
                       {account?.address === row.prophet ? "（你）" : ""}
-                    </code>
+                    </Link>
                   </td>
                   <td>
                     {row.wins}/{row.losses}/{row.cheats}
