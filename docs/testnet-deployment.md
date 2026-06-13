@@ -287,8 +287,8 @@ docker compose -f docker-compose.indexer.yml --profile full up -d --build
 **Gas Station `/health` 报余额不足**  
 → `.\scripts\fund-gas-payer-testnet.ps1`
 
-**Walrus 上传失败**  
-→ 确认 `walrus-relay` 已启动；前端 `NEXT_PUBLIC_WALRUS_PUBLISHER_URL=http://localhost:8791`
+**Prophet blob 上传失败**  
+→ 确认 Indexer 已启动（`:8800/health`）；`NEXT_PUBLIC_INDEXER_URL=http://localhost:8800`；Prophet 使用 `POST /v1/prophecies/blob`
 
 **Indexer 连接 Postgres 失败**  
 → `docker compose -f docker-compose.indexer.yml ps` 检查 postgres 是否 healthy；或改用 `bootstrap-local-postgres.ps1`
@@ -309,7 +309,7 @@ docker compose -f docker-compose.indexer.yml --profile full up -d --build
 | [p1-services-runbook.md](./p1-services-runbook.md) | Monitor / Relayer / Walrus Relay |
 | [p2-indexer-runbook.md](./p2-indexer-runbook.md) | Indexer API 与表结构 |
 | [p3-growth-runbook.md](./p3-growth-runbook.md) | Pricing Engine |
-| [prophet-playbook.md](./prophet-playbook.md) | Prophet / Seal / Walrus 流程 |
+| [prophet-playbook.md](./prophet-playbook.md) | Prophet / Seal / Indexer blob 流程 |
 | [p0-drill-ef-checklist.md](./p0-drill-ef-checklist.md) | 前端 E2E 验收 |
 
 ---

@@ -63,7 +63,7 @@ import {
   generateSealId,
   sealIdHex,
 } from "@/lib/seal-prophet";
-import { uploadBlobToWalrus } from "@/lib/walrus";
+import { uploadProphecyBlob } from "@/lib/prophet-blob-upload";
 import { PageHeader } from "@/components/PageHeader";
 import { ProphetMarketPicker } from "@/components/ProphetMarketPicker";
 import {
@@ -323,7 +323,7 @@ export default function ProphetPage() {
     successMsg = "内容读取成功",
   ) {
     setDecrypting(true);
-    setMsg("尝试 Indexer 明文缓存 → Walrus…");
+    setMsg("尝试 Indexer 明文缓存 → blob 存储…");
     try {
       const cached = await decryptFromIndexerCache(target.id);
       const publicContent =
@@ -433,8 +433,8 @@ export default function ProphetPage() {
     const isPublicCommit = price === 0n;
     setMsg(
       isPublicCommit
-        ? "Walrus 上传明文 → 链上 Commit（公开预测）…"
-        : "Seal 加密 → Walrus 上传 → 链上 Commit…",
+        ? "Indexer 上传明文 → 链上 Commit（公开预测）…"
+        : "Seal 加密 → Indexer 上传 → 链上 Commit…",
     );
     try {
       const pv = Number(predictedValue);
@@ -444,13 +444,14 @@ export default function ProphetPage() {
       let blobId: string;
       let sealId: Uint8Array;
       if (isPublicCommit) {
-        try {
-          blobId = await uploadBlobToWalrus(new TextEncoder().encode(json));
-        } catch (walrusErr) {
-          throw new Error(
-            `Walrus 上传失败（需 Testnet 网络）：${(walrusErr as Error).message}`,
-          );
+        const uploaded = await uploadProphecyBlob(
+          poolId,
+          new TextEncoder().encode(json),
+        );
+        if (!uploaded.ok) {
+          throw new Error(`Indexer 上传失败：${uploaded.error}`);
         }
+        blobId = uploaded.blobId;
         sealId = new Uint8Array(0);
         storeProphecyPlaintext(`public:${poolId}-${Date.now()}`, json);
       } else {
@@ -459,13 +460,11 @@ export default function ProphetPage() {
           sealId,
           new TextEncoder().encode(json),
         );
-        try {
-          blobId = await uploadBlobToWalrus(encrypted);
-        } catch (walrusErr) {
-          throw new Error(
-            `Walrus 上传失败（需 Testnet 网络）：${(walrusErr as Error).message}`,
-          );
+        const uploaded = await uploadProphecyBlob(poolId, encrypted);
+        if (!uploaded.ok) {
+          throw new Error(`Indexer 上传失败：${uploaded.error}`);
         }
+        blobId = uploaded.blobId;
         storeProphecyPlaintext(sealIdHex(sealId), json);
       }
       setStoredPlaintext(json);
@@ -486,11 +485,11 @@ export default function ProphetPage() {
         setMsg(
           isPublicCommit
             ? gasStationEnabled
-              ? "已 Commit 公开预测（Gas 代付）：分析明文存 Walrus，链上 is_public=true"
-              : "已 Commit 公开预测：分析明文存 Walrus，链上 is_public=true"
+              ? "已 Commit 公开预测（Gas 代付）：分析明文存 Indexer/IPFS，链上 is_public=true"
+              : "已 Commit 公开预测：分析明文存 Indexer/IPFS，链上 is_public=true"
             : gasStationEnabled
-              ? "已 Commit（Gas 代付）：密文在 Walrus，链上锁定 hash + seal_id"
-              : "已 Commit：密文在 Walrus，链上锁定 hash + seal_id",
+              ? "已 Commit（Gas 代付）：密文在 Indexer/IPFS，链上锁定 hash + seal_id"
+              : "已 Commit：密文在 Indexer/IPFS，链上锁定 hash + seal_id",
         );
         const ids = await discoverPropheciesForPoolWithIndexer(
           client,
@@ -623,7 +622,7 @@ export default function ProphetPage() {
     <div>
       <PageHeader
         title="SuiProphet Network"
-        subtitle="Seal 加密 · Walrus 存储 · 双重 OR 解密 · 共用 L0 Oracle 审计（PRD §11）"
+        subtitle="Seal 加密 · Indexer/IPFS 存储 · 双重 OR 解密 · 共用 L0 Oracle 审计（PRD §11）"
       />
 
       <div className="oracle-flow" aria-label="Prophet 流程">
@@ -708,7 +707,7 @@ export default function ProphetPage() {
       ) : (
       <div className="grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
         <div className="card">
-          <h2>1. {unlockPriceNum === 0n ? "Walrus → Commit（公开预测）" : "Seal → Walrus → Commit（私密付费）"}</h2>
+          <h2>1. {unlockPriceNum === 0n ? "Indexer → Commit（公开预测）" : "Seal → Indexer → Commit（私密付费）"}</h2>
           <label>{predictedHint}</label>
           <input
             value={predictedValue}
@@ -745,8 +744,8 @@ export default function ProphetPage() {
               onClick={() => void onCommit()}
             >
               {unlockPriceNum === 0n
-                ? "Walrus 上传 → Commit 公开预测"
-                : "Seal 加密 → Walrus → Commit 私密预测"}
+                ? "Indexer 上传 → Commit 公开预测"
+                : "Seal 加密 → Indexer → Commit 私密预测"}
             </button>
           </div>
           {isProphet && storedPlaintext && (
@@ -793,7 +792,7 @@ export default function ProphetPage() {
               <dd>{new Date(prophecy.lockTime * 1000).toLocaleString()}</dd>
               <dt>已解锁人数</dt>
               <dd>{prophecy.unlockCount}</dd>
-              <dt>Walrus</dt>
+              <dt>Blob</dt>
               <dd>
                 <code className="mono">{prophecy.blobId.slice(0, 24)}…</code>
               </dd>

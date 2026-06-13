@@ -34,6 +34,9 @@ export interface IndexerConfig {
   /** local = Indexer disk; ipfs = pin via IPFS_PIN_PROVIDER */
   coverStorage: CoverStorageMode;
   coversDir: string;
+  /** Prophet blob storage (Seal ciphertext / public JSON) */
+  prophetStorage: CoverStorageMode;
+  prophetBlobsDir: string;
   ipfsPinProvider: IpfsPinProvider;
   ipfsPinataJwt: string;
   ipfsKuboApiUrl: string;
@@ -134,6 +137,14 @@ export function loadConfig(): IndexerConfig {
       indexerRoot,
       "..",
       process.env.INDEXER_COVERS_DIR?.trim() || "data/covers",
+    ),
+    prophetStorage: (strEnv("INDEXER_PROPHET_STORAGE", "local") === "ipfs"
+      ? "ipfs"
+      : "local") as CoverStorageMode,
+    prophetBlobsDir: resolve(
+      indexerRoot,
+      "..",
+      process.env.INDEXER_PROPHET_BLOBS_DIR?.trim() || "data/prophecy-blobs",
     ),
     ipfsPinProvider: (strEnv("IPFS_PIN_PROVIDER", "pinata") === "kubo"
       ? "kubo"

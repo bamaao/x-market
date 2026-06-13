@@ -141,7 +141,7 @@ class _ProphetScreenState extends State<ProphetScreen>
 
     setState(() {
       _loading = true;
-      _message = 'Walrus 上传明文 → 链上 Commit…';
+      _message = 'Indexer 上传明文 → 链上 Commit…';
     });
 
     await widget.app.submitChainTx(
@@ -269,7 +269,7 @@ class _ProphetScreenState extends State<ProphetScreen>
             onPressed: widget.app.wallet.busy || _loading || eligibility?.canCommit != true
                 ? null
                 : _commitPublic,
-            child: Text(_loading ? '处理中…' : 'Walrus 明文 → Commit 公开预测'),
+            child: Text(_loading ? '处理中…' : 'Indexer 明文 → Commit 公开预测'),
           ),
           if (_message != null) ...[
             const SizedBox(height: 12),

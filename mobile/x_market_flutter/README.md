@@ -42,10 +42,10 @@ cd services/gas-station && npm start  # :8787
 
 ### SuiProphet 公开预测（P3）
 
-- **发布**：Walrus 明文 → `commit_private_prophecy`（`unlock_price=0`）
+- **发布**：Indexer 明文 blob → `commit_private_prophecy`（`unlock_price=0`）
 - **排行榜**：Indexer `/v1/prophet/leaderboard`
 - 付费 Seal 加密请用 Web `/prophet`
-- Walrus：`walrusPublisherUrl` / `walrusAggregatorUrl`（Testnet 公共端点）
+- Blob：`ProphetBlobService` → `POST /v1/prophecies/blob`（需 Indexer）
 
 ### 技术栈
 
@@ -62,7 +62,7 @@ lib/
 └── src/
     ├── app/           # AppController、底部导航 Shell
     ├── screens/       # 市场、持仓、LP、Prophet、保证金、钱包
-    ├── services/      # RPC、Indexer、Walrus、Prophet、MarketCatalog
+    ├── services/      # RPC、Indexer、Prophet blob、Prophet、MarketCatalog
     ├── prophet/       # 预测 JSON / blake2b / 资格校验
     ├── wallet/        # PhantomWalletController、Deep Link
     ├── trade/         # ChainTransactionService

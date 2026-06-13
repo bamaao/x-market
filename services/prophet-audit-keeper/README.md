@@ -6,7 +6,7 @@ PRD §11.3.4 · P4.1 — Oracle 结算后自动提交 `audit_prophecy`。
 
 ```
 池已 resolved + now >= lock_time + prophecy.status == OPEN
-  → Indexer 明文缓存（优先）或 Seal 条件 B 解密 Walrus
+  → Indexer/IPFS blob → Seal 解密（或明文缓存）
   → audit_prophecy（Hash 校验 → 战绩 → 分账）
 ```
 
@@ -22,7 +22,8 @@ PRD §11.3.4 · P4.1 — Oracle 结算后自动提交 `audit_prophecy`。
 | `PROPHET_AUDIT_POOL_IDS` | 种子池 ID 列表 |
 | `PROPHET_REGISTRY_ID` | ProphetRegistry |
 | `PROPHET_AUDIT_DRY_RUN` | 默认 `true` |
-| `INDEXER_URL` | 可选，优先读 `/v1/prophecies/:id/plaintext` |
+| `INDEXER_URL` | 读 blob + `/v1/prophecies/:id/plaintext` 缓存 |
+| `IPFS_GATEWAY_URL` | `ipfs:` blob 解析 |
 
 ## 运行
 

@@ -8,7 +8,7 @@ export interface AuditKeeperConfig {
   healthPort: number;
   secretKey: string;
   indexerUrl: string;
-  walrusAggregatorUrl: string;
+  ipfsGatewayUrl: string;
   sealThreshold: number;
 }
 

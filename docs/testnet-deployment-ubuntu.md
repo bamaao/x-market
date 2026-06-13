@@ -289,7 +289,7 @@ tail -f .run/indexer.log
 
 - [ ] Gas Payer SUI 余额充足
 - [ ] `/prophet` 免费 Commit 可走 Gas Station
-- [ ] Walrus 上传经本地 relay（8791）
+- [ ] Prophet Commit 经 Indexer 上传 blob（`:8800`）
 - [ ] Indexer `/v1/markets` 有种子市场（P2+）
 
 ---

@@ -1,5 +1,5 @@
 /**
- * E2E: Seal → Walrus → Gas Station 赞助 Commit（等同 /prophet 页流程）
+ * E2E: Seal → Indexer blob → Gas Station 赞助 Commit（等同 /prophet 页流程）
  * 用法: npx tsx scripts/e2e-commit.ts
  */
 import { readFileSync } from "node:fs";
@@ -43,7 +43,7 @@ async function main() {
   const { encryptProphecyPayload, generateSealId } = await import(
     "../src/lib/seal-prophet"
   );
-  const { uploadBlobToWalrus } = await import("../src/lib/walrus");
+  const { uploadProphecyBlob } = await import("../src/lib/prophet-blob-upload");
 
   function loadGasPayerKey() {
     const envPath = join(appRoot, "../services/gas-station/.env.local");
@@ -93,8 +93,10 @@ async function main() {
     new TextEncoder().encode(json),
   );
 
-  console.log("[2/5] Walrus 上传…");
-  const blobId = await uploadBlobToWalrus(encrypted);
+  console.log("[2/5] Indexer 上传 blob…");
+  const uploaded = await uploadProphecyBlob(poolId, encrypted);
+  if (!uploaded.ok) throw new Error(uploaded.error);
+  const blobId = uploaded.blobId;
   console.log("  blobId:", blobId);
 
   console.log("[3/5] 构建 PTB + 请求 Gas Station…");

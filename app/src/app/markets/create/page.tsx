@@ -279,7 +279,7 @@ export default function CreateMarketPage() {
       <div className="section-head">
         <h1>创建市场</h1>
         <p className="sub">
-          链上创建 Pool 并自动注册 Oracle Feed；封面可选上传至 Walrus，元数据同步 Indexer（或本地缓存）。
+          链上创建 Pool 并自动注册 Oracle Feed；封面可选上传至 Indexer（local / IPFS）。
         </p>
       </div>
 

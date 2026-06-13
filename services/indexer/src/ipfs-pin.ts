@@ -94,3 +94,41 @@ export async function pinMarketCoverToIpfs(
       throw new Error(`unsupported IPFS_PIN_PROVIDER: ${config.ipfsPinProvider}`);
   }
 }
+
+export async function pinBinaryToIpfs(
+  config: IndexerConfig,
+  data: Buffer,
+  filename: string,
+  pinName: string,
+): Promise<IpfsPinResult> {
+  switch (config.ipfsPinProvider) {
+    case "pinata": {
+      const jwt = config.ipfsPinataJwt;
+      if (!jwt) {
+        throw new Error(
+          "IPFS_PINATA_JWT is required when INDEXER_PROPHET_STORAGE=ipfs and IPFS_PIN_PROVIDER=pinata",
+        );
+      }
+      const form = new FormData();
+      form.append("file", new Blob([new Uint8Array(data)]), filename);
+      form.append("pinataMetadata", JSON.stringify({ name: pinName }));
+      const res = await fetch("https://api.pinata.cloud/pinning/pinFileToIPFS", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${jwt}` },
+        body: form,
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`Pinata pin failed (${res.status}): ${text.slice(0, 200)}`);
+      }
+      const json = (await res.json()) as { IpfsHash?: string };
+      const cid = json.IpfsHash?.trim();
+      if (!cid) throw new Error("Pinata response missing IpfsHash");
+      return { cid, imageUrl: `ipfs://${cid}` };
+    }
+    case "kubo":
+      return pinViaKubo(config, data, filename);
+    default:
+      throw new Error(`unsupported IPFS_PIN_PROVIDER: ${config.ipfsPinProvider}`);
+  }
+}

@@ -31,7 +31,7 @@
 - **动态字段：** `EventRoot` 通过 Dynamic Fields 挂载 AMM 池与 Prophet 注册表，模块解耦、根节点统一
 - 按 `event_id` 分片，多市场并行结算与并行解锁
 - 并行执行吞吐高，适合多池 + 多预言家并存
-- Mysten 原生栈：Sui + Walrus + Seal + USDC
+- Mysten 原生栈：Sui + Indexer/IPFS + Seal + USDC
 
 ### 1.4 产品体系与三层架构
 
@@ -58,7 +58,7 @@
 | --- | --- | --- |
 | **L0 事件中心** | 注册指标、乐观提议、争议、委员会终裁、固化 `resolved_value` | 全产品唯一真相源 |
 | **L1 市场根** | 绑定现实世界事件元数据；指向 L0 Feed；管理生命周期 | 博弈 + 付费共用 |
-| **L2 业务模块** | AMM 定价/头寸，或 Seal+Walrus 私密预测/解锁 | 可独立启用或叠加 |
+| **L2 业务模块** | AMM 定价/头寸，或 Seal+Indexer 私密预测/解锁 | 可独立启用或叠加 |
 
 > **当前实现（Testnet）：** L2 博弈模块已落地（`MarketPool` 即事实上的市场根）；L0 Oracle 已落地（§10）；L2 SuiProphet 核心链上模块已落地（`prophet_registry` / `prophet_leaderboard`，§11）；L1 `EventRoot` 显式抽象仍为 **Phase 4 待办**（见 §6）。
 
@@ -306,7 +306,7 @@ x-market-sui/
      ┌───────────────────┼───────────────────┐
      │                   │                   │
 ┌────▼────┐     ┌─────────▼──────────────────────────┐    ┌─────▼─────┐
-│ Walrus  │     │         Move Modules (Sui)          │    │   Seal    │
+│ Indexer │     │         Move Modules (Sui)          │    │   Seal    │
 │ Blob    │     │  ┌──────────────────────────────┐  │    │ 条件解密   │
 └─────────┘     │  │ L0 Unified Event Engine       │  │    └───────────┘
                 │  │ macro_oracle · oracle_arbitrator│  │
@@ -510,7 +510,7 @@ public struct EventRoot has key {
 - [x] **`EventRoot` 显式抽象**：`event_root.move` + `create_and_link` 迁移脚本
 - [x] **`prophet_registry` 模块**：私密预测 Commit、`paid_buyers`、解锁分账、Hash 审计
 - [x] **`prophet_leaderboard` 模块**：Prophet Score 公式与战绩统计
-- [x] **Walrus + Seal 集成**：门限加密上传；双重 OR 访问策略（付费 / 到期公开）
+- [x] **Seal + Indexer/IPFS 集成**：门限加密上传；双重 OR 访问策略（付费 / 到期公开）
 - [x] **事后审计流**：`Hash(plaintext) == chain_commit` → 战绩胜/负 → 分账
 - [x] **Prophet Score 排行榜 UI**：`/leaderboard` 直读链上；Indexer 缓存为可选增强
 - [x] **Gas Station**：赞助交易中间层（`services/gas-station/` + `useSponsoredTransaction`）
@@ -545,7 +545,7 @@ public struct EventRoot has key {
 | Sui 生态 TVL | 独立运营；优先高换手种子市场 |
 | Tier 2 延迟 | ZK 异步，不阻塞交易 |
 | 私密预测作弊 | 链上锁死 `plaintext_hash`；结算时合约内 Hash 校验 |
-| Seal/Walrus 可用性 | 条件 B（到期公开）兜底；Indexer 缓存公开明文 |
+| Seal/Indexer 可用性 | 条件 B（到期公开）兜底；Indexer 缓存公开明文 |
 | 临近截止套利 | `lock_time - 5min` 关闭 `paid_buyers` 写入 |
 
 ---
@@ -881,7 +881,7 @@ enum AssertionState {
 
 ### 11.1 愿景与用户角色
 
-**Sui + Walrus + Seal** 原生技术栈，抛弃跨链隐私方案，保障并行性能与链上状态可验证。
+**Sui + Indexer/IPFS + Seal** 原生技术栈，抛弃跨链隐私方案，保障并行性能与链上状态可验证。
 
 | 用户角色 | 核心行为 | 核心价值 |
 | --- | --- | --- |
@@ -891,7 +891,7 @@ enum AssertionState {
 
 ### 11.2 Seal 双重 OR 访问控制
 
-密文托管于 **Walrus**，解密密钥由 **Seal** 管理，链上状态驱动**或门（OR）**策略：
+密文托管于 **Indexer（local）或 IPFS**，解密密钥由 **Seal** 管理，链上状态驱动**或门（OR）**策略：
 
 - **条件 A（事前付费）：** 请求钱包 ∈ `PrivateProphecy.paid_buyers`
 - **OR**
@@ -919,7 +919,7 @@ enum AssertionState {
 }
 ```
 
-流程：Seal 门限加密 → 上传 Walrus 得 `blob_id` → 链上 Commit 子对象 → 记录 `plaintext_hash`、`unlock_price_usdc`、`lock_time`。
+流程：Seal 门限加密 → 上传 Indexer/IPFS 得 `blob_id`（`idx:` / `ipfs:`）→ 链上 Commit 子对象 → 记录 `plaintext_hash`、`unlock_price_usdc`、`lock_time`。
 
 **练手与付费分阶段（§11.3.7）：** 新预言家默认仅可 `unlock_price = 0`（免费公开练手）；达到战绩门槛后链上才允许 `unlock_price > 0`。
 
@@ -927,7 +927,7 @@ enum AssertionState {
 
 1. 浏览预言家主页 / 排行榜  
 2. `unlock_prophecy`：USDC 入托管池，地址写入 `paid_buyers`  
-3. 前端请求 Seal（条件 A）→ 本地解密 Walrus 密文  
+3. 前端请求 Seal（条件 A）→ 本地解密 Indexer/IPFS 密文  
 
 #### 11.3.4 事后自动审计与结算
 
@@ -981,7 +981,7 @@ $$\text{Prophet Score} = w_1 \cdot \text{Accuracy Rate} + w_2 \cdot \log(N) + w_
 ### 11.5 关键 UX 流
 
 ```
-【预言家】输入分析 → Seal 加密 → Walrus 上传 → 免 Gas Commit
+【预言家】输入分析 → Seal 加密 → Indexer 上传 → 免 Gas Commit
 【买方】  排行榜 → 解锁 USDC → Seal 条件 A → 即刻阅读
 【审计】  Oracle 固化 → Hash 校验 → 排行榜更新 → 全网公开
 ```
@@ -995,7 +995,7 @@ $$\text{Prophet Score} = w_1 \cdot \text{Accuracy Rate} + w_2 \cdot \log(N) + w_
 | 战绩与排行榜 | **已就绪** | 链上 `prophet_leaderboard` + `/leaderboard`；Indexer 可选 |
 | 结算触发 | **已就绪** | `macro_oracle` + `oracle_arbitrator`（§10） |
 | AMM 博弈 | **已就绪** | `market_pool` + `position` + `settlement` |
-| Walrus / Seal | **Testnet 已就绪** | `walrus.ts` HTTP + `seal-prophet.ts` + `seal_approve_prophecy` |
+| Indexer blob / Seal | **Testnet 已就绪** | `prophet-blob*.ts` + `seal-prophet.ts` + `seal_approve_prophecy` |
 | 付费开通门槛 | **已就绪（链上）** | `paid_unlock_eligible` + PRD §11.3.7 |
 | Gas Station | **已就绪** | `services/gas-station/` + `useSponsoredTransaction` |
 | EventRoot | **已就绪** | `event_root.move` + `wrap-event-roots-testnet.ps1` |

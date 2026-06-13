@@ -9,7 +9,7 @@ import {
   createProphetSessionKey,
   decryptProphecyPayload,
 } from "./seal-prophet";
-import { isWalrusBlobId, readBlobFromWalrus } from "./walrus";
+import { isProphecyBlobId, readProphecyBlob } from "./prophet-blob";
 
 export const PROPHET_REGISTRY_ID =
   process.env.NEXT_PUBLIC_PROPHET_REGISTRY_ID ?? "";
@@ -27,7 +27,7 @@ export type ProphetWorkflowStep =
 
 export const PROPHET_FLOW_STEPS: { id: ProphetWorkflowStep; label: string }[] =
   [
-    { id: "commit", label: "1. Seal → Walrus → Commit" },
+    { id: "commit", label: "1. Seal → Indexer → Commit" },
     { id: "unlock", label: "2. 解锁" },
     { id: "decrypt", label: "3. Seal 解密" },
     { id: "audit", label: "4. 审计 → 战绩 → 分账" },
@@ -156,7 +156,7 @@ export function canReadProphecyContent(
   viewer: string | undefined,
   nowSec: number,
 ): boolean {
-  if (!isWalrusBlobId(prophecy.blobId)) return false;
+  if (!isProphecyBlobId(prophecy.blobId)) return false;
   if (isPublicProphecy(prophecy)) return true;
   if (prophecy.sealIdHex.length !== 64) return false;
   if (prophecy.isPublic) return true;
@@ -762,7 +762,7 @@ function parseProphecyPlaintextJson(json: string): DecryptedProphecyContent {
 export async function fetchPublicProphecyContent(
   prophecy: ProphecyView,
 ): Promise<DecryptedProphecyContent | null> {
-  if (!isPublicProphecy(prophecy) || !isWalrusBlobId(prophecy.blobId)) {
+  if (!isPublicProphecy(prophecy) || !isProphecyBlobId(prophecy.blobId)) {
     return null;
   }
   if (prophecy.sealIdHex.length === 0) {
@@ -775,11 +775,11 @@ export async function fetchPublicProphecyContent(
   return null;
 }
 
-/** Read plaintext JSON from Walrus (public / free prophecies). */
+/** Read plaintext JSON from Indexer/IPFS (public / free prophecies). */
 export async function readPublicProphecyContent(
   prophecy: ProphecyView,
 ): Promise<DecryptedProphecyContent> {
-  const bytes = await readBlobFromWalrus(prophecy.blobId);
+  const bytes = await readProphecyBlob(prophecy.blobId);
   const json = new TextDecoder().decode(bytes);
   return parseProphecyPlaintextJson(json);
 }
@@ -799,7 +799,7 @@ export async function decryptProphecyContent(
     return readPublicProphecyContent(prophecy);
   }
   const sealId = new Uint8Array(hexToBytes(prophecy.sealIdHex));
-  const encrypted = await readBlobFromWalrus(prophecy.blobId);
+  const encrypted = await readProphecyBlob(prophecy.blobId);
   const sessionKey = await createProphetSessionKey(
     accountAddress,
     signPersonalMessage,

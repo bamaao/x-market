@@ -166,7 +166,7 @@ PROPHET_AUDIT_POLL_MS=120000
 PROPHET_AUDIT_DRY_RUN=true
 PROPHET_AUDIT_HEALTH_PORT=8792
 INDEXER_URL=http://localhost:8800
-WALRUS_AGGREGATOR_URL=https://aggregator.walrus-testnet.walrus.space
+IPFS_GATEWAY_URL=https://w3s.link
 SEAL_THRESHOLD=1
 HOST=0.0.0.0
 "@
@@ -224,10 +224,10 @@ if (Test-Path $appExample) {
   } else {
     $appText = $appText -replace "NEXT_PUBLIC_GAS_STATION_URL=.*", "NEXT_PUBLIC_GAS_STATION_URL=http://localhost:8787"
   }
-  if ($appText -notmatch "NEXT_PUBLIC_WALRUS_PUBLISHER_URL") {
-    $appText += "NEXT_PUBLIC_WALRUS_PUBLISHER_URL=http://localhost:8791`n"
+  if ($appText -notmatch "NEXT_PUBLIC_INDEXER_URL") {
+    $appText += "NEXT_PUBLIC_INDEXER_URL=http://localhost:8800`n"
   } else {
-    $appText = $appText -replace "NEXT_PUBLIC_WALRUS_PUBLISHER_URL=.*", "NEXT_PUBLIC_WALRUS_PUBLISHER_URL=http://localhost:8791"
+    $appText = $appText -replace "NEXT_PUBLIC_INDEXER_URL=.*", "NEXT_PUBLIC_INDEXER_URL=http://localhost:8800"
   }
   Set-Content -Path $appLocal -Value $appText.TrimEnd() -Encoding UTF8
 }

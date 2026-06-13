@@ -191,7 +191,7 @@ $env:X_MARKET_PACKAGE_ID="0x2e368e00532771eedd2df288bd61b0cb2324471b9fc6e14160a7
 
 1. 打开 `/prophet`
 2. **钱包 A**：选 Normal CPI 池 → 填写预测值 + 短分析 → **Commit**  
-   （Seal 加密 → Walrus → 链上 `commit_private_prophecy`）
+   （Seal 加密 → Indexer blob → 链上 `commit_private_prophecy`）
 3. **钱包 B**：同一预言 → **Unlock**（付 USDC）→ 页面自动尝试解密
 4. 打开 `/leaderboard` → 说明 audit 需 Oracle 结算后
 
@@ -338,7 +338,7 @@ https://testnet.suivision.xyz/package/0x2e368e00532771eedd2df288bd61b0cb2324471b
 | Oracle 谁说了算？ | 乐观提议 + 争议 + **委员会**多签，非 Admin 单方 |
 | 当场能 claim 吗？ | 种子池一般不能；路线 C 或事先录屏 |
 | Prophet 解密失败 | 检查包 ID 是否与加密时一致；Unlock 是否成功；SessionKey 是否过期 |
-| Walrus 上传慢 | Testnet 偶发；可提前 Commit 好，演示只展示 Unlock |
+| Indexer blob 上传失败 | 确认 Indexer 已启动；`NEXT_PUBLIC_INDEXER_URL` 正确 |
 | 页面空白 / RPC 超时 | 配置 `NEXT_PUBLIC_SUI_RPC_URL` 备用 RPC |
 
 ---
@@ -359,7 +359,7 @@ https://testnet.suivision.xyz/package/0x2e368e00532771eedd2df288bd61b0cb2324471b
 | [test-cases.md](./test-cases.md) | QA 回归、演示项转测试 |
 | [phase1.5-playbook.md](./phase1.5-playbook.md) | Auction / LP 链上细节 |
 | [oracle-playbook.md](./oracle-playbook.md) | Oracle 争议与委员会操作 |
-| [prophet-playbook.md](./prophet-playbook.md) | Seal / Walrus 故障排查 |
+| [prophet-playbook.md](./prophet-playbook.md) | Seal / Indexer blob 故障排查 |
 | [phase3-playbook.md](./phase3-playbook.md) | Slash / ZK 若要做风控演示 |
 
 ---

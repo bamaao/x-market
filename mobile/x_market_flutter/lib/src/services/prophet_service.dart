@@ -8,7 +8,7 @@ import 'package:sui/types/transactions.dart';
 import 'package:x_market_flutter/src/models/prophet_models.dart';
 import 'package:x_market_flutter/src/prophet/prophecy_codec.dart';
 import 'package:x_market_flutter/src/services/indexer_service.dart';
-import 'package:x_market_flutter/src/services/walrus_service.dart';
+import 'package:x_market_flutter/src/services/prophet_blob_service.dart';
 import 'package:x_market_flutter/src/sui_config.dart';
 import 'package:x_market_flutter/src/trade/buy_transaction_service.dart';
 
@@ -17,16 +17,16 @@ class ProphetService {
     SuiClient? client,
     ChainTransactionService? tx,
     IndexerService? indexer,
-    WalrusService? walrus,
+    ProphetBlobService? blobs,
   }) : _client = client ?? SuiClient(SuiConfig.rpcUrl),
        _tx = tx ?? ChainTransactionService(),
        _indexer = indexer ?? IndexerService(),
-       _walrus = walrus ?? WalrusService();
+       _blobs = blobs ?? ProphetBlobService();
 
   final SuiClient _client;
   final ChainTransactionService _tx;
   final IndexerService _indexer;
-  final WalrusService _walrus;
+  final ProphetBlobService _blobs;
 
   String get registryId => SuiConfig.prophetRegistryId;
 
@@ -116,7 +116,7 @@ class ProphetService {
   }
 
   Future<DecryptedProphecyContent?> readPublicContent(ProphecyView prophecy) async {
-    if (!prophecy.isPublicProphecy || !WalrusService.isWalrusBlobId(prophecy.blobId)) {
+    if (!prophecy.isPublicProphecy || !ProphetBlobService.isProphecyBlobId(prophecy.blobId)) {
       return null;
     }
     if (prophecy.sealIdHex.isNotEmpty) {
@@ -141,14 +141,14 @@ class ProphetService {
     }
 
     try {
-      final bytes = await _walrus.readBlob(prophecy.blobId);
+      final bytes = await _blobs.readBlob(prophecy.blobId);
       return parseProphecyPlaintextJson(utf8.decode(bytes));
     } catch (_) {
       return null;
     }
   }
 
-  /// Walrus 明文上传 + 链上 commit（unlock_price=0，公开练手）。
+  /// Indexer 明文上传 + 链上 commit（unlock_price=0，公开练手）。
   Future<PendingBuyTransaction> buildCommitPublicProphecy({
     required String sender,
     required String poolId,
@@ -166,7 +166,10 @@ class ProphetService {
     );
     final hash = hashProphecyPlaintext(payload);
     final json = canonicalProphecyJson(payload);
-    final blobId = await _walrus.uploadBlob(Uint8List.fromList(utf8.encode(json)));
+    final blobId = await _blobs.uploadBlob(
+      poolId,
+      Uint8List.fromList(utf8.encode(json)),
+    );
 
     final tx = Transaction();
     tx.setSender(sender);

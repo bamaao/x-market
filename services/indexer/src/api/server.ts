@@ -5,6 +5,11 @@ import {
   readMarketCover,
 } from "../covers.js";
 import { storeMarketCover } from "../cover-storage.js";
+import {
+  isSafeProphecyBlobFilename,
+  readProphecyBlobLocal,
+} from "../prophecy-blobs.js";
+import { storeProphecyBlob } from "../prophecy-blob-storage.js";
 import { query } from "../db.js";
 import {
   attachTagsToMarkets,
@@ -76,6 +81,7 @@ function matchRoute(
   const routes: { pattern: RegExp; route: string; keys: string[] }[] = [
     { pattern: /^\/health$/, route: "health", keys: [] },
     { pattern: /^\/v1\/covers\/([^/]+)$/, route: "cover", keys: ["filename"] },
+    { pattern: /^\/v1\/prophecies\/blobs\/([^/]+)$/, route: "prophecyBlob", keys: ["filename"] },
     { pattern: /^\/v1\/tags$/, route: "tags", keys: [] },
     { pattern: /^\/v1\/markets$/, route: "markets", keys: [] },
     { pattern: /^\/v1\/markets\/([^/]+)$/, route: "market", keys: ["poolId"] },
@@ -123,7 +129,11 @@ export function createApiServer(config: IndexerConfig, state: { lastEventAt: str
         lastEventAt: state.lastEventAt,
         lastSnapshotAt: state.lastSnapshotAt,
         coverStorage: config.coverStorage,
-        ipfsPinProvider: config.coverStorage === "ipfs" ? config.ipfsPinProvider : null,
+        prophetStorage: config.prophetStorage,
+        ipfsPinProvider:
+          config.coverStorage === "ipfs" || config.prophetStorage === "ipfs"
+            ? config.ipfsPinProvider
+            : null,
       },
     }),
 
@@ -142,6 +152,23 @@ export function createApiServer(config: IndexerConfig, state: { lastEventAt: str
         status: 200,
         body: file.data,
         contentType: file.contentType,
+        cacheControl: "public, max-age=86400, immutable",
+      };
+    },
+
+    prophecyBlob: async (_req, params) => {
+      const filename = params.filename ?? "";
+      if (!isSafeProphecyBlobFilename(filename)) {
+        return { status: 400, body: { error: "invalid blob filename" } };
+      }
+      const data = await readProphecyBlobLocal(config.prophetBlobsDir, filename);
+      if (!data) {
+        return { status: 404, body: { error: "prophecy blob not found" } };
+      }
+      return {
+        status: 200,
+        body: data,
+        contentType: "application/octet-stream",
         cacheControl: "public, max-age=86400, immutable",
       };
     },
@@ -438,6 +465,45 @@ export function createApiServer(config: IndexerConfig, state: { lastEventAt: str
       return;
     }
 
+    if (req.method === "POST" && urlPath === "/v1/prophecies/blob") {
+      try {
+        if (!checkRegisterSecret(req, config)) {
+          json(res, 403, { error: "invalid register secret" }, config.corsOrigin, "GET, POST, OPTIONS");
+          return;
+        }
+        const q = parseQuery(req.url ?? "");
+        const poolId = String(q.get("pool_id") ?? "").trim();
+        if (!poolId) {
+          json(res, 400, { error: "pool_id query param required" }, config.corsOrigin, "GET, POST, OPTIONS");
+          return;
+        }
+        const data = await readRawBody(req, 512 * 1024);
+        const saved = await storeProphecyBlob(config, poolId, data);
+        json(
+          res,
+          200,
+          {
+            ok: true,
+            blob_id: saved.blobId,
+            storage: saved.storage,
+            cid: saved.cid ?? null,
+            filename: saved.filename ?? null,
+          },
+          config.corsOrigin,
+          "GET, POST, OPTIONS",
+        );
+      } catch (e) {
+        json(
+          res,
+          400,
+          { error: e instanceof Error ? e.message : "prophecy blob upload failed" },
+          config.corsOrigin,
+          "GET, POST, OPTIONS",
+        );
+      }
+      return;
+    }
+
     if (req.method === "POST" && urlPath === "/v1/markets/cover") {
       try {
         if (!checkRegisterSecret(req, config)) {
@@ -555,7 +621,10 @@ export function createApiServer(config: IndexerConfig, state: { lastEventAt: str
     }
     try {
       const result = await handlers[matched.route](req, matched.params);
-      if (matched.route === "cover" && Buffer.isBuffer(result.body)) {
+      if (
+        (matched.route === "cover" || matched.route === "prophecyBlob") &&
+        Buffer.isBuffer(result.body)
+      ) {
         res.writeHead(result.status, {
           "Content-Type": (result as { contentType?: string }).contentType ?? "application/octet-stream",
           "Cache-Control": (result as { cacheControl?: string }).cacheControl ?? "public, max-age=86400",

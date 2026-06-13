@@ -3,23 +3,10 @@ import type { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
 import { blake2b } from "@noble/hashes/blake2b";
 import type { AuditKeeperConfig, ProphecySnapshot } from "./types.js";
 import { decryptProphecyPlaintext } from "./seal.js";
+import { readProphecyBlob } from "./read-prophecy-blob.js";
 
-function isWalrusBlobId(blobId: string): boolean {
+function isReadableBlobId(blobId: string): boolean {
   return blobId.length > 0 && !blobId.startsWith("testnet:local:");
-}
-
-async function readWalrusBlob(
-  config: AuditKeeperConfig,
-  blobId: string,
-): Promise<Uint8Array | null> {
-  const url = `${config.walrusAggregatorUrl}/v1/blobs/${encodeURIComponent(blobId)}`;
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    return new Uint8Array(await res.arrayBuffer());
-  } catch {
-    return null;
-  }
 }
 
 function isValidProphecyJson(json: string): boolean {
@@ -81,14 +68,14 @@ export async function resolveAuditPlaintext(
     return fromIndexer;
   }
 
-  if (!isWalrusBlobId(prophecy.blobId)) {
+  if (!isReadableBlobId(prophecy.blobId)) {
     return null;
   }
 
   const isPublic =
     prophecy.unlockPrice === 0n || prophecy.isPublic;
   if (isPublic && !prophecy.sealIdHex) {
-    const raw = await readWalrusBlob(config, prophecy.blobId);
+    const raw = await readProphecyBlob(config, prophecy.blobId);
     if (!raw?.length) return null;
     try {
       const json = new TextDecoder().decode(raw);
@@ -108,7 +95,7 @@ export async function resolveAuditPlaintext(
     return null;
   }
 
-  const encrypted = await readWalrusBlob(config, prophecy.blobId);
+  const encrypted = await readProphecyBlob(config, prophecy.blobId);
   if (!encrypted?.length) return null;
 
   try {

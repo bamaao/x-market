@@ -12,9 +12,9 @@
 | 层级 | 是否加密 | 说明 |
 | --- | --- | --- |
 | **市场（MarketPool）** | 否 | 标准 AMM + Oracle Feed，链上公开 |
-| **预言（PrivateProphecy）** | 可选 | 分析内容可 **Seal 加密**（付费）或 **Walrus 明文**（公开练手） |
+| **预言（PrivateProphecy）** | 可选 | 分析内容可 **Seal 加密**（付费）或 **Indexer 明文**（公开练手） |
 
-**「加密」指的是 SuiProphet 的私密付费预测**：预言家把分析 JSON 经 Seal 加密后存 Walrus，订阅者 USDC 解锁后才能解密；链上只锁定 `plaintext_hash` 与 `predicted_value`。
+**「加密」指的是 SuiProphet 的私密付费预测**：预言家把分析 JSON 经 Seal 加密后存 Indexer/IPFS，订阅者 USDC 解锁后才能解密；链上只锁定 `plaintext_hash` 与 `predicted_value`。
 
 完整路径分两步：**先建市场 → 再在该市场上发加密预测**。
 
@@ -87,8 +87,8 @@ sui client call --package $PKG --module pool --function create_poisson_pool_with
 
 | 模式 | `unlock_price` | 存储 | 可读时机 |
 | --- | --- | --- | --- |
-| **公开练手** | `0` | Walrus **明文** JSON | Commit 后立即可读（`is_public=true`） |
-| **加密付费** | `> 0` | **Seal 加密** → Walrus 密文 | 付费解锁 / `lock_time` 后 / audit 后公开 |
+| **公开练手** | `0` | Indexer **明文** JSON（`idx:` / `ipfs:`） | Commit 后立即可读（`is_public=true`） |
+| **加密付费** | `> 0` | **Seal 加密** → Indexer/IPFS 密文 | 付费解锁 / `lock_time` 后 / audit 后公开 |
 
 ### 3.3 加密付费的前置门槛
 
@@ -107,14 +107,14 @@ sui client call --package $PKG --module pool --function create_poisson_pool_with
 1. 填写 **预测值**（与 Pool 分布类型一致：slot / bucket / tenths）
 2. 填写 **独家分析** 文本
 3. **解锁价 > 0**（如 `1` USDC）
-4. 点击 **「Seal 加密 → Walrus → Commit 私密预测」**
+4. 点击 **「Seal 加密 → Indexer → Commit 私密预测」**
 
 后台流程：
 
 ```
 canonical JSON
   → SealClient.encrypt(seal_id)
-  → Walrus PUT 密文
+  → POST Indexer /v1/prophecies/blob（local 或 IPFS pin）
   → commit_private_prophecy(registry, pool, blob_id, seal_id, plaintext_hash, …)
 ```
 
@@ -122,7 +122,7 @@ canonical JSON
 
 ### 3.5 提交公开练手预测（UI）
 
-同上，但 **解锁价填 `0`** → Walrus 上传**明文**，链上 `is_public=true`、空 `seal_id`，无需 Seal 解密。
+同上，但 **解锁价填 `0`** → Indexer 上传**明文**，链上 `is_public=true`、空 `seal_id`，无需 Seal 解密。
 
 ### 3.6 订阅者阅读加密预测
 
@@ -147,8 +147,8 @@ Seal OR 策略（`seal_access_allowed`）：
 flowchart LR
     A["/markets/create<br/>建 Pool + Feed"] --> B["/prophet<br/>选市场"]
     B --> C{"unlock_price?"}
-    C -->|0| D["公开预测<br/>Walrus 明文"]
-    C -->|">0 且 paid_unlock_eligible"| E["Seal 加密预测<br/>Walrus 密文"]
+    C -->|0| D["公开预测<br/>Indexer 明文"]
+    C -->|">0 且 paid_unlock_eligible"| E["Seal 加密预测<br/>Indexer/IPFS 密文"]
     E --> F["订阅者 unlock USDC"]
     F --> G["Seal 解密"]
     G --> H["Oracle 结算 → audit"]
@@ -164,11 +164,13 @@ flowchart LR
 | `NEXT_PUBLIC_PACKAGE_ID` | 建池、Commit、Unlock、Audit |
 | `NEXT_PUBLIC_ORACLE_CONFIG_ID` | 建池带 Feed |
 | `NEXT_PUBLIC_PROPHET_REGISTRY_ID` | 提交 / 解锁 / 审计预测 |
-| `NEXT_PUBLIC_WALRUS_*` | 存取预测 blob（及市场封面） |
+| `NEXT_PUBLIC_INDEXER_URL` | **必需**（Prophet blob 上传/读取、市场列表、排行榜） |
+| `NEXT_PUBLIC_IPFS_GATEWAY_URL` | `INDEXER_PROPHET_STORAGE=ipfs` 时解析 `ipfs:` blob |
 | `NEXT_PUBLIC_SEAL_THRESHOLD` | Seal 门限（Testnet 默认 1） |
 | `NEXT_PUBLIC_GAS_STATION_URL` | 可选；练手 Commit 可 Gas 代付 |
-| `NEXT_PUBLIC_INDEXER_URL` | 可选；市场发现、排行榜 |
-| Indexer + Postgres | 可选；`/leaderboard`、市场列表 |
+| Indexer + Postgres | Prophet blob、市场元数据、`/leaderboard` |
+| `INDEXER_PROPHET_STORAGE` | Indexer 侧：`local`（磁盘）或 `ipfs`（Pin） |
+| `NEXT_PUBLIC_IPFS_GATEWAY_URL` | `INDEXER_PROPHET_STORAGE=ipfs` 时解析 `ipfs:` blob |
 
 本地 Postgres（不用 Docker）：`.\scripts\bootstrap-local-postgres.ps1` → `.\scripts\start-indexer.ps1`。
 
@@ -179,8 +181,9 @@ flowchart LR
 1. **「加密市场」≠ 新建一种市场类型**  
    任何带 Feed、未结算的 Pool 均可挂 Prophet；加密发生在预测层。
 
-2. **市场封面：Indexer local 或 IPFS，不走 Walrus**  
-   `/markets/create` → `POST /v1/markets/cover`；`INDEXER_COVER_STORAGE=local|ipfs`，IPFS 需 Pin（Pinata JWT 或 Kubo）。Walrus 仅用于 Prophet 加密 blob。
+2. **市场封面与 Prophet blob 均走 Indexer**  
+   封面：`POST /v1/markets/cover`（`INDEXER_COVER_STORAGE=local|ipfs`）。  
+   Prophet：`POST /v1/prophecies/blob`（`INDEXER_PROPHET_STORAGE=local|ipfs`），链上 `blob_id` 为 `idx:…` 或 `ipfs:…`。
 
 3. **EventRoot**  
    种子市场已通过 `wrap-event-roots-testnet.ps1` 包装 EventRoot；自建市场可直接用 `poolId` Commit，EventRoot 为架构统一项，**非**加密预测前置条件。
@@ -209,7 +212,7 @@ flowchart LR
 | 创建市场 UI | `app/src/app/markets/create/page.tsx` |
 | 建池 PTB | `app/src/lib/create-market.ts` |
 | Prophet UI | `app/src/app/prophet/page.tsx` |
-| Seal / Walrus | `app/src/lib/seal-prophet.ts`, `app/src/lib/walrus.ts` |
+| Seal / Indexer blob | `app/src/lib/seal-prophet.ts`, `app/src/lib/prophet-blob.ts`, `app/src/lib/prophet-blob-upload.ts` |
 | 预言工作流 | `app/src/lib/prophet.ts` |
 | 市场可选性 | `app/src/lib/prophet-market-eligibility.ts` |
 | 链上 Commit / Audit | `sources/prophet_registry.move` |

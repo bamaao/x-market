@@ -111,7 +111,7 @@
 | 最少审计场次 | `total_audited ≥ 3` | 样本量不足不可收费 |
 | Prophet Score | `score_bps ≥ 4000` | 综合胜率 + 经验 + 收入，满分 10000 |
 
-**付费流程（特权层）：** Commit（Seal+Walrus）→ Unlock（USDC）→ Decrypt → Audit 后 escrow 分账。
+**付费流程（特权层）：** Commit（Seal+Indexer/IPFS）→ Unlock（USDC）→ Decrypt → Audit 后 escrow 分账。
 
 > 详见 [PRD §11](../PRD.md#11-suiprophet-network知识付费模块) · [prophet-playbook.md](./prophet-playbook.md)
 
@@ -193,7 +193,7 @@
 | BE-64 | Brevis ZK Prover | 生成 proof → `submit_proof` | zk_coprocessor |
 | BE-65 | Indexer Workers | 快照 / IV / GMV / ROI 聚合 | REST API |
 | BE-66 | Gas Station | `POST /v1/sponsor` 赞助 Gas | 前端 PTB |
-| BE-67 | Walrus Relay | `PUT /v1/blobs` 上传 blob | Prophet Commit |
+| BE-67 | Indexer Prophet blob | `POST /v1/prophecies/blob` 上传 blob | Prophet Commit |
 
 ### 3.4 前端工作流事件（抽象）
 
@@ -411,7 +411,7 @@ $$\text{Prophet Score} = w_1 \cdot \text{Accuracy} + w_2 \cdot \log(N) + w_3 \cd
 
 **前置：** `paid_unlock_eligible(stats) = true`（见 [§2.2.3](#223-知识付费优秀预言家特权)）
 
-**流程：** Commit（Seal+Walrus，`unlock_price > 0`）→ Unlock（USDC）→ Decrypt → Audit 后 escrow 分账
+**流程：** Commit（Seal+Indexer/IPFS，`unlock_price > 0`）→ Unlock（USDC）→ Decrypt → Audit 后 escrow 分账
 
 **Seal 访问 OR 策略：**
 
@@ -696,7 +696,7 @@ Shell：`mobile/x_market_flutter/lib/src/app/app_shell.dart`
 | Oracle · 提议 | E-04.x | `macro_oracle::propose_data` | `app/src/lib/oracle.ts` |
 | Oracle · 争议 | E-04.x | `dispute_and_request_arbitration` | 同上 |
 | Oracle · 终裁 | E-04.x | `execute_arbitration` | 同上 |
-| Prophet · Commit | E-09.1.x | Seal + Walrus + `commit_private_prophecy` | `prophet.ts`, `walrus.ts`, `seal-prophet.ts` |
+| Prophet · Commit | E-09.1.x | Seal + Indexer/IPFS + `commit_private_prophecy` | `prophet.ts`, `prophet-blob*.ts`, `seal-prophet.ts` |
 | Prophet · Unlock | E-09.2.x | `unlock_prophecy` | `app/src/lib/prophet.ts` |
 | Prophet · Audit | E-09.3.x | `audit_prophecy` | 同上 |
 | 读取市场/Feed | — | Indexer `GET /v1/*` | `app/src/lib/indexer.ts` |
@@ -807,7 +807,7 @@ sequenceDiagram
 sequenceDiagram
     participant Prophet as 预言家
     participant Seal as Seal
-    participant Walrus as Walrus Relay
+    participant Indexer as Indexer blob API
     participant Chain as prophet_registry
     participant Oracle as macro_oracle
     participant Stats as prophet_leaderboard
@@ -815,7 +815,7 @@ sequenceDiagram
 
     Note over Prophet: 练手：unlock_price=0<br/>付费：须 paid_unlock_eligible
     Prophet->>Seal: 加密 JSON payload
-    Prophet->>Walrus: PUT blob
+    Prophet->>Indexer: POST /v1/prophecies/blob
     Prophet->>Chain: commit_private_prophecy
     Note over Chain: BE-01 ProphecyCommitted
     Oracle->>Chain: Pool resolved

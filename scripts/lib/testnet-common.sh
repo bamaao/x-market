@@ -144,7 +144,7 @@ bootstrap_app_env() {
 
   if [[ "$profile" != "frontend" ]]; then
     env_set_line "$app_local" "NEXT_PUBLIC_GAS_STATION_URL" "http://localhost:8787"
-    env_set_line "$app_local" "NEXT_PUBLIC_WALRUS_PUBLISHER_URL" "http://localhost:8791"
+    env_set_line "$app_local" "NEXT_PUBLIC_INDEXER_URL" "http://localhost:8800"
   fi
   if [[ "$profile" == "p2" || "$profile" == "full" ]]; then
     env_set_line "$app_local" "NEXT_PUBLIC_INDEXER_URL" "http://localhost:8800"

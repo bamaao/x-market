@@ -39,9 +39,10 @@ export function loadConfig(): AuditKeeperConfig {
     healthPort: numEnv("PROPHET_AUDIT_HEALTH_PORT", 8792),
     secretKey: requireEnv("PROPHET_AUDIT_KEEPER_SECRET_KEY"),
     indexerUrl: (process.env.INDEXER_URL ?? "").replace(/\/$/, ""),
-    walrusAggregatorUrl:
-      process.env.WALRUS_AGGREGATOR_URL ??
-      "https://aggregator.walrus-testnet.walrus.space",
+    ipfsGatewayUrl: (process.env.IPFS_GATEWAY_URL ?? "https://w3s.link").replace(
+      /\/$/,
+      "",
+    ),
     sealThreshold: numEnv("SEAL_THRESHOLD", 1),
   };
 }

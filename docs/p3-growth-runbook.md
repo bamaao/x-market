@@ -18,13 +18,13 @@ cd pricing-engine && npm install && npm start
 
 ## 3.3 Seal 明文缓存
 
-Indexer `seal-cache` worker：当 `lock_time` 已过或 `is_public`，从 Walrus 拉取 blob 写入 `seal_plaintext_cache`。
+Indexer `seal-cache` worker：当 `lock_time` 已过或 `is_public`，从 Indexer/IPFS blob 拉取明文写入 `seal_plaintext_cache`。
 
 ```
 GET /v1/prophecies/:prophecyId/plaintext
 ```
 
-环境：`WALRUS_AGGREGATOR_URL`
+环境：`INDEXER_PROPHET_BLOBS_DIR` · `IPFS_GATEWAY_URL`
 
 ## 3.4 GeoBlock
 

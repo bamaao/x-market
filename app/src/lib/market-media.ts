@@ -1,6 +1,5 @@
 import { INDEXER_URL } from "./indexer";
 import { resolveIpfsRef } from "./ipfs";
-import { WALRUS_AGGREGATOR_URL } from "./walrus";
 
 export const MARKET_COVER_BY_ID: Record<string, string> = {
   "poisson-goals": "/markets/poisson-goals.svg",
@@ -8,10 +7,6 @@ export const MARKET_COVER_BY_ID: Record<string, string> = {
   "normal-cpi": "/markets/normal-cpi.svg",
   "beta-vote": "/markets/beta-vote.svg",
 };
-
-export function walrusBlobCoverUrl(blobId: string): string {
-  return `${WALRUS_AGGREGATOR_URL}/v1/blobs/${encodeURIComponent(blobId)}`;
-}
 
 export function resolveMarketImageUrl(input: {
   id?: string;
@@ -23,9 +18,6 @@ export function resolveMarketImageUrl(input: {
   if (raw) {
     const ipfsUrl = resolveIpfsRef(raw);
     if (ipfsUrl) return ipfsUrl;
-    if (raw.startsWith("walrus:")) {
-      return walrusBlobCoverUrl(raw.slice("walrus:".length));
-    }
     if (raw.startsWith("/v1/covers/")) {
       if (!INDEXER_URL) return undefined;
       return `${INDEXER_URL}${raw}`;

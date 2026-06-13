@@ -50,14 +50,14 @@ async function main() {
     maturity,
     hashLen: hash.length,
     sealLen: sealId.length,
-    blobLen: "6uOP48rcVFRChVO80qH6mtJMl8RcHDdBUBGf5mw5elg".length,
+    blobLen: "idx:000000000000.bin".length,
   });
 
   const tx = new Transaction();
   appendCommitPrivateProphecy(tx, {
     registryId,
     poolId,
-    blobId: "6uOP48rcVFRChVO80qH6mtJMl8RcHDdBUBGf5mw5elg",
+    blobId: "idx:0000000000000000.bin",
     sealId,
     plaintextHash: hash,
     predictedValue: 25,

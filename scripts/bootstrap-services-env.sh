@@ -156,7 +156,7 @@ PROPHET_AUDIT_POLL_MS=120000
 PROPHET_AUDIT_DRY_RUN=true
 PROPHET_AUDIT_HEALTH_PORT=8792
 INDEXER_URL=http://localhost:8800
-WALRUS_AGGREGATOR_URL=https://aggregator.walrus-testnet.walrus.space
+IPFS_GATEWAY_URL=https://w3s.link
 SEAL_THRESHOLD=1
 HOST=0.0.0.0
 EOF
@@ -164,7 +164,7 @@ EOF
 if [[ -f app/.env.example ]]; then
   [[ -f app/.env.local ]] || cp app/.env.example app/.env.local
   env_set_line app/.env.local "NEXT_PUBLIC_GAS_STATION_URL" "http://localhost:8787"
-  env_set_line app/.env.local "NEXT_PUBLIC_WALRUS_PUBLISHER_URL" "http://localhost:8791"
+  env_set_line app/.env.local "NEXT_PUBLIC_INDEXER_URL" "http://localhost:8800"
 fi
 
 echo "Wrote services/gas-station/.env.local"

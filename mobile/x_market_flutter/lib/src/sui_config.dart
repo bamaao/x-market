@@ -15,11 +15,7 @@ class SuiConfig {
   static const String gasStationUrl = 'http://localhost:8787';
   static const String indexerUrl = 'http://localhost:8800';
   static const String pricingEngineUrl = 'http://localhost:8801';
-  static const String walrusPublisherUrl =
-      'https://publisher.walrus-testnet.walrus.space';
-  static const String walrusAggregatorUrl =
-      'https://aggregator.walrus-testnet.walrus.space';
-  static const int walrusEpochs = 2;
+  static const String ipfsGatewayUrl = 'https://w3s.link';
 
   static const List<SeedPool> seedPools = [
     SeedPool(id: '0xd06cc96ccceb7f974821613216388f1a63bee0c94af76946c7d405e62582bdfa', label: '足球总进球 · Poisson', kind: 'poisson'),

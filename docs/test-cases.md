@@ -482,21 +482,21 @@ Signer → execute_slash_request
 
 ## 10. BP-09 SuiProphet 知识付费
 
-**流程：** Commit（Seal+Walrus）→ Unlock（USDC）→ Decrypt → Audit（Oracle 后）
+**流程：** Commit（Seal+Indexer/IPFS）→ Unlock（USDC）→ Decrypt → Audit（Oracle 后）
 
 ### UC-09.1 预言家 Commit
 
 **时序：**
 
 ```
-预言家 → JSON canonical → Seal.encrypt → Walrus PUT
+预言家 → JSON canonical → Seal.encrypt → POST Indexer /v1/prophecies/blob
       → commit_private_prophecy(blob_id, seal_id, plaintext_hash)
 链上 → lock_time = pool.maturity_ts
 ```
 
 | ID | 用例 | 前置 | 步骤 | 预期 | 优先级 | 自动化 |
 | --- | --- | --- | --- | --- | --- | --- |
-| TC-09.1.1 | 完整 Commit | Registry 已创建 | /prophet 步骤 1 | 链上 PrivateProphecy；Walrus blob 可 GET | P1 | Manual E6 |
+| TC-09.1.1 | 完整 Commit | Registry 已创建 | /prophet 步骤 1 | 链上 PrivateProphecy；Indexer blob 可 GET | P1 | Manual E6 |
 | TC-09.1.2 | plaintext_hash 绑定 | 同上 | 篡改明文后 audit | CHEAT | P1 | Move |
 
 > 见 `prophet_registry_tests.move`（6 项）。
