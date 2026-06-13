@@ -18,7 +18,7 @@ use x_market::lp_guard;
 use x_market::nav;
 use x_market::position;
 use x_market::risk;
-use x_market::usdc::USDC;
+use usdc::usdc::USDC;
 
 // --- Pool creation (3 seed market templates) ---
 

@@ -7,7 +7,7 @@ use sui::clock::{Self, Clock};
 use sui::coin::Coin;
 use sui::event;
 use x_market::config::{Self, AdminCap, GlobalConfig};
-use x_market::usdc::USDC;
+use usdc::usdc::USDC;
 use x_market::errors;
 use x_market::macro_oracle::{Self, DataAssertion, DataFeed, OracleConfig};
 use x_market::market_pool::MarketPool;

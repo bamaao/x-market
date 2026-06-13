@@ -225,7 +225,7 @@ class ChainTransactionService {
 
     final coins = await listUsdcCoins(sender);
     if (coins.isEmpty) {
-      throw Exception('钱包中没有 USDC，请先在 Testnet 铸造');
+      throw Exception('钱包中没有 USDC，请先转入或领取测试网 USDC');
     }
 
     final total = coins.fold<BigInt>(
@@ -641,19 +641,6 @@ class ChainTransactionService {
             tx.object(poolId),
             tx.object(positionId),
           ],
-        );
-      },
-    );
-  }
-
-  Future<PendingBuyTransaction> buildMintTestUsdc({required String sender}) {
-    return _buildSimple(
-      sender: sender,
-      description: '铸造测试 USDC',
-      build: (tx) {
-        tx.moveCall(
-          '${SuiConfig.faucetPackageId}::faucet::mint_to_sender',
-          arguments: [],
         );
       },
     );

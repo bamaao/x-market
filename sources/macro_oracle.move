@@ -10,7 +10,7 @@ use x_market::config::{Self, AdminCap, GlobalConfig};
 use x_market::errors;
 use x_market::market_pool::{Self, MarketPool};
 use x_market::risk;
-use x_market::usdc::USDC;
+use usdc::usdc::USDC;
 
 const FEED_OPEN: u8 = 0;
 const FEED_FINALIZED: u8 = 1;

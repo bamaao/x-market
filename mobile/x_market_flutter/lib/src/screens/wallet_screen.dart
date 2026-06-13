@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:x_market_flutter/src/app/app_controller.dart';
+import 'package:x_market_flutter/src/sui_config.dart';
 
 class WalletScreen extends StatelessWidget {
   const WalletScreen({super.key, required this.app});
@@ -60,15 +61,11 @@ class WalletScreen extends StatelessWidget {
                             : const Text('连接 Phantom'),
                       ),
                     const SizedBox(height: 8),
-                    FilledButton.tonal(
-                      onPressed: !w.isConnected || w.busy
-                          ? null
-                          : () => app.submitChainTx(
-                              (sender) =>
-                                  app.tx.buildMintTestUsdc(sender: sender),
-                            ),
-                      child: const Text('铸造测试 USDC（Faucet）'),
-                    ),
+                    if (SuiConfig.network == 'testnet')
+                      Text(
+                        '测试网 USDC 请从 Circle 水龙头领取或转入钱包',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
                     const SizedBox(height: 8),
                     OutlinedButton(
                       onPressed: w.isConnected && !w.busy

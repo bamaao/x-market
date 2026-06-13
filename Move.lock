@@ -16,8 +16,14 @@ use_environment = "testnet"
 manifest_digest = "7AFB66695545775FBFBB2D3078ADFD084244D5002392E837FDE21D9EA1C6D01C"
 deps = { MoveStdlib = "MoveStdlib" }
 
-[pinned.testnet.x_market]
-source = { root = true }
+[pinned.testnet.usdc]
+source = { local = 'vendor\usdc' }
 use_environment = "testnet"
 manifest_digest = "5745706258F61D6CE210904B3E6AE87A73CE9D31A6F93BE4718C442529332A87"
 deps = { std = "MoveStdlib", sui = "Sui" }
+
+[pinned.testnet.x_market]
+source = { root = true }
+use_environment = "testnet"
+manifest_digest = "C21C21238CE4100A4131A2D22DDFE4CC22C00D780CAA8C468BDA1C16335BFFED"
+deps = { std = "MoveStdlib", sui = "Sui", usdc = "usdc" }

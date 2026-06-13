@@ -1,6 +1,9 @@
 /// Global fee defaults and admin capability (PRD §3.3).
 module x_market::config;
 
+/// One-time witness for package init (GlobalConfig bootstrap).
+public struct CONFIG has drop {}
+
 public struct GlobalConfig has key {
     id: UID,
     admin: address,
@@ -10,6 +13,10 @@ public struct GlobalConfig has key {
 
 public struct AdminCap has key, store {
     id: UID,
+}
+
+fun init(_: CONFIG, ctx: &mut TxContext) {
+    bootstrap(ctx);
 }
 
 public(package) fun bootstrap(ctx: &mut TxContext) {

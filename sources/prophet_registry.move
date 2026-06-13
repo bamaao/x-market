@@ -12,7 +12,7 @@ use x_market::errors;
 use x_market::macro_oracle;
 use x_market::market_pool::{Self, MarketPool};
 use x_market::prophet_leaderboard::{Self, ProphetStats};
-use x_market::usdc::USDC;
+use usdc::usdc::USDC;
 
 const PROPHECY_OPEN: u8 = 0;
 const PROPHECY_AUDITED_WIN: u8 = 1;

@@ -59,7 +59,7 @@ $publishDigest = ($pubOut | ConvertFrom-Json).digest
 Write-Host "  Package:     $packageId"
 Write-Host "  GlobalConfig:$globalConfig"
 Write-Host "  AdminCap:    $adminCap"
-Write-Host "  TreasuryCap: $treasuryCap"
+if ($treasuryCap) { Write-Host "  TreasuryCap: $treasuryCap (legacy dev USDC)" }
 Write-Host "  UpgradeCap:  $upgradeCap"
 
 Write-Host "`n[2/6] create_oracle_config..."
@@ -117,7 +117,6 @@ $deployV2 = @{
   publishTx = $publishDigest
   globalConfig = $globalConfig
   adminCap = $adminCap
-  treasuryCapUsdc = $treasuryCap
   upgradeCap = $upgradeCap
   maturityTs = $maturity
   oracle = @{
@@ -151,8 +150,6 @@ NEXT_PUBLIC_SUI_NETWORK=testnet
 NEXT_PUBLIC_POOL_POISSON=$poissonPool
 NEXT_PUBLIC_POOL_DIRICHLET=$dirichletPool
 NEXT_PUBLIC_POOL_NORMAL=$normalPool
-NEXT_PUBLIC_TREASURY_CAP=$treasuryCap
-NEXT_PUBLIC_FAUCET_PACKAGE_ID=0x70bb4f8ed11991f79dbafef255ad1881d169bb1e337b69b129d997dd4216ebf0
 NEXT_PUBLIC_SUI_CLOCK=0x6
 NEXT_PUBLIC_GLOBAL_CONFIG=$globalConfig
 NEXT_PUBLIC_ORACLE_CONFIG_ID=$oracleConfigId

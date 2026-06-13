@@ -1,5 +1,5 @@
 import type { Transaction } from "@mysten/sui/transactions";
-import { PACKAGE_ID } from "./markets";
+import { NETWORK } from "./markets";
 
 type CoinPage = {
   data: { coinObjectId: string; balance: string }[];
@@ -17,17 +17,21 @@ export type CoinsClient = {
 
 export const USDC_DECIMALS = 6;
 
-export function usdcType(packageId: string = PACKAGE_ID): string {
-  return `${packageId}::usdc::USDC`;
+/** Circle native USDC on Sui (see https://developers.circle.com/stablecoins/usdc-contract-addresses). */
+export const CIRCLE_USDC_COIN_TYPE = {
+  testnet:
+    "0xa1ec7fc00a6f40db9693ad1415d0c193ad3906494428cf252621037bd7117e29::usdc::USDC",
+  mainnet:
+    "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC",
+} as const;
+
+export function usdcType(): string {
+  const override = process.env.NEXT_PUBLIC_USDC_COIN_TYPE?.trim();
+  if (override) return override;
+  return NETWORK === "mainnet"
+    ? CIRCLE_USDC_COIN_TYPE.mainnet
+    : CIRCLE_USDC_COIN_TYPE.testnet;
 }
-
-export const TREASURY_CAP_ID =
-  process.env.NEXT_PUBLIC_TREASURY_CAP ??
-  "0x665f9aa32bbb18a65749b7fee38be8499d87fe0ddcdb8e8bbf738f4129975eaf";
-
-export const FAUCET_PACKAGE_ID =
-  process.env.NEXT_PUBLIC_FAUCET_PACKAGE_ID ??
-  "0x70bb4f8ed11991f79dbafef255ad1881d169bb1e337b69b129d997dd4216ebf0";
 
 export function parseUsdcAmount(input: string): bigint {
   const trimmed = input.trim();
@@ -52,9 +56,8 @@ export function formatUsdcBaseUnits(base: bigint): string {
 export async function listUsdcCoins(
   client: CoinsClient,
   owner: string,
-  packageId: string = PACKAGE_ID,
+  coinType: string = usdcType(),
 ): Promise<{ id: string; balance: bigint }[]> {
-  const coinType = usdcType(packageId);
   const out: { id: string; balance: bigint }[] = [];
   let cursor: string | null | undefined = null;
   do {
@@ -74,9 +77,9 @@ export async function listUsdcCoins(
 export async function totalUsdcBalance(
   client: CoinsClient,
   owner: string,
-  packageId?: string,
+  coinType?: string,
 ): Promise<bigint> {
-  const coins = await listUsdcCoins(client, owner, packageId);
+  const coins = await listUsdcCoins(client, owner, coinType);
   return coins.reduce((s, c) => s + c.balance, 0n);
 }
 
@@ -88,14 +91,14 @@ export async function prepareUsdcPayment(
   client: CoinsClient,
   owner: string,
   amount: bigint,
-  packageId: string = PACKAGE_ID,
+  coinType: string = usdcType(),
 ) {
   if (amount <= 0n) {
     throw new Error("金额须大于 0");
   }
-  const coins = await listUsdcCoins(client, owner, packageId);
+  const coins = await listUsdcCoins(client, owner, coinType);
   if (coins.length === 0) {
-    throw new Error("钱包中没有 USDC，请先铸造");
+    throw new Error("钱包中没有 USDC，请先转入或领取测试网 USDC");
   }
   const total = coins.reduce((s, c) => s + c.balance, 0n);
   if (total < amount) {

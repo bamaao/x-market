@@ -1,67 +1,28 @@
 "use client";
 
-import { useCurrentAccount, useSignAndExecuteTransaction } from "@mysten/dapp-kit";
-import { Transaction } from "@mysten/sui/transactions";
-import { useState } from "react";
-import { parseUsdcAmount, FAUCET_PACKAGE_ID, TREASURY_CAP_ID } from "@/lib/usdc";
+import { useCurrentAccount } from "@mysten/dapp-kit";
+import { NETWORK } from "@/lib/markets";
+
+const TESTNET_USDC_FAUCET_URL =
+  "https://developers.circle.com/stablecoins/quickstart-setup-transfer-usdc-sui";
 
 type Props = { onMinted?: () => void };
 
-export function MintUsdcButton({ onMinted }: Props) {
+/** Testnet: link to Circle USDC faucet. Mainnet: no mint (use real USDC). */
+export function MintUsdcButton(_props: Props) {
   const account = useCurrentAccount();
-  const { mutate: signAndExecute, isPending } = useSignAndExecuteTransaction();
-  const [amount, setAmount] = useState("1000");
-  const [msg, setMsg] = useState<string | null>(null);
 
-  const mint = () => {
-    if (!TREASURY_CAP_ID) {
-      setMsg("未配置 NEXT_PUBLIC_TREASURY_CAP");
-      return;
-    }
-    try {
-      const base = parseUsdcAmount(amount);
-      const tx = new Transaction();
-      tx.moveCall({
-        target: `${FAUCET_PACKAGE_ID}::faucet::mint_to_sender`,
-        arguments: [tx.object(TREASURY_CAP_ID), tx.pure.u64(base)],
-      });
-      signAndExecute(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        { transaction: tx as any },
-        {
-          onSuccess: () => {
-            setMsg(`已铸造 ${amount} USDC`);
-            onMinted?.();
-          },
-          onError: (e) => setMsg(`失败: ${e.message}`),
-        },
-      );
-    } catch (e) {
-      setMsg(e instanceof Error ? e.message : "无效金额");
-    }
-  };
-
-  if (!account) return null;
+  if (!account || NETWORK === "mainnet") return null;
 
   return (
     <div className="mint-row">
-      <label>铸造测试 USDC（Testnet）</label>
-      <div className="mint-inline">
-        <input
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          placeholder="1000"
-        />
-        <button
-          type="button"
-          className="secondary"
-          disabled={isPending}
-          onClick={mint}
-        >
-          {isPending ? "…" : "铸造"}
-        </button>
-      </div>
-      {msg && <p className="hint">{msg}</p>}
+      <p className="hint">
+        测试网 USDC 可从{" "}
+        <a href={TESTNET_USDC_FAUCET_URL} target="_blank" rel="noreferrer">
+          Circle 测试网水龙头
+        </a>
+        领取，或从已有地址转入钱包。
+      </p>
     </div>
   );
 }

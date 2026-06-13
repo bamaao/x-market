@@ -57,17 +57,18 @@ npm run dev
 
 ### USDC 交易（Testnet）
 
-1. **铸造测试 USDC**（需部署者钱包持有 `TreasuryCap`，或请其转账）：
-   ```powershell
-   .\scripts\mint-test-usdc.ps1
-   # 或前端市场页「铸造」按钮（Faucet 包）
-   ```
-2. **Faucet 包**：`0x70bb4f8ed11991f79dbafef255ad1881d169bb1e337b69b129d997dd4216ebf0`
-3. **买入**：`cd app && npm run dev` → 连接钱包 → 选择区间/数字期权参数 →「用 USDC 买入」（自动合并多枚 USDC；Gas 仍为 SUI）
-4. **持仓**：`/positions` 查看 Position，市场结算后可填写 Pool ID 领取赔付
-5. **转 USDC 给测试者**：`.\scripts\transfer-test-usdc.ps1 -Recipient 0x…`
+协议使用 **Circle 原生 USDC**（非自铸测试币）：
 
-> 主包 `usdc::mint_to_sender` 在源码中已添加；链上可用独立 Faucet 包，无需 upgrade 主包。
+| 网络 | Coin Type |
+| --- | --- |
+| Testnet | `0xa1ec7fc00a6f40db9693ad1415d0c193ad3906494428cf252621037bd7117e29::usdc::USDC` |
+| Mainnet | `0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC` |
+
+1. **获取测试网 USDC**：从 [Circle 测试网文档 / 水龙头](https://developers.circle.com/stablecoins/quickstart-setup-transfer-usdc-sui) 领取，或请部署者 `.\scripts\transfer-test-usdc.ps1 -Recipient 0x…` 转账
+2. **买入**：`cd app && npm run dev` → 连接钱包 → 选择区间/数字期权参数 →「用 USDC 买入」（自动合并多枚 USDC；Gas 仍为 SUI）
+3. **持仓**：`/positions` 查看 Position，市场结算后可填写 Pool ID 领取赔付
+
+> 已部署的旧池若仍绑定 `x_market::usdc::USDC`，需重新发布合约并创建新种子市场后方可使用 Circle USDC。
 
 ## Phase 1.5 能力（链上 + 前端）
 
@@ -99,7 +100,7 @@ npm run dev
 
 USDC 托管在共享对象 `MarketPool.vault: Balance<USDC>` 内。
 
-Dev 币种：`x_market::usdc::USDC`（包 `init`）；主网改用 Circle 官方 USDC。
+Dev 币种：Circle 原生 `usdc::usdc::USDC`（按网络选择 testnet/mainnet 地址）。
 
 ## 文档
 

@@ -44,6 +44,7 @@ import {
   workflowStepLabel,
 } from "@/lib/oracle";
 import { PACKAGE_ID } from "@/lib/markets";
+import { usdcType } from "@/lib/usdc";
 import { ArbitrationCasesPanel } from "@/components/ArbitrationCasesPanel";
 import { PageHeader } from "@/components/PageHeader";
 
@@ -270,7 +271,7 @@ export default function OraclePage() {
     if (!account?.address) throw new Error("请先连接钱包");
     const coins = await client.getCoins({
       owner: account.address,
-      coinType: `${PACKAGE_ID}::usdc::USDC`,
+      coinType: usdcType(),
     });
     if (!coins.data.length) throw new Error("钱包无 USDC");
     const [primary, ...rest] = coins.data;

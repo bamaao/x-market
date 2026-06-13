@@ -6,8 +6,8 @@ class SuiConfig {
   static const String rpcUrl = 'https://fullnode.testnet.sui.io:443';
 
   static const String packageId = '0x1a175ee8ba5ae34cedc2f09e5cde8da1bff2fd11cfda7ade4fc369e84e5602a0';
-  static const String usdcCoinType = '0x1a175ee8ba5ae34cedc2f09e5cde8da1bff2fd11cfda7ade4fc369e84e5602a0::usdc::USDC';
-  static const String faucetPackageId = '0x1a175ee8ba5ae34cedc2f09e5cde8da1bff2fd11cfda7ade4fc369e84e5602a0';
+  static const String usdcCoinType =
+      '0xa1ec7fc00a6f40db9693ad1415d0c193ad3906494428cf252621037bd7117e29::usdc::USDC';
   static const String suiClockId = '0x6';
 
   static const String prophetRegistryId = '0x51b2bc4fa6178689c28efc47237849ac9e730ff540a135e0f275ad6e7948b722';

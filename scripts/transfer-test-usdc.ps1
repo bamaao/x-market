@@ -14,7 +14,7 @@ $sender = (sui client active-address).Trim()
 $coinList = sui client objects $sender --json | ConvertFrom-Json
 $usdcCoin = $coinList.data | Where-Object { $_.data.type -like "*usdc::USDC*" } | Select-Object -First 1
 if (-not $usdcCoin) {
-  Write-Error "发送方没有 USDC，请先运行 .\scripts\mint-test-usdc.ps1"
+  Write-Error "发送方没有 USDC，请从 Circle 测试网水龙头领取或请他人转账"
   exit 1
 }
 $id = $usdcCoin.data.objectId

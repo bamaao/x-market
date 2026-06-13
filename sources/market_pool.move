@@ -4,7 +4,7 @@ use sui::balance::{Self, Balance};
 use sui::coin::{Self, Coin};
 use x_market::market_status;
 use x_market::risk;
-use x_market::usdc::USDC;
+use usdc::usdc::USDC;
 
 /// 0 = Poisson, 1 = Dirichlet, 2 = Normal, 3 = Beta
 const KIND_POISSON: u8 = 0;

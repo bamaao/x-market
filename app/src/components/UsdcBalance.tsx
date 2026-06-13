@@ -2,7 +2,6 @@
 
 import { useCurrentAccount, useSuiClientQuery } from "@mysten/dapp-kit";
 import { formatUsdcBaseUnits, usdcType } from "@/lib/usdc";
-import { PACKAGE_ID } from "@/lib/markets";
 
 export function UsdcBalance() {
   const account = useCurrentAccount();
@@ -12,7 +11,7 @@ export function UsdcBalance() {
       owner: account?.address ?? "",
       coinType: usdcType(),
     },
-    { enabled: !!account?.address && PACKAGE_ID !== "0x0" },
+    { enabled: !!account?.address },
   );
 
   if (!account) return null;

@@ -11,6 +11,8 @@ const appRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = join(appRoot, "..");
 const SUI_CLOCK = "0x6";
 const USDC_UNIT = 1_000_000n; // 1 USDC
+const CIRCLE_USDC_TESTNET =
+  "0xa1ec7fc00a6f40db9693ad1415d0c193ad3906494428cf252621037bd7117e29::usdc::USDC";
 
 type StepStatus = "success" | "fail" | "skipped" | "manual";
 
@@ -62,7 +64,7 @@ async function main() {
     packageIdV1: string;
     globalConfig: string;
     adminCap: string;
-    treasuryCapUsdc: string;
+    treasuryCapUsdc?: string;
     deployer: string;
     seedMarkets: {
       poisson_goals: { poolId: string };
@@ -89,11 +91,8 @@ async function main() {
   });
 
   const pkg = deploy.packageId;
-  // Upgraded package: USDC coin type stays at first publish id (packageIdV1).
-  const usdcPkg =
-    deploy.packageIdV1 ??
-    "0xb2af3cb8af06e9754f442680ff2d191b8cc3a16ee661197534e6dc435e1eabce";
-  const usdcType = `${usdcPkg}::usdc::USDC`;
+  const usdcType =
+    process.env.NEXT_PUBLIC_USDC_COIN_TYPE?.trim() ?? CIRCLE_USDC_TESTNET;
   console.log(`USDC type: ${usdcType}`);
 
   const VERSION_STALE =
@@ -128,20 +127,17 @@ async function main() {
     throw new Error(lastErr || "execute failed");
   }
 
-  async function ensureV3Usdc(minUnits = 80n * USDC_UNIT) {
+  async function ensureUsdcBalance(minUnits = 80n * USDC_UNIT) {
     const coins = await client.getCoins({ owner: sender, coinType: usdcType });
     const balance = coins.data.reduce((s, c) => s + BigInt(c.balance), 0n);
     if (balance >= minUnits) return;
-    const tx = new Transaction();
-    tx.moveCall({
-      target: `${pkg}::usdc::mint_to_sender`,
-      arguments: [tx.object(deploy.treasuryCapUsdc), tx.pure.u64(200n * USDC_UNIT)],
-    });
-    await execute(tx, "mint_to_sender 200 USDC (v3)", "SETUP");
+    throw new Error(
+      `Gas payer 需要至少 ${minUnits} USDC (${usdcType})，请从 Circle 测试网水龙头领取或转入`,
+    );
   }
 
   async function mergeUsdcCoins() {
-    await ensureV3Usdc();
+    await ensureUsdcBalance();
     const coins = await client.getCoins({ owner: sender, coinType: usdcType });
     if (coins.data.length <= 1) return coins.data[0]?.coinObjectId;
     const tx = new Transaction();

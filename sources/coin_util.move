@@ -5,7 +5,7 @@ use sui::coin::Coin;
 use sui::tx_context::TxContext;
 
 use x_market::market_pool::{Self, MarketPool};
-use x_market::usdc::USDC;
+use usdc::usdc::USDC;
 
 /// User / LP / bidder → pool vault (`Balance<USDC>` inside `MarketPool`).
 public fun deposit_to_vault(pool: &mut MarketPool, payment: Coin<USDC>) {
