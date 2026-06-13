@@ -1,4 +1,6 @@
-import Image from "next/image";
+"use client";
+
+import { useState } from "react";
 import { resolveMarketImageUrl } from "@/lib/market-media";
 
 type Variant = "card" | "hero" | "thumb";
@@ -26,12 +28,12 @@ export function MarketCover({
   title,
   kind,
   variant = "card",
-  priority = false,
 }: Props) {
+  const [failed, setFailed] = useState(false);
   const src = resolveMarketImageUrl({ id, slug, imageUrl });
   const className = `${VARIANT_CLASS[variant]} market-cover--${kind ?? "default"}`;
 
-  if (!src) {
+  if (!src || failed) {
     return (
       <div className={className} aria-hidden>
         <div className="market-cover-fallback" />
@@ -39,29 +41,17 @@ export function MarketCover({
     );
   }
 
-  const isRemote = src.startsWith("http://") || src.startsWith("https://");
-
   return (
     <div className={className}>
-      {isRemote ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={src} alt={`${title} 封面`} className="market-cover-img" />
-      ) : (
-        <Image
-          src={src}
-          alt={`${title} 封面`}
-          fill
-          sizes={
-            variant === "hero"
-              ? "(max-width: 768px) 100vw, 720px"
-              : variant === "thumb"
-                ? "96px"
-                : "(max-width: 768px) 100vw, 320px"
-          }
-          className="market-cover-img"
-          priority={priority}
-        />
-      )}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt={`${title} 封面`}
+        className="market-cover-img"
+        loading={variant === "hero" ? "eager" : "lazy"}
+        decoding="async"
+        onError={() => setFailed(true)}
+      />
     </div>
   );
 }

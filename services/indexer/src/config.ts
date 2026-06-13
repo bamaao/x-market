@@ -17,6 +17,9 @@ function numEnv(name: string, fallback: number): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
+export type CoverStorageMode = "local" | "ipfs";
+export type IpfsPinProvider = "pinata" | "kubo";
+
 export interface IndexerConfig {
   packageId: string;
   prophetRegistryId: string;
@@ -28,6 +31,12 @@ export interface IndexerConfig {
   snapshotPollMs: number;
   statsPollMs: number;
   marketRegisterSecret: string;
+  /** local = Indexer disk; ipfs = pin via IPFS_PIN_PROVIDER */
+  coverStorage: CoverStorageMode;
+  coversDir: string;
+  ipfsPinProvider: IpfsPinProvider;
+  ipfsPinataJwt: string;
+  ipfsKuboApiUrl: string;
   seedDeploy: {
     seedMarkets: Record<
       string,
@@ -91,6 +100,11 @@ export function seedMarketMeta(key: string) {
   return SEED_META[key];
 }
 
+function strEnv(name: string, fallback: string): string {
+  const v = process.env[name]?.trim();
+  return v || fallback;
+}
+
 export function loadConfig(): IndexerConfig {
   const deployPath = resolve(
     indexerRoot,
@@ -113,6 +127,19 @@ export function loadConfig(): IndexerConfig {
     snapshotPollMs: numEnv("INDEXER_SNAPSHOT_POLL_MS", 60_000),
     statsPollMs: numEnv("INDEXER_STATS_POLL_MS", 120_000),
     marketRegisterSecret: process.env.MARKET_REGISTER_SECRET?.trim() ?? "",
+    coverStorage: (strEnv("INDEXER_COVER_STORAGE", "local") === "ipfs"
+      ? "ipfs"
+      : "local") as CoverStorageMode,
+    coversDir: resolve(
+      indexerRoot,
+      "..",
+      process.env.INDEXER_COVERS_DIR?.trim() || "data/covers",
+    ),
+    ipfsPinProvider: (strEnv("IPFS_PIN_PROVIDER", "pinata") === "kubo"
+      ? "kubo"
+      : "pinata") as IpfsPinProvider,
+    ipfsPinataJwt: process.env.IPFS_PINATA_JWT?.trim() ?? "",
+    ipfsKuboApiUrl: strEnv("IPFS_KUBO_API_URL", "http://127.0.0.1:5001"),
     seedDeploy,
   };
 }

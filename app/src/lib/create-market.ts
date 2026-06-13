@@ -50,8 +50,11 @@ export function validateCreateMarketParams(p: CreateMarketParams): string | null
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(p.slug)) {
     return "slug 仅允许小写字母、数字与连字符";
   }
+  if (!Number.isFinite(p.maturityTs) || p.maturityTs <= 0) {
+    return "请填写有效的到期时间";
+  }
   if (p.maturityTs <= Math.floor(Date.now() / 1000) + 3600) {
-    return "到期时间须至少 1 小时后";
+    return "到期时间须至少 1 小时后（链上按 UTC Unix 秒存储）";
   }
   if (p.feeBps < 0 || p.feeBps > 500) return "费率须在 0–500 bps";
   if (!p.feedIdentifier.trim()) return "请填写 Oracle Feed 标识";

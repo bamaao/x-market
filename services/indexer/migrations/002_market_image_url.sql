@@ -1,4 +1,4 @@
--- P2: off-chain market cover URLs (Walrus/CDN/public path)
+-- P2: off-chain market cover URLs (Indexer / CDN / app public path)
 ALTER TABLE markets ADD COLUMN IF NOT EXISTS image_url TEXT;
 
 UPDATE markets SET image_url = '/markets/poisson-goals.svg'

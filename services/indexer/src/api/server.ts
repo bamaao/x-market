@@ -1,5 +1,10 @@
 import http from "node:http";
 import type { IndexerConfig } from "../config.js";
+import {
+  isSafeCoverFilename,
+  readMarketCover,
+} from "../covers.js";
+import { storeMarketCover } from "../cover-storage.js";
 import { query } from "../db.js";
 import {
   attachTagsToMarkets,
@@ -30,6 +35,28 @@ function json(
   res.end(JSON.stringify(body));
 }
 
+async function readRawBody(req: http.IncomingMessage, maxBytes: number): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  let total = 0;
+  for await (const chunk of req) {
+    const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    total += buf.length;
+    if (total > maxBytes) {
+      throw new Error("payload too large");
+    }
+    chunks.push(buf);
+  }
+  return Buffer.concat(chunks);
+}
+
+function checkRegisterSecret(
+  req: http.IncomingMessage,
+  config: IndexerConfig,
+): boolean {
+  if (!config.marketRegisterSecret) return true;
+  return req.headers["x-market-register-secret"] === config.marketRegisterSecret;
+}
+
 async function readJsonBody(req: http.IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
   for await (const chunk of req) {
@@ -48,6 +75,7 @@ function matchRoute(
   const path = url.split("?")[0];
   const routes: { pattern: RegExp; route: string; keys: string[] }[] = [
     { pattern: /^\/health$/, route: "health", keys: [] },
+    { pattern: /^\/v1\/covers\/([^/]+)$/, route: "cover", keys: ["filename"] },
     { pattern: /^\/v1\/tags$/, route: "tags", keys: [] },
     { pattern: /^\/v1\/markets$/, route: "markets", keys: [] },
     { pattern: /^\/v1\/markets\/([^/]+)$/, route: "market", keys: ["poolId"] },
@@ -94,12 +122,28 @@ export function createApiServer(config: IndexerConfig, state: { lastEventAt: str
         service: "x-market-indexer",
         lastEventAt: state.lastEventAt,
         lastSnapshotAt: state.lastSnapshotAt,
+        coverStorage: config.coverStorage,
+        ipfsPinProvider: config.coverStorage === "ipfs" ? config.ipfsPinProvider : null,
       },
     }),
 
     tags: async () => {
       const rows = await listTags(config.databaseUrl);
       return { status: 200, body: { tags: rows } };
+    },
+
+    cover: async (_req, params) => {
+      const filename = params.filename ?? "";
+      const file = await readMarketCover(config.coversDir, filename);
+      if (!file) {
+        return { status: 404, body: { error: "cover not found" } };
+      }
+      return {
+        status: 200,
+        body: file.data,
+        contentType: file.contentType,
+        cacheControl: "public, max-age=86400, immutable",
+      };
     },
 
     markets: async (req) => {
@@ -394,14 +438,51 @@ export function createApiServer(config: IndexerConfig, state: { lastEventAt: str
       return;
     }
 
+    if (req.method === "POST" && urlPath === "/v1/markets/cover") {
+      try {
+        if (!checkRegisterSecret(req, config)) {
+          json(res, 403, { error: "invalid register secret" }, config.corsOrigin, "GET, POST, OPTIONS");
+          return;
+        }
+        const q = parseQuery(req.url ?? "");
+        const slug = String(q.get("slug") ?? "").trim();
+        if (!slug) {
+          json(res, 400, { error: "slug query param required" }, config.corsOrigin, "GET, POST, OPTIONS");
+          return;
+        }
+        const contentType = String(req.headers["content-type"] ?? "").trim();
+        const data = await readRawBody(req, 2 * 1024 * 1024);
+        const saved = await storeMarketCover(config, slug, contentType, data);
+        json(
+          res,
+          200,
+          {
+            ok: true,
+            image_url: saved.imageUrl,
+            storage: saved.storage,
+            cid: saved.cid ?? null,
+            filename: saved.filename ?? null,
+          },
+          config.corsOrigin,
+          "GET, POST, OPTIONS",
+        );
+      } catch (e) {
+        json(
+          res,
+          400,
+          { error: e instanceof Error ? e.message : "cover upload failed" },
+          config.corsOrigin,
+          "GET, POST, OPTIONS",
+        );
+      }
+      return;
+    }
+
     if (req.method === "POST" && urlPath === "/v1/markets/register") {
       try {
-        if (config.marketRegisterSecret) {
-          const header = req.headers["x-market-register-secret"];
-          if (header !== config.marketRegisterSecret) {
-            json(res, 403, { error: "invalid register secret" }, config.corsOrigin, "GET, POST, OPTIONS");
-            return;
-          }
+        if (!checkRegisterSecret(req, config)) {
+          json(res, 403, { error: "invalid register secret" }, config.corsOrigin, "GET, POST, OPTIONS");
+          return;
         }
         const body = (await readJsonBody(req)) as Record<string, unknown>;
         const poolId = String(body.pool_id ?? "").trim();
@@ -474,6 +555,15 @@ export function createApiServer(config: IndexerConfig, state: { lastEventAt: str
     }
     try {
       const result = await handlers[matched.route](req, matched.params);
+      if (matched.route === "cover" && Buffer.isBuffer(result.body)) {
+        res.writeHead(result.status, {
+          "Content-Type": (result as { contentType?: string }).contentType ?? "application/octet-stream",
+          "Cache-Control": (result as { cacheControl?: string }).cacheControl ?? "public, max-age=86400",
+          "Access-Control-Allow-Origin": config.corsOrigin,
+        });
+        res.end(result.body);
+        return;
+      }
       json(res, result.status, result.body, config.corsOrigin, "GET, POST, OPTIONS");
     } catch (e) {
       json(

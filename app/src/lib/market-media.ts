@@ -1,3 +1,5 @@
+import { INDEXER_URL } from "./indexer";
+import { resolveIpfsRef } from "./ipfs";
 import { WALRUS_AGGREGATOR_URL } from "./walrus";
 
 export const MARKET_COVER_BY_ID: Record<string, string> = {
@@ -19,10 +21,19 @@ export function resolveMarketImageUrl(input: {
 }): string | undefined {
   const raw = input.imageUrl?.trim();
   if (raw) {
+    const ipfsUrl = resolveIpfsRef(raw);
+    if (ipfsUrl) return ipfsUrl;
     if (raw.startsWith("walrus:")) {
       return walrusBlobCoverUrl(raw.slice("walrus:".length));
     }
-    if (raw.startsWith("http://") || raw.startsWith("https://") || raw.startsWith("/")) {
+    if (raw.startsWith("/v1/covers/")) {
+      if (!INDEXER_URL) return undefined;
+      return `${INDEXER_URL}${raw}`;
+    }
+    if (raw.startsWith("http://") || raw.startsWith("https://")) {
+      return raw;
+    }
+    if (raw.startsWith("/")) {
       return raw;
     }
   }

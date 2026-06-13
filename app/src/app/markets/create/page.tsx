@@ -17,18 +17,23 @@ import {
   validateCreateMarketParams,
   type CreateMarketParams,
 } from "@/lib/create-market";
+import { defaultMaturityZonedInput, detectUserTimezone, parseZonedDatetimeInput } from "@/lib/market-maturity-time";
+import { MaturityTimeField } from "@/components/MaturityTimeField";
 import { saveUserMarket } from "@/lib/market-catalog";
-import { registerMarketMetadata } from "@/lib/indexer";
+import {
+  fetchIndexerTags,
+  indexerEnabled,
+  registerMarketMetadata,
+} from "@/lib/indexer";
+import { uploadMarketCover } from "@/lib/market-cover-upload";
 import { PACKAGE_ID, type MarketKind } from "@/lib/markets";
 import {
   extractCreatedObjectIdFromTx,
   ORACLE_CONFIG_ID,
   resolveFeedRegistryId,
 } from "@/lib/oracle";
-import { uploadBlobToWalrus } from "@/lib/walrus";
 import { MarketTagPicker } from "@/components/MarketTagList";
 import { catalogTagsForPicker, normalizeTagSlugs } from "@/lib/market-tags";
-import { fetchIndexerTags, indexerEnabled } from "@/lib/indexer";
 
 const KIND_OPTIONS: { value: MarketKind; label: string }[] = [
   { value: "poisson", label: "Poisson" },
@@ -36,12 +41,6 @@ const KIND_OPTIONS: { value: MarketKind; label: string }[] = [
   { value: "normal", label: "Normal" },
   { value: "beta", label: "Beta" },
 ];
-
-function defaultMaturityLocal(): string {
-  const d = new Date(Date.now() + 7 * 24 * 3600 * 1000);
-  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-  return d.toISOString().slice(0, 16);
-}
 
 export default function CreateMarketPage() {
   const router = useRouter();
@@ -54,7 +53,12 @@ export default function CreateMarketPage() {
   const [slug, setSlug] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
   const [kind, setKind] = useState<MarketKind>("poisson");
-  const [maturityLocal, setMaturityLocal] = useState(defaultMaturityLocal);
+  const [maturityTs, setMaturityTs] = useState(() =>
+    parseZonedDatetimeInput(
+      defaultMaturityZonedInput(detectUserTimezone()),
+      detectUserTimezone(),
+    ),
+  );
   const [feeBps, setFeeBps] = useState("30");
   const [feedIdentifier, setFeedIdentifier] = useState("");
   const [ancillaryText, setAncillaryText] = useState("");
@@ -93,7 +97,7 @@ export default function CreateMarketPage() {
       description,
       slug: effectiveSlug,
       kind,
-      maturityTs: Math.floor(new Date(maturityLocal).getTime() / 1000),
+      maturityTs,
       feeBps: Number(feeBps || "30"),
       feedIdentifier: effectiveFeedId,
       ancillaryText: ancillaryText.trim() || description.trim(),
@@ -112,7 +116,7 @@ export default function CreateMarketPage() {
       description,
       effectiveSlug,
       kind,
-      maturityLocal,
+      maturityTs,
       feeBps,
       effectiveFeedId,
       ancillaryText,
@@ -158,12 +162,24 @@ export default function CreateMarketPage() {
       let imageRef: string | undefined;
 
       if (coverFile) {
+        if (!indexerEnabled()) {
+          setStatus("封面上传需要 Indexer（配置 NEXT_PUBLIC_INDEXER_URL）");
+          return;
+        }
         setStep("upload");
-        setStatus("正在上传封面到 Walrus…");
-        const bytes = new Uint8Array(await coverFile.arrayBuffer());
-        const blobId = await uploadBlobToWalrus(bytes);
-        imageRef = `walrus:${blobId}`;
-        setStatus(`封面上传成功 · ${blobId.slice(0, 12)}…`);
+        setStatus("正在上传封面到 Indexer…");
+        const uploaded = await uploadMarketCover(coverFile, params.slug);
+        if (!uploaded.ok) {
+          setStatus(`封面上传失败: ${uploaded.error}`);
+          setStep("idle");
+          return;
+        }
+        imageRef = uploaded.imageUrl;
+        setStatus(
+          uploaded.storage === "ipfs" && uploaded.cid
+            ? `封面上传成功 · IPFS ${uploaded.cid.slice(0, 14)}…`
+            : `封面上传成功 · ${uploaded.imageUrl.split("/").pop()}`,
+        );
       }
 
       setStep("chain");
@@ -328,13 +344,7 @@ export default function CreateMarketPage() {
             ))}
           </select>
 
-          <label htmlFor="maturity">到期时间</label>
-          <input
-            id="maturity"
-            type="datetime-local"
-            value={maturityLocal}
-            onChange={(e) => setMaturityLocal(e.target.value)}
-          />
+          <MaturityTimeField onChange={setMaturityTs} />
 
           <label htmlFor="fee">交易费率（bps）</label>
           <input
@@ -413,7 +423,7 @@ export default function CreateMarketPage() {
           )}
 
           <h2 style={{ marginTop: "1.5rem" }}>封面（可选）</h2>
-          <label htmlFor="cover">上传图片 · Walrus</label>
+          <label htmlFor="cover">上传图片 · Indexer / IPFS</label>
           <input
             id="cover"
             type="file"
@@ -421,7 +431,10 @@ export default function CreateMarketPage() {
             onChange={(e) => onCoverChange(e.target.files?.[0] ?? null)}
             style={{ maxWidth: "100%" }}
           />
-          <p className="hint">建议 16:9，PNG/JPEG/WebP/SVG，最大约 2MB</p>
+          <p className="hint">
+            建议 16:9，PNG/JPEG/WebP/SVG，最大 2MB。需 Indexer 在线；存储由服务端{" "}
+            <code className="mono">INDEXER_COVER_STORAGE</code> 决定（local 或 ipfs）。
+          </p>
 
           {validationError && (
             <p className="hint" style={{ color: "var(--warn, #c9a227)" }}>
@@ -477,7 +490,10 @@ export default function CreateMarketPage() {
             Feed: <code className="mono">{effectiveFeedId || "—"}</code>
           </p>
           {coverPreview && coverFile && (
-            <p className="hint">Walrus 上传后将存为 walrus:{"{blobId}"}</p>
+            <p className="hint">
+              上传后存为 <code className="mono">/v1/covers/…</code>（local）或{" "}
+              <code className="mono">ipfs://…</code>（ipfs + Pin）
+            </p>
           )}
         </div>
       </div>

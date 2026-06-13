@@ -34,12 +34,12 @@
 | --- | --- |
 | 标题 / 描述 / slug | 展示与 URL（`/markets/{slug}`） |
 | 分布类型 | Poisson / Dirichlet / Normal / Beta |
-| 到期时间 | 须 ≥ 当前时间 **1 小时** 后 |
+| 到期时间 | 表单按**所选时区**输入；链上存 **UTC Unix 秒**；默认时区为浏览器系统时区 |
 | 交易费率 | 0–500 bps |
 | Feed 标识 | Oracle 指标 ID，默认可与 slug 相同 |
 | 辅助说明 | Ancillary 文本，默认用描述 |
 | 主题标签 | 可选，Indexer 发现与筛选 |
-| 封面 | 可选，上传 Walrus（**仅展示图，非预测加密**） |
+| 封面 | 可选，经 Indexer 上传；存储由 `INDEXER_COVER_STORAGE` 选择 **local** 或 **ipfs**（Pin） |
 
 4. 点击 **「创建市场」**
 
@@ -179,8 +179,8 @@ flowchart LR
 1. **「加密市场」≠ 新建一种市场类型**  
    任何带 Feed、未结算的 Pool 均可挂 Prophet；加密发生在预测层。
 
-2. **封面上传 Walrus ≠ 预测加密**  
-   `/markets/create` 的封面仅用于展示；预测加密在 `/prophet` 的 Seal 流程。
+2. **市场封面：Indexer local 或 IPFS，不走 Walrus**  
+   `/markets/create` → `POST /v1/markets/cover`；`INDEXER_COVER_STORAGE=local|ipfs`，IPFS 需 Pin（Pinata JWT 或 Kubo）。Walrus 仅用于 Prophet 加密 blob。
 
 3. **EventRoot**  
    种子市场已通过 `wrap-event-roots-testnet.ps1` 包装 EventRoot；自建市场可直接用 `poolId` Commit，EventRoot 为架构统一项，**非**加密预测前置条件。
