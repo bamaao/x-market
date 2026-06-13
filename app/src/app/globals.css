@@ -829,6 +829,109 @@ textarea {
   font-weight: 600;
 }
 
+.oracle-pool-row {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: stretch;
+  margin-bottom: 0.5rem;
+}
+
+.oracle-pool-row input {
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+
+.oracle-pool-error {
+  color: #f87171;
+}
+
+.oracle-market-picker {
+  margin: 1rem 0;
+}
+
+.oracle-queue-badge {
+  font-size: 0.72rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.oracle-queue-badge--warn {
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.35);
+  background: rgba(251, 191, 36, 0.08);
+}
+
+.oracle-queue-badge--accent {
+  color: var(--accent);
+  border-color: var(--accent-dim);
+  background: var(--accent-glow);
+}
+
+.oracle-queue-badge--info {
+  color: #93c5fd;
+  border-color: rgba(147, 197, 253, 0.35);
+  background: rgba(147, 197, 253, 0.08);
+}
+
+.oracle-queue-badge--muted {
+  color: var(--muted);
+}
+
+.oracle-virtual-list {
+  display: block;
+  margin: 0 0 1rem;
+  padding: 0;
+}
+
+.oracle-virtual-list.prophet-market-list {
+  max-height: none;
+  overflow-y: auto;
+  display: block;
+}
+
+.oracle-market-row {
+  height: calc(100% - 0.65rem);
+  margin-bottom: 0.65rem;
+  overflow: hidden;
+}
+
+.oracle-market-row-title {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.oracle-market-row-desc {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  overflow: hidden;
+  margin: 0.2rem 0 0.35rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.prophet-market-row {
+  height: calc(100% - 0.65rem);
+  margin-bottom: 0.65rem;
+  overflow: hidden;
+}
+
+.virtual-scroll-row-focus .prophet-market-item,
+.virtual-scroll-row-focus .oracle-market-row {
+  outline: 2px solid var(--accent-dim);
+  outline-offset: 1px;
+}
+
+.oracle-list-kbd-hint {
+  margin: -0.5rem 0 1rem;
+  font-size: 0.75rem;
+}
+
 .empty-state {
   text-align: center;
   padding: 2.5rem 1.5rem;

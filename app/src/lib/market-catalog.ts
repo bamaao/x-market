@@ -54,7 +54,7 @@ export async function resolveMarketById(id: string): Promise<SeedMarket | null> 
   if (user) return user;
 
   if (indexerEnabled()) {
-    const rows = await fetchIndexerMarkets();
+    const { markets: rows } = await fetchIndexerMarkets();
     const hit = rows.find(
       (m) => m.slug === id || m.pool_id === id,
     );

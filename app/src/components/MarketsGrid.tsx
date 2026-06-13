@@ -55,7 +55,7 @@ export function MarketsGrid() {
     setMarkets(base);
 
     if (!indexerEnabled()) return;
-    void fetchIndexerMarkets().then((rows) => {
+    void fetchIndexerMarkets().then(({ markets: rows }) => {
       const indexer = rows.length ? indexerRowsToSeeds(rows) : [];
       setMarkets(mergeMarkets(SEED_MARKETS, user, indexer));
       if (rows.length) setSource("indexer");

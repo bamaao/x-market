@@ -57,6 +57,33 @@ export const ORACLE_MARKETS: OracleMarketRef[] = SEED_MARKETS.map((m) => ({
   kind: m.kind,
 }));
 
+/** Normalize pasted Pool / object ID (0x + 64 hex). */
+export function normalizePoolObjectId(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const withPrefix = trimmed.startsWith("0x") ? trimmed : `0x${trimmed}`;
+  if (!/^0x[a-fA-F0-9]{64}$/.test(withPrefix)) return null;
+  return withPrefix.toLowerCase();
+}
+
+export function marketKindFromPoolFields(
+  fields: Record<string, unknown> | undefined,
+): MarketKind | undefined {
+  if (!fields) return undefined;
+  switch (Number(fields.kind ?? -1)) {
+    case 0:
+      return "poisson";
+    case 1:
+      return "dirichlet";
+    case 2:
+      return "normal";
+    case 3:
+      return "beta";
+    default:
+      return undefined;
+  }
+}
+
 function parseMoveFields(content: unknown): Record<string, unknown> | undefined {
   if (!content || typeof content !== "object") return undefined;
   const c = content as { dataType?: string; fields?: Record<string, unknown> };

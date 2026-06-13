@@ -92,7 +92,7 @@ export default function PositionsPage() {
 
   useEffect(() => {
     if (!indexerEnabled()) return;
-    void fetchIndexerMarkets().then((rows) => {
+    void fetchIndexerMarkets().then(({ markets: rows }) => {
       setIndexerMarkets(rows.map(indexerMarketToRef));
     });
   }, []);

@@ -18,6 +18,7 @@ import {
   SEED_MARKET_TAGS,
   syncMarketTags,
 } from "../market-tags.js";
+import { buildOracleQueueQueries } from "../oracle-queue-query.js";
 
 type Handler = (
   req: http.IncomingMessage,
@@ -85,6 +86,7 @@ function matchRoute(
     { pattern: /^\/v1\/tags$/, route: "tags", keys: [] },
     { pattern: /^\/v1\/markets$/, route: "markets", keys: [] },
     { pattern: /^\/v1\/markets\/([^/]+)$/, route: "market", keys: ["poolId"] },
+    { pattern: /^\/v1\/oracle\/queue$/, route: "oracleQueue", keys: [] },
     { pattern: /^\/v1\/feeds$/, route: "feeds", keys: [] },
     { pattern: /^\/v1\/feeds\/([^/]+)$/, route: "feed", keys: ["feedId"] },
     { pattern: /^\/v1\/prophet\/leaderboard$/, route: "leaderboard", keys: [] },
@@ -117,6 +119,34 @@ function matchRoute(
 function parseQuery(url: string): URLSearchParams {
   const i = url.indexOf("?");
   return new URLSearchParams(i >= 0 ? url.slice(i + 1) : "");
+}
+
+type OracleQueueRow = {
+  pool_id: string;
+  slug: string | null;
+  title: string;
+  description: string;
+  kind: string;
+  maturity_ts: string | number;
+  resolved: boolean;
+  market_feed_id: string | null;
+  feed_id: string | null;
+  feed_status: number | null;
+  active_assertion_id: string | null;
+  event_ts: string | number | null;
+  liveness_secs: string | number | null;
+  open_case_id: string | null;
+  effective_feed_id?: string | null;
+  queue_status: string;
+};
+
+function paginationMeta(total: number, limit: number, offset: number) {
+  return {
+    total,
+    limit,
+    offset,
+    has_more: offset + limit < total,
+  };
 }
 
 export function createApiServer(config: IndexerConfig, state: { lastEventAt: string | null; lastSnapshotAt: string | null }) {
@@ -201,13 +231,55 @@ export function createApiServer(config: IndexerConfig, state: { lastEventAt: str
         params.push(`%${search}%`);
         i++;
       }
+      const resolved = q.get("resolved");
+      if (resolved === "true" || resolved === "false") {
+        sql += ` AND resolved = $${i++}`;
+        params.push(resolved === "true");
+      }
+      const matured = q.get("matured");
+      if (matured === "true") {
+        sql += ` AND maturity_ts <= $${i++}`;
+        params.push(Math.floor(Date.now() / 1000));
+      }
       sql += " ORDER BY maturity_ts ASC";
+      const limitRaw = q.get("limit");
+      const offsetRaw = q.get("offset");
+      const limit = limitRaw
+        ? Math.min(100, Math.max(1, Number(limitRaw)))
+        : search
+          ? 50
+          : 0;
+      const offset =
+        limit > 0
+          ? Math.max(0, Number(offsetRaw ?? "0") || 0)
+          : 0;
+
+      let total: number | undefined;
+      if (limit > 0) {
+        const countSql = sql.replace(
+          /^SELECT \* FROM markets/,
+          "SELECT COUNT(*)::int AS total FROM markets",
+        );
+        const countRes = await query(config.databaseUrl, countSql, params);
+        total = Number(countRes.rows[0]?.total ?? 0);
+        sql += ` LIMIT $${i++} OFFSET $${i++}`;
+        params.push(limit, offset);
+      }
 
       const res = await query(config.databaseUrl, sql, params);
       const markets = await attachTagsToMarkets(
         config.databaseUrl,
         res.rows as Array<{ pool_id: string }>,
       );
+      if (limit > 0 && total != null) {
+        return {
+          status: 200,
+          body: {
+            markets,
+            pagination: paginationMeta(total, limit, offset),
+          },
+        };
+      }
       return { status: 200, body: { markets } };
     },
 
@@ -221,6 +293,55 @@ export function createApiServer(config: IndexerConfig, state: { lastEventAt: str
         res.rows as Array<{ pool_id: string }>,
       );
       return { status: 200, body: { market } };
+    },
+
+    oracleQueue: async (req) => {
+      const q = parseQuery(req.url ?? "");
+      const search = q.get("q")?.trim().toLowerCase() ?? "";
+      const statusFilter = q.get("status")?.trim() ?? "actionable";
+      const limit = Math.min(100, Math.max(1, Number(q.get("limit") ?? "30")));
+      const offset = Math.max(0, Number(q.get("offset") ?? "0") || 0);
+      const nowSec = Math.floor(Date.now() / 1000);
+
+      const { countSql, dataSql, params } = buildOracleQueueQueries({
+        nowSec,
+        search,
+        statusFilter,
+        limit,
+        offset,
+      });
+
+      const [countRes, dataRes] = await Promise.all([
+        query(config.databaseUrl, countSql, params.slice(0, params.length - 2)),
+        query(config.databaseUrl, dataSql, params),
+      ]);
+
+      const total = Number(countRes.rows[0]?.total ?? 0);
+      const rows = dataRes.rows as OracleQueueRow[];
+
+      const items = rows.map((row) => ({
+        pool_id: row.pool_id,
+        slug: row.slug,
+        title: row.title,
+        description: row.description,
+        kind: row.kind,
+        maturity_ts: String(row.maturity_ts),
+        resolved: row.resolved,
+        feed_id: row.feed_id ?? row.market_feed_id ?? row.effective_feed_id ?? null,
+        feed_status: row.feed_status,
+        active_assertion_id: row.active_assertion_id,
+        open_case_id: row.open_case_id,
+        queue_status: row.queue_status,
+      }));
+
+      return {
+        status: 200,
+        body: {
+          items,
+          now_sec: nowSec,
+          pagination: paginationMeta(total, limit, offset),
+        },
+      };
     },
 
     feeds: async () => {
@@ -347,27 +468,48 @@ export function createApiServer(config: IndexerConfig, state: { lastEventAt: str
       const q = parseQuery(req.url ?? "");
       const buyer = q.get("buyer");
       if (!buyer) return { status: 400, body: { error: "buyer required" } };
-      const res = await query(
-        config.databaseUrl,
-        "SELECT * FROM buyer_roi_summary WHERE buyer = $1",
-        [buyer],
-      );
-      if (!res.rows.length) {
-        return { status: 200, body: { summary: null, note: "no follow trades indexed yet" } };
+      try {
+        const res = await query(
+          config.databaseUrl,
+          "SELECT * FROM buyer_roi_summary WHERE buyer = $1",
+          [buyer],
+        );
+        if (!res.rows.length) {
+          return { status: 200, body: { summary: null, note: "no follow trades indexed yet" } };
+        }
+        return { status: 200, body: { summary: res.rows[0] } };
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        if (message.includes("buyer_roi_summary")) {
+          return {
+            status: 503,
+            body: {
+              error: "buyer_roi_summary table missing — run indexer migrations (002_p3.sql)",
+            },
+          };
+        }
+        throw e;
       }
-      return { status: 200, body: { summary: res.rows[0] } };
     },
 
     buyerRoi: async (req) => {
       const q = parseQuery(req.url ?? "");
       const buyer = q.get("buyer");
       if (!buyer) return { status: 400, body: { error: "buyer required" } };
-      const res = await query(
-        config.databaseUrl,
-        `SELECT * FROM buyer_roi WHERE buyer = $1 ORDER BY updated_at DESC`,
-        [buyer],
-      );
-      return { status: 200, body: { roi: res.rows } };
+      try {
+        const res = await query(
+          config.databaseUrl,
+          `SELECT * FROM buyer_roi WHERE buyer = $1 ORDER BY updated_at DESC`,
+          [buyer],
+        );
+        return { status: 200, body: { roi: res.rows } };
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        if (message.includes("buyer_roi")) {
+          return { status: 503, body: { error: "buyer_roi table missing — run indexer migrations" } };
+        }
+        throw e;
+      }
     },
 
     prophecyPlaintext: async (_req, params) => {

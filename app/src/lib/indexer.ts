@@ -13,14 +13,37 @@ export function indexerEnabled(): boolean {
 async function getJson<T>(path: string): Promise<T | null> {
   if (!INDEXER_URL) return null;
   try {
-    const res = await fetch(`${INDEXER_URL}${path}`, {
-      next: { revalidate: 15 },
-    });
+    const init: RequestInit =
+      typeof window === "undefined"
+        ? { next: { revalidate: 15 } }
+        : { cache: "no-store" };
+    const res = await fetch(`${INDEXER_URL}${path}`, init);
     if (!res.ok) return null;
     return (await res.json()) as T;
   } catch {
     return null;
   }
+}
+
+async function fetchIndexerJson<T>(path: string): Promise<T | null> {
+  if (!INDEXER_URL) return null;
+  try {
+    const res = await fetch(`${INDEXER_URL}${path}`, { cache: "no-store" });
+    if (!res.ok) return null;
+    return (await res.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchIndexerJsonOrThrow<T>(path: string): Promise<T> {
+  if (!INDEXER_URL) throw new Error("Indexer 未配置");
+  const res = await fetch(`${INDEXER_URL}${path}`, { cache: "no-store" });
+  const body = (await res.json().catch(() => ({}))) as T & { error?: string };
+  if (!res.ok) {
+    throw new Error(body.error ?? `Indexer HTTP ${res.status}`);
+  }
+  return body;
 }
 
 export interface IndexerMarket {
@@ -52,6 +75,30 @@ export interface IndexerFeed {
   feed_status: number;
   market_title?: string;
   market_slug?: string;
+}
+
+export type IndexerOracleQueueStatus =
+  | "pending_propose"
+  | "active_assertion"
+  | "in_arbitration"
+  | "no_feed"
+  | "awaiting_maturity"
+  | "other"
+  | "settled";
+
+export interface IndexerOracleQueueItem {
+  pool_id: string;
+  slug: string | null;
+  title: string;
+  description: string;
+  kind: string;
+  maturity_ts: string;
+  resolved: boolean;
+  feed_id: string | null;
+  feed_status: number | null;
+  active_assertion_id: string | null;
+  open_case_id: string | null;
+  queue_status: IndexerOracleQueueStatus;
 }
 
 export interface IndexerProphetStats {
@@ -98,20 +145,71 @@ export interface IndexerTag {
   sort_order: number;
 }
 
+export interface IndexerPagination {
+  total: number;
+  limit: number;
+  offset: number;
+  has_more: boolean;
+}
+
+export const INDEXER_ORACLE_QUEUE_PAGE_SIZE = 30;
+export const INDEXER_MARKET_PAGE_SIZE = 30;
+
 export async function fetchIndexerMarkets(params?: {
   tag?: string;
   kind?: string;
   q?: string;
-}): Promise<IndexerMarket[]> {
+  resolved?: boolean;
+  matured?: boolean;
+  limit?: number;
+  offset?: number;
+}): Promise<{ markets: IndexerMarket[]; pagination?: IndexerPagination }> {
   const q = new URLSearchParams();
   if (params?.tag) q.set("tag", params.tag);
   if (params?.kind) q.set("kind", params.kind);
   if (params?.q) q.set("q", params.q);
+  if (params?.resolved != null) q.set("resolved", String(params.resolved));
+  if (params?.matured) q.set("matured", "true");
+  if (params?.limit != null) q.set("limit", String(params.limit));
+  if (params?.offset != null) q.set("offset", String(params.offset));
   const qs = q.toString();
-  const data = await getJson<{ markets: IndexerMarket[] }>(
-    `/v1/markets${qs ? `?${qs}` : ""}`,
-  );
-  return data?.markets ?? [];
+  const fetcher = params?.q || params?.limit != null ? fetchIndexerJson : getJson;
+  const data = await fetcher<{
+    markets: IndexerMarket[];
+    pagination?: IndexerPagination;
+  }>(`/v1/markets${qs ? `?${qs}` : ""}`);
+  return {
+    markets: data?.markets ?? [],
+    pagination: data?.pagination,
+  };
+}
+
+export async function fetchIndexerOracleQueue(params?: {
+  status?: string;
+  q?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<{
+  items: IndexerOracleQueueItem[];
+  nowSec: number;
+  pagination?: IndexerPagination;
+}> {
+  const q = new URLSearchParams();
+  if (params?.status) q.set("status", params.status);
+  if (params?.q) q.set("q", params.q);
+  if (params?.limit != null) q.set("limit", String(params.limit));
+  if (params?.offset != null) q.set("offset", String(params.offset));
+  const qs = q.toString();
+  const data = await fetchIndexerJson<{
+    items: IndexerOracleQueueItem[];
+    now_sec: number;
+    pagination?: IndexerPagination;
+  }>(`/v1/oracle/queue${qs ? `?${qs}` : ""}`);
+  return {
+    items: data?.items ?? [],
+    nowSec: data?.now_sec ?? Math.floor(Date.now() / 1000),
+    pagination: data?.pagination,
+  };
 }
 
 export async function fetchIndexerTags(): Promise<IndexerTag[]> {
@@ -246,19 +344,19 @@ export interface IndexerBuyerRoiSummary {
 }
 
 export async function fetchIndexerBuyerRoi(buyer: string): Promise<IndexerBuyerRoi[]> {
-  const data = await getJson<{ roi: IndexerBuyerRoi[] }>(
+  const data = await fetchIndexerJsonOrThrow<{ roi: IndexerBuyerRoi[] }>(
     `/v1/buyer-roi?buyer=${encodeURIComponent(buyer)}`,
   );
-  return data?.roi ?? [];
+  return Array.isArray(data.roi) ? data.roi : [];
 }
 
 export async function fetchIndexerBuyerRoiSummary(
   buyer: string,
 ): Promise<IndexerBuyerRoiSummary | null> {
-  const data = await getJson<{ summary: IndexerBuyerRoiSummary | null }>(
+  const data = await fetchIndexerJsonOrThrow<{ summary: IndexerBuyerRoiSummary | null }>(
     `/v1/buyer-roi/summary?buyer=${encodeURIComponent(buyer)}`,
   );
-  return data?.summary ?? null;
+  return data.summary ?? null;
 }
 
 export interface IndexerEventRoot {

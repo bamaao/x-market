@@ -165,7 +165,10 @@ export function MarketPositionsGroup({
                 去交易 →
               </Link>
             )}
-            <Link href="/oracle" className="secondary btn-link">
+            <Link
+              href={`/oracle?pool=${encodeURIComponent(poolId)}`}
+              className="secondary btn-link"
+            >
               Oracle 结算 →
             </Link>
             {groupSummary.claimableCount > 0 && (

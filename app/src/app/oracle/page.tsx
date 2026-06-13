@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import {
   useCurrentAccount,
   useSignAndExecuteTransaction,
@@ -9,6 +9,7 @@ import {
 } from "@mysten/dapp-kit";
 import { Transaction } from "@mysten/sui/transactions";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   GLOBAL_CONFIG_ID,
   ORACLE_ARBITRATOR_ID,
@@ -39,14 +40,18 @@ import {
   formatCountdown,
   formatUnixTs,
   livenessRemainingSecs,
+  marketKindFromPoolFields,
+  normalizePoolObjectId,
   resolveFeedRegistryId,
   verdictLabel,
   workflowStepLabel,
 } from "@/lib/oracle";
-import { PACKAGE_ID } from "@/lib/markets";
+import { PACKAGE_ID, type MarketKind } from "@/lib/markets";
 import { usdcType } from "@/lib/usdc";
 import { ArbitrationCasesPanel } from "@/components/ArbitrationCasesPanel";
+import { OracleMarketPicker } from "@/components/OracleMarketPicker";
 import { PageHeader } from "@/components/PageHeader";
+import { fetchIndexerMarket, fetchIndexerOracleQueue, indexerEnabled } from "@/lib/indexer";
 
 const ARBITRATION_CASE_TYPE = `${PACKAGE_ID}::oracle_arbitrator::ArbitrationCase`;
 
@@ -92,12 +97,50 @@ function parseObjectId(value: unknown): string {
 
 const NULLIFY_AFTER_SECS = 72 * 3600;
 
+function initialPoolId(
+  urlPool: string | null,
+  seedPools: string[],
+): string {
+  const fromUrl = urlPool ? normalizePoolObjectId(urlPool) : null;
+  if (fromUrl) return fromUrl;
+  if (!indexerEnabled()) return seedPools[0] ?? "";
+  return "";
+}
+
 export default function OraclePage() {
+  return (
+    <Suspense
+      fallback={
+        <>
+          <PageHeader
+            title="Oracle 结算"
+            subtitle="乐观预言机：提议 → 争议窗口 → 委员会终裁或 Finalize → 市场结算 → 领取"
+          />
+          <p className="hint">加载中…</p>
+        </>
+      }
+    >
+      <OraclePageInner />
+    </Suspense>
+  );
+}
+
+function OraclePageInner() {
   const account = useCurrentAccount();
   const client = useSuiClient();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { mutate: signAndExecute, isPending } = useSignAndExecuteTransaction();
   const marketsWithPool = ORACLE_MARKETS.filter((m) => m.poolId);
-  const [selectedPoolId, setSelectedPoolId] = useState(marketsWithPool[0]?.poolId ?? "");
+  const seedPoolIds = marketsWithPool.map((m) => m.poolId);
+  const [selectedPoolId, setSelectedPoolId] = useState(() =>
+    initialPoolId(searchParams.get("pool"), seedPoolIds),
+  );
+  const [poolInput, setPoolInput] = useState(() =>
+    initialPoolId(searchParams.get("pool"), seedPoolIds),
+  );
+  const [poolInputError, setPoolInputError] = useState<string | null>(null);
+  const [indexerMarketTitle, setIndexerMarketTitle] = useState<string | null>(null);
   const [selectedFeedId, setSelectedFeedId] = useState("");
   const [registryId, setRegistryId] = useState("");
   const [feedDiscovering, setFeedDiscovering] = useState(false);
@@ -115,6 +158,64 @@ export default function OraclePage() {
 
   const marketMeta = marketsWithPool.find((m) => m.poolId === selectedPoolId);
   const poolId = selectedPoolId;
+
+  const applyPool = useCallback(
+    (raw: string, updateUrl = true): boolean => {
+      const normalized = normalizePoolObjectId(raw);
+      if (!normalized) {
+        setPoolInputError("请输入有效的 Pool 对象 ID（0x + 64 位十六进制）");
+        return false;
+      }
+      setPoolInputError(null);
+      setSelectedPoolId(normalized);
+      setPoolInput(normalized);
+      if (updateUrl) {
+        const params = new URLSearchParams(searchParams.toString());
+        params.set("pool", normalized);
+        router.replace(`/oracle?${params.toString()}`, { scroll: false });
+      }
+      return true;
+    },
+    [router, searchParams],
+  );
+
+  useEffect(() => {
+    const fromUrl = searchParams.get("pool");
+    if (!fromUrl) return;
+    const normalized = normalizePoolObjectId(fromUrl);
+    if (normalized && normalized !== selectedPoolId) {
+      setSelectedPoolId(normalized);
+      setPoolInput(normalized);
+      setPoolInputError(null);
+    }
+  }, [searchParams, selectedPoolId]);
+
+  useEffect(() => {
+    if (searchParams.get("pool") || selectedPoolId) return;
+    if (!indexerEnabled()) return;
+    void fetchIndexerOracleQueue({ status: "actionable", limit: 1 }).then(
+      ({ items }) => {
+        const first = items[0]?.pool_id;
+        if (first) applyPool(first);
+      },
+    );
+  }, [searchParams, selectedPoolId, applyPool]);
+
+  useEffect(() => {
+    if (!poolId || marketMeta) {
+      setIndexerMarketTitle(null);
+      return;
+    }
+    if (!indexerEnabled()) return;
+    let cancelled = false;
+    void fetchIndexerMarket(poolId).then((m) => {
+      if (cancelled) return;
+      setIndexerMarketTitle(m?.title ?? null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [poolId, marketMeta]);
 
   useEffect(() => {
     const id = setInterval(() => setNowSec(Math.floor(Date.now() / 1000)), 1000);
@@ -197,6 +298,8 @@ export default function OraclePage() {
   );
   const poolFields = parseMoveFields(poolObj?.data?.content);
   const poolResolved = poolFields?.resolved === true;
+  const effectiveMarketKind: MarketKind | undefined =
+    marketMeta?.kind ?? marketKindFromPoolFields(poolFields);
 
   const assertionStatus = Number(assertionFields?.status ?? -1);
   const livenessEnd = Number(assertionFields?.liveness_end_at ?? 0);
@@ -382,18 +485,56 @@ export default function OraclePage() {
       )}
 
       <div className="card panel">
-        <label>市场（按 Pool 链上发现 Feed）</label>
-        <select
-          value={selectedPoolId}
-          onChange={(e) => setSelectedPoolId(e.target.value)}
-        >
-          <option value="">选择市场</option>
-          {marketsWithPool.map((m) => (
-            <option key={m.poolId} value={m.poolId}>
-              {m.title}
-            </option>
-          ))}
-        </select>
+        <label htmlFor="oracle-pool-id">Pool 对象 ID</label>
+        <div className="oracle-pool-row">
+          <input
+            id="oracle-pool-id"
+            className="mono"
+            value={poolInput}
+            placeholder="0x… 粘贴 MarketPool 对象 ID"
+            onChange={(e) => {
+              setPoolInput(e.target.value);
+              if (poolInputError) setPoolInputError(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") applyPool(poolInput);
+            }}
+          />
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => applyPool(poolInput)}
+          >
+            加载
+          </button>
+        </div>
+        {poolInputError && <p className="hint oracle-pool-error">{poolInputError}</p>}
+        <p className="hint">
+          支持 URL 深链 <code>/oracle?pool=0x…</code>；Feed 将按 Pool 链上自动发现。
+        </p>
+
+        <OracleMarketPicker poolId={poolId} onSelectPool={(id) => applyPool(id)} />
+
+        {selectedPoolId && (
+          <p className="hint">
+            当前 Pool: <code className="mono">{selectedPoolId}</code>
+            {marketMeta ? (
+              <>
+                {" "}
+                · <strong>{marketMeta.title}</strong>
+              </>
+            ) : indexerMarketTitle ? (
+              <>
+                {" "}
+                · <strong>{indexerMarketTitle}</strong>
+              </>
+            ) : poolObj?.data ? (
+              " · 链上 Pool"
+            ) : poolId ? (
+              " · 查询中…"
+            ) : null}
+          </p>
+        )}
 
         <p className="hint">
           Feed:{" "}
@@ -469,8 +610,8 @@ export default function OraclePage() {
 
         <label>
           提议结果
-          {marketMeta && (
-            <span className="hint"> — {claimedValueHint(marketMeta.kind)}</span>
+          {effectiveMarketKind && (
+            <span className="hint"> — {claimedValueHint(effectiveMarketKind)}</span>
           )}
         </label>
         <input value={claimedValue} onChange={(e) => setClaimedValue(e.target.value)} />
@@ -655,8 +796,8 @@ export default function OraclePage() {
         )}
         <label>
           挑战者胜诉时的采纳值
-          {marketMeta && (
-            <span className="hint"> — {claimedValueHint(marketMeta.kind)}</span>
+          {effectiveMarketKind && (
+            <span className="hint"> — {claimedValueHint(effectiveMarketKind)}</span>
           )}
         </label>
         <input

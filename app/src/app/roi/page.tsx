@@ -13,14 +13,23 @@ import {
 import { DataTable } from "@/components/DataTable";
 import { PageHeader } from "@/components/PageHeader";
 
-function formatUsdc(mist: string): string {
+function formatUsdc(mist: string | number | null | undefined): string {
+  if (mist == null || mist === "") return "—";
   const n = Number(mist) / 1e6;
+  if (!Number.isFinite(n)) return "—";
   return `${n.toFixed(4)} USDC`;
 }
 
-function roiLabel(bps: number | null | undefined): string {
-  if (bps == null) return "—";
-  return `${(bps / 100).toFixed(2)}%`;
+function roiLabel(bps: number | string | null | undefined): string {
+  if (bps == null || bps === "") return "—";
+  const n = Number(bps);
+  if (!Number.isFinite(n)) return "—";
+  return `${(n / 100).toFixed(2)}%`;
+}
+
+function shortId(value: string | null | undefined, len = 10): string {
+  if (!value) return "—";
+  return value.length > len ? `${value.slice(0, len)}…` : value;
 }
 
 export default function RoiPage() {
@@ -28,18 +37,40 @@ export default function RoiPage() {
   const [summary, setSummary] = useState<IndexerBuyerRoiSummary | null>(null);
   const [rows, setRows] = useState<IndexerBuyerRoi[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!account?.address || !indexerEnabled()) return;
+    if (!account?.address || !indexerEnabled()) {
+      setSummary(null);
+      setRows([]);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
     setLoading(true);
+    setError(null);
     void Promise.all([
       fetchIndexerBuyerRoiSummary(account.address),
       fetchIndexerBuyerRoi(account.address),
-    ]).then(([s, r]) => {
-      setSummary(s);
-      setRows(r);
-      setLoading(false);
-    });
+    ])
+      .then(([s, r]) => {
+        if (cancelled) return;
+        setSummary(s);
+        setRows(r);
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setSummary(null);
+        setRows([]);
+        setError(e instanceof Error ? e.message : "加载跟单数据失败");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [account?.address]);
 
   return (
@@ -69,6 +100,15 @@ export default function RoiPage() {
 
       {account && indexerEnabled() && (
         <>
+          {error && (
+            <div className="card">
+              <p className="hint oracle-pool-error">{error}</p>
+              <p className="hint">
+                请确认 Indexer 已启动且已执行迁移（含 <code>buyer_roi_summary</code> 表）。
+              </p>
+            </div>
+          )}
+
           <div className="card">
             <h2>汇总</h2>
             {loading ? (
@@ -78,22 +118,27 @@ export default function RoiPage() {
                 <dt>总解锁成本</dt>
                 <dd>{formatUsdc(summary.total_unlock_cost)}</dd>
                 <dt>跟单笔数</dt>
-                <dd>{summary.total_positions}</dd>
+                <dd>{summary.total_positions ?? 0}</dd>
                 <dt>胜 / 负 / 作弊 / 待审计</dt>
                 <dd>
-                  {summary.wins} / {summary.losses} / {summary.cheats} / {summary.pending}
+                  {summary.wins ?? 0} / {summary.losses ?? 0} / {summary.cheats ?? 0} /{" "}
+                  {summary.pending ?? 0}
                 </dd>
                 <dt>平均 ROI</dt>
                 <dd>{roiLabel(summary.aggregate_roi_bps)}</dd>
               </dl>
             ) : (
-              <p className="hint">尚无跟单记录。前往 <Link href="/prophet">Prophet</Link> 解锁预测。</p>
+              <p className="hint">
+                尚无跟单记录。前往 <Link href="/prophet">Prophet</Link> 解锁预测。
+              </p>
             )}
           </div>
 
           <div className="card">
             <h2>明细</h2>
-            {rows.length === 0 ? (
+            {loading ? (
+              <p className="hint">加载中…</p>
+            ) : rows.length === 0 ? (
               <p className="hint">无明细</p>
             ) : (
               <DataTable>
@@ -107,16 +152,16 @@ export default function RoiPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r) => (
-                    <tr key={`${r.buyer}-${r.prophecy_id}`}>
+                  {rows.map((r, i) => (
+                    <tr key={r.prophecy_id ? `${r.buyer}-${r.prophecy_id}` : `row-${i}`}>
                       <td>
-                        <code>{r.prophecy_id.slice(0, 10)}…</code>
+                        <code>{shortId(r.prophecy_id)}</code>
                       </td>
                       <td>
-                        <code>{r.prophet.slice(0, 8)}…</code>
+                        <code>{shortId(r.prophet, 8)}</code>
                       </td>
                       <td>{formatUsdc(r.unlock_cost)}</td>
-                      <td>{r.outcome}</td>
+                      <td>{r.outcome || "—"}</td>
                       <td>{roiLabel(r.roi_bps)}</td>
                     </tr>
                   ))}

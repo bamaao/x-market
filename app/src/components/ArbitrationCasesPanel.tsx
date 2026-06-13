@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   fetchIndexerArbitrationCases,
@@ -46,7 +47,11 @@ export function ArbitrationCasesPanel() {
             {cases.map((c) => (
               <tr key={c.case_id}>
                 <td style={{ padding: "0.25rem 0" }}>{c.case_id.slice(0, 10)}…</td>
-                <td>{c.pool_id.slice(0, 10)}…</td>
+                <td>
+                  <Link href={`/oracle?pool=${encodeURIComponent(c.pool_id)}`}>
+                    {c.pool_id.slice(0, 10)}…
+                  </Link>
+                </td>
                 <td>{c.arbitration_adapter === "uma_dvm" ? "UMA DVM" : "Builtin"}</td>
                 <td>{c.status === 0 ? "Open" : "Executed"}</td>
                 <td>{c.proposer.slice(0, 8)}…</td>
