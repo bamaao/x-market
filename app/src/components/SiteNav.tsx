@@ -8,7 +8,6 @@ const NAV_ITEMS = [
   { href: "/markets/create", label: "创建市场" },
   { href: "/positions", label: "持仓" },
   { href: "/lp", label: "LP" },
-  { href: "/margin", label: "保证金" },
   { href: "/oracle", label: "Oracle" },
   { href: "/prophet", label: "Prophet" },
   { href: "/leaderboard", label: "排行榜" },
