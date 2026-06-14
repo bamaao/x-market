@@ -10,6 +10,8 @@ const REVENUE_SCALE_USDC: u64 = 1_000_000;
 const MIN_AUDITED_FOR_PAID: u64 = 3;
 /// Minimum Prophet Score (bps) before paid unlock — 40.0 / 100.
 const MIN_SCORE_BPS_FOR_PAID: u64 = 4000;
+/// Max Normal interval width (tenths) for precision scoring — 20.0 pp.
+const NORMAL_MAX_INTERVAL_WIDTH: u64 = 200;
 
 public struct ProphetStats has store, copy, drop {
     prophet: address,
@@ -20,6 +22,8 @@ public struct ProphetStats has store, copy, drop {
     max_streak: u64,
     total_audited: u64,
     total_unlock_revenue: u64,
+    /// Sum of per-audit precision contributions (0–10000 each); accuracy = points / audited.
+    accuracy_points: u64,
     score_bps: u64,
 }
 
@@ -33,16 +37,39 @@ public fun new_stats(prophet: address): ProphetStats {
         max_streak: 0,
         total_audited: 0,
         total_unlock_revenue: 0,
+        accuracy_points: 0,
         score_bps: 0,
     }
 }
 
+/// Legacy win-rate helper (tests / off-chain mirrors).
 public fun accuracy_bps(wins: u64, losses: u64): u64 {
     let total = wins + losses;
     if (total == 0) {
         0
     } else {
         wins * 10000 / total
+    }
+}
+
+/// Normal interval win: narrower hit → higher contribution (0–10000).
+public fun interval_precision_bps(width: u64): u64 {
+    if (width == 0) {
+        10000
+    } else if (width >= NORMAL_MAX_INTERVAL_WIDTH) {
+        0
+    } else {
+        (NORMAL_MAX_INTERVAL_WIDTH - width) * 10000 / NORMAL_MAX_INTERVAL_WIDTH
+    }
+}
+
+public fun normal_max_interval_width(): u64 { NORMAL_MAX_INTERVAL_WIDTH }
+
+public fun accuracy_bps_from_points(points: u64, audited: u64): u64 {
+    if (audited == 0) {
+        0
+    } else {
+        points / audited
     }
 }
 
@@ -77,13 +104,15 @@ public fun prophet_score_bps(
     (W1_BPS * a + W2_BPS * e + W3_BPS * r) / 10000
 }
 
+public fun prophet_score_from_stats(stats: &ProphetStats): u64 {
+    let a = accuracy_bps_from_points(stats.accuracy_points, stats.total_audited);
+    let e = experience_bps(stats.total_audited);
+    let r = revenue_bps(stats.total_unlock_revenue);
+    (W1_BPS * a + W2_BPS * e + W3_BPS * r) / 10000
+}
+
 public fun refresh_score(stats: &mut ProphetStats) {
-    stats.score_bps = prophet_score_bps(
-        stats.wins,
-        stats.losses,
-        stats.total_audited,
-        stats.total_unlock_revenue,
-    );
+    stats.score_bps = prophet_score_from_stats(stats);
 }
 
 public fun record_unlock_revenue(stats: &mut ProphetStats, amount: u64) {
@@ -97,13 +126,14 @@ public fun record_cheat(stats: &mut ProphetStats) {
     refresh_score(stats);
 }
 
-public fun record_audit_win(stats: &mut ProphetStats, escrow_revenue: u64) {
+public fun record_audit_win(stats: &mut ProphetStats, escrow_revenue: u64, interval_width: u64) {
     stats.wins = stats.wins + 1;
     stats.total_audited = stats.total_audited + 1;
     stats.current_streak = stats.current_streak + 1;
     if (stats.current_streak > stats.max_streak) {
         stats.max_streak = stats.current_streak;
     };
+    stats.accuracy_points = stats.accuracy_points + interval_precision_bps(interval_width);
     stats.total_unlock_revenue = stats.total_unlock_revenue + escrow_revenue;
     refresh_score(stats);
 }
@@ -129,4 +159,5 @@ public fun min_score_bps_for_paid(): u64 { MIN_SCORE_BPS_FOR_PAID }
 public fun wins(stats: &ProphetStats): u64 { stats.wins }
 public fun losses(stats: &ProphetStats): u64 { stats.losses }
 public fun score_bps(stats: &ProphetStats): u64 { stats.score_bps }
+public fun accuracy_points(stats: &ProphetStats): u64 { stats.accuracy_points }
 public fun prophet(stats: &ProphetStats): address { stats.prophet }

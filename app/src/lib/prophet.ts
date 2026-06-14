@@ -17,6 +17,8 @@ export const PROPHET_REGISTRY_ID =
 /** Align with on-chain `prophet_leaderboard` (PRD §11.3.7). */
 export const MIN_AUDITED_FOR_PAID = 3;
 export const MIN_SCORE_BPS_FOR_PAID = 4000;
+/** Align with on-chain `prophet_leaderboard::NORMAL_MAX_INTERVAL_WIDTH`. */
+export const NORMAL_MAX_INTERVAL_WIDTH = 200;
 
 export type ProphetWorkflowStep =
   | "commit"
@@ -56,6 +58,8 @@ export interface ProphecyPayload {
   market_id: string;
   predicted_value: number;
   analysis_content: string;
+  predicted_low?: number;
+  predicted_high?: number;
 }
 
 export interface ProphecyView {
@@ -66,6 +70,8 @@ export interface ProphecyView {
   sealIdHex: string;
   plaintextHashHex: string;
   predictedValue: number;
+  predictedLow: number;
+  predictedHigh: number;
   unlockPrice: bigint;
   lockTime: number;
   paidBuyers: string[];
@@ -100,24 +106,126 @@ export interface EscrowSettlementPreview {
 
 export type AuditPreviewOutcome = "win" | "loss" | "cheat";
 
+export interface NormalIntervalInput {
+  low: number;
+  high: number;
+}
+
+export function intervalPrecisionBps(width: number): number {
+  if (width <= 0) return 10000;
+  if (width >= NORMAL_MAX_INTERVAL_WIDTH) return 0;
+  return Math.floor(
+    ((NORMAL_MAX_INTERVAL_WIDTH - width) * 10000) / NORMAL_MAX_INTERVAL_WIDTH,
+  );
+}
+
+export function isNormalIntervalProphecy(prophecy: ProphecyView): boolean {
+  if (prophecy.predictedLow === 0 && prophecy.predictedHigh === 0) return false;
+  return prophecy.predictedLow < prophecy.predictedHigh;
+}
+
+export function prophecyIntervalWidth(prophecy: ProphecyView): number {
+  if (!isNormalIntervalProphecy(prophecy)) return 0;
+  return prophecy.predictedHigh - prophecy.predictedLow;
+}
+
+export function prophecyResolvedWon(
+  resolvedValue: number,
+  prophecy: ProphecyView,
+  poolKind?: MarketKind,
+): boolean {
+  if (poolKind === "normal" && isNormalIntervalProphecy(prophecy)) {
+    return (
+      resolvedValue >= prophecy.predictedLow &&
+      resolvedValue <= prophecy.predictedHigh
+    );
+  }
+  return resolvedValue === prophecy.predictedValue;
+}
+
+export function formatNormalTenths(v: number): string {
+  return `${(v / 10).toFixed(1)}%`;
+}
+
+export function formatProphecyPrediction(
+  prophecy: ProphecyView,
+  poolKind?: MarketKind,
+): string {
+  if (poolKind === "normal" && isNormalIntervalProphecy(prophecy)) {
+    return `[${formatNormalTenths(prophecy.predictedLow)}, ${formatNormalTenths(prophecy.predictedHigh)}]`;
+  }
+  if (poolKind === "normal") {
+    return formatNormalTenths(prophecy.predictedValue);
+  }
+  return String(prophecy.predictedValue);
+}
+
 export function buildProphecyPayload(
   marketId: string,
   predictedValue: number,
   analysis: string,
+  interval?: NormalIntervalInput,
 ): ProphecyPayload {
-  return {
+  const payload: ProphecyPayload = {
     market_id: marketId,
     predicted_value: predictedValue,
     analysis_content: analysis,
   };
+  if (interval) {
+    payload.predicted_low = interval.low;
+    payload.predicted_high = interval.high;
+  }
+  return payload;
+}
+
+export function buildNormalIntervalPayload(
+  marketId: string,
+  low: number,
+  high: number,
+  analysis: string,
+): ProphecyPayload {
+  const lo = Math.min(low, high);
+  const hi = Math.max(low, high);
+  return buildProphecyPayload(
+    marketId,
+    Math.round((lo + hi) / 2),
+    analysis,
+    { low: lo, high: hi },
+  );
 }
 
 export function canonicalProphecyJson(payload: ProphecyPayload): string {
-  return JSON.stringify({
+  const body: Record<string, unknown> = {
     market_id: payload.market_id,
     predicted_value: payload.predicted_value,
     analysis_content: payload.analysis_content,
-  });
+  };
+  if (payload.predicted_low !== undefined && payload.predicted_high !== undefined) {
+    body.predicted_low = payload.predicted_low;
+    body.predicted_high = payload.predicted_high;
+  }
+  return JSON.stringify(body);
+}
+
+export function parseProphecyPayloadJson(
+  plaintextJson: string,
+): ProphecyPayload | null {
+  try {
+    const parsed = JSON.parse(plaintextJson) as Partial<ProphecyPayload>;
+    if (!parsed.market_id || parsed.predicted_value === undefined) return null;
+    const payload: ProphecyPayload = {
+      market_id: String(parsed.market_id),
+      predicted_value: Number(parsed.predicted_value),
+      analysis_content: String(parsed.analysis_content ?? ""),
+    };
+    if (parsed.predicted_low !== undefined && parsed.predicted_high !== undefined) {
+      payload.predicted_low = Number(parsed.predicted_low);
+      payload.predicted_high = Number(parsed.predicted_high);
+    }
+    return payload;
+  } catch {
+    return null;
+  }
 }
 
 /** Must match on-chain `hash::blake2b256`. */
@@ -273,19 +381,9 @@ export function verifyProphecyPlaintextHash(
   plaintextJson: string,
   prophecy: ProphecyView,
 ): { ok: boolean; reason?: string } {
-  let payload: ProphecyPayload;
-  try {
-    const parsed = JSON.parse(plaintextJson) as Partial<ProphecyPayload>;
-    if (!parsed.market_id || parsed.predicted_value === undefined) {
-      return { ok: false, reason: "JSON 缺少 market_id / predicted_value" };
-    }
-    payload = {
-      market_id: String(parsed.market_id),
-      predicted_value: Number(parsed.predicted_value),
-      analysis_content: String(parsed.analysis_content ?? ""),
-    };
-  } catch {
-    return { ok: false, reason: "JSON 解析失败" };
+  const payload = parseProphecyPayloadJson(plaintextJson);
+  if (!payload) {
+    return { ok: false, reason: "JSON 缺少 market_id / predicted_value" };
   }
   const computed = bytesToHex(hashProphecyPlaintext(payload));
   if (computed !== prophecy.plaintextHashHex) {
@@ -298,7 +396,13 @@ export function previewAuditOutcome(
   prophecy: ProphecyView,
   resolvedValue: number | null,
   plaintextJson: string,
-): { outcome: AuditPreviewOutcome; hashOk: boolean; reason?: string } {
+  poolKind?: MarketKind,
+): {
+  outcome: AuditPreviewOutcome;
+  hashOk: boolean;
+  reason?: string;
+  precisionBps?: number;
+} {
   const hashCheck = verifyProphecyPlaintextHash(plaintextJson, prophecy);
   if (!hashCheck.ok) {
     return { outcome: "cheat", hashOk: false, reason: hashCheck.reason };
@@ -306,9 +410,12 @@ export function previewAuditOutcome(
   if (resolvedValue === null) {
     return { outcome: "loss", hashOk: true, reason: "Pool 尚无 resolved_value" };
   }
+  const won = prophecyResolvedWon(resolvedValue, prophecy, poolKind);
+  const width = won ? prophecyIntervalWidth(prophecy) : 0;
   return {
-    outcome: resolvedValue === prophecy.predictedValue ? "win" : "loss",
+    outcome: won ? "win" : "loss",
     hashOk: true,
+    precisionBps: won ? intervalPrecisionBps(width) : 0,
   };
 }
 
@@ -421,6 +528,8 @@ export function parseProphecyFields(
     sealIdHex: decodeBytesToHex(fields.seal_id),
     plaintextHashHex: decodeBytesToHex(fields.plaintext_hash),
     predictedValue: Number(fields.predicted_value ?? 0),
+    predictedLow: Number(fields.predicted_low ?? fields.predicted_value ?? 0),
+    predictedHigh: Number(fields.predicted_high ?? fields.predicted_value ?? 0),
     unlockPrice: BigInt(String(fields.unlock_price ?? "0")),
     lockTime: Number(fields.lock_time ?? 0),
     paidBuyers: parseAddressList(fields.paid_buyers),
@@ -510,6 +619,12 @@ export async function decryptFromIndexerCache(
     market_id: payload.market_id,
     predicted_value: Number(payload.predicted_value ?? 0),
     analysis_content: String(payload.analysis_content ?? ""),
+    ...(payload.predicted_low != null && payload.predicted_high != null
+      ? {
+          predicted_low: Number(payload.predicted_low),
+          predicted_high: Number(payload.predicted_high),
+        }
+      : {}),
   });
   const parsed = JSON.parse(json) as ProphecyPayload & {
     analysis_content?: string;
@@ -725,6 +840,8 @@ export function appendCommitPrivateProphecy(
     sealId: Uint8Array;
     plaintextHash: Uint8Array;
     predictedValue: number;
+    predictedLow: number;
+    predictedHigh: number;
     unlockPrice: bigint;
     lockTime: number;
   },
@@ -738,6 +855,8 @@ export function appendCommitPrivateProphecy(
       tx.pure.vector("u8", Array.from(args.sealId)),
       tx.pure.vector("u8", Array.from(args.plaintextHash)),
       tx.pure.u64(args.predictedValue),
+      tx.pure.u64(args.predictedLow),
+      tx.pure.u64(args.predictedHigh),
       tx.pure.u64(args.unlockPrice),
       tx.pure.u64(args.lockTime),
     ],

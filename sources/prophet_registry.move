@@ -46,6 +46,10 @@ public struct PrivateProphecy has key {
     seal_id: vector<u8>,
     plaintext_hash: vector<u8>,
     predicted_value: u64,
+    /// Normal interval low (tenths); legacy point mode when low == high or both 0.
+    predicted_low: u64,
+    /// Normal interval high (tenths).
+    predicted_high: u64,
     unlock_price: u64,
     lock_time: u64,
     paid_buyers: vector<address>,
@@ -186,6 +190,8 @@ public entry fun commit_private_prophecy(
     seal_id: vector<u8>,
     plaintext_hash: vector<u8>,
     predicted_value: u64,
+    predicted_low: u64,
+    predicted_high: u64,
     unlock_price: u64,
     lock_time: u64,
     ctx: &mut TxContext,
@@ -210,7 +216,7 @@ public entry fun commit_private_prophecy(
     if (lock_time != maturity) {
         abort errors::out_of_bounds()
     };
-    macro_oracle::assert_valid_resolution(pool, predicted_value);
+    assert_valid_prediction_interval(pool, predicted_value, predicted_low, predicted_high);
     let market_id = market_pool::pool_id(pool);
     let prophecy = PrivateProphecy {
         id: object::new(ctx),
@@ -220,6 +226,8 @@ public entry fun commit_private_prophecy(
         seal_id,
         plaintext_hash,
         predicted_value,
+        predicted_low,
+        predicted_high,
         unlock_price,
         lock_time,
         paid_buyers: vector[],
@@ -312,7 +320,8 @@ public entry fun audit_prophecy(
         return
     };
     let resolved = market_pool::resolved_value(pool);
-    let won = resolved == prophecy.predicted_value;
+    let won = prophecy_resolved_won(pool, prophecy, resolved);
+    let interval_width = prophecy_interval_width(prophecy, won);
     let escrow_total = balance::value(&prophecy.escrow);
     if (won) {
         prophecy.status = PROPHECY_AUDITED_WIN;
@@ -325,8 +334,64 @@ public entry fun audit_prophecy(
         prophecy,
         escrow_total,
         won,
+        interval_width,
         ctx,
     );
+}
+
+fun assert_valid_prediction_interval(
+    pool: &MarketPool,
+    predicted_value: u64,
+    predicted_low: u64,
+    predicted_high: u64,
+) {
+    if (predicted_low > predicted_high) {
+        abort errors::invalid_interval()
+    };
+    macro_oracle::assert_valid_resolution(pool, predicted_value);
+    macro_oracle::assert_valid_resolution(pool, predicted_low);
+    macro_oracle::assert_valid_resolution(pool, predicted_high);
+    if (market_pool::is_normal(pool)) {
+        return
+    };
+    if (predicted_low != predicted_value || predicted_high != predicted_value) {
+        abort errors::out_of_bounds()
+    };
+}
+
+fun is_normal_interval_prophecy(pool: &MarketPool, prophecy: &PrivateProphecy): bool {
+    if (!market_pool::is_normal(pool)) {
+        return false
+    };
+    if (prophecy.predicted_low == 0 && prophecy.predicted_high == 0) {
+        return false
+    };
+    prophecy.predicted_low < prophecy.predicted_high
+}
+
+fun prophecy_resolved_won(
+    pool: &MarketPool,
+    prophecy: &PrivateProphecy,
+    resolved: u64,
+): bool {
+    if (is_normal_interval_prophecy(pool, prophecy)) {
+        resolved >= prophecy.predicted_low && resolved <= prophecy.predicted_high
+    } else {
+        resolved == prophecy.predicted_value
+    }
+}
+
+fun prophecy_interval_width(prophecy: &PrivateProphecy, won: bool): u64 {
+    if (!won) {
+        return 0
+    };
+    if (prophecy.predicted_low == prophecy.predicted_high) {
+        return 0
+    };
+    if (prophecy.predicted_low == 0 && prophecy.predicted_high == 0) {
+        return 0
+    };
+    prophecy.predicted_high - prophecy.predicted_low
 }
 
 fun assert_paid_unlock_eligible(registry: &ProphetRegistry, prophet: address) {
@@ -366,18 +431,19 @@ fun update_prophet_audit(
     prophet: address,
     won: bool,
     escrow_total: u64,
+    interval_width: u64,
 ) {
     if (df::exists<address>(&registry.id, prophet)) {
         let stats = df::borrow_mut<address, ProphetStats>(&mut registry.id, prophet);
         if (won) {
-            prophet_leaderboard::record_audit_win(stats, escrow_total);
+            prophet_leaderboard::record_audit_win(stats, escrow_total, interval_width);
         } else {
             prophet_leaderboard::record_audit_loss(stats, escrow_total);
         };
     } else {
         let mut stats = prophet_leaderboard::new_stats(prophet);
         if (won) {
-            prophet_leaderboard::record_audit_win(&mut stats, escrow_total);
+            prophet_leaderboard::record_audit_win(&mut stats, escrow_total, interval_width);
         } else {
             prophet_leaderboard::record_audit_loss(&mut stats, escrow_total);
         };
@@ -390,10 +456,11 @@ fun settle_escrow(
     prophecy: &mut PrivateProphecy,
     escrow_total: u64,
     won: bool,
+    interval_width: u64,
     ctx: &mut TxContext,
 ) {
     let prophet_addr = prophecy.prophet;
-    update_prophet_audit(registry, prophet_addr, won, escrow_total);
+    update_prophet_audit(registry, prophet_addr, won, escrow_total, interval_width);
     if (escrow_total == 0) {
         return
     };
@@ -484,6 +551,14 @@ public fun prophecy_status(prophecy: &PrivateProphecy): u8 {
 
 public fun predicted_value(prophecy: &PrivateProphecy): u64 {
     prophecy.predicted_value
+}
+
+public fun predicted_low(prophecy: &PrivateProphecy): u64 {
+    prophecy.predicted_low
+}
+
+public fun predicted_high(prophecy: &PrivateProphecy): u64 {
+    prophecy.predicted_high
 }
 
 public fun unlock_price(prophecy: &PrivateProphecy): u64 {

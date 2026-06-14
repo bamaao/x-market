@@ -9,6 +9,19 @@ function isReadableBlobId(blobId: string): boolean {
   return blobId.length > 0 && !blobId.startsWith("testnet:local:");
 }
 
+function canonicalProphecyJson(payload: Record<string, unknown>): string {
+  const body: Record<string, unknown> = {
+    market_id: payload.market_id,
+    predicted_value: payload.predicted_value,
+    analysis_content: payload.analysis_content,
+  };
+  if (payload.predicted_low != null && payload.predicted_high != null) {
+    body.predicted_low = payload.predicted_low;
+    body.predicted_high = payload.predicted_high;
+  }
+  return JSON.stringify(body);
+}
+
 function isValidProphecyJson(json: string): boolean {
   try {
     const parsed = JSON.parse(json) as Record<string, unknown>;
@@ -45,10 +58,16 @@ async function fetchIndexerPlaintext(
     };
     const payload = data.cache?.plaintext_json;
     if (!payload || typeof payload.market_id !== "string") return null;
-    const json = JSON.stringify({
+    const json = canonicalProphecyJson({
       market_id: payload.market_id,
       predicted_value: Number(payload.predicted_value ?? 0),
       analysis_content: String(payload.analysis_content ?? ""),
+      ...(payload.predicted_low != null && payload.predicted_high != null
+        ? {
+            predicted_low: Number(payload.predicted_low),
+            predicted_high: Number(payload.predicted_high),
+          }
+        : {}),
     });
     return isValidProphecyJson(json) ? json : null;
   } catch {

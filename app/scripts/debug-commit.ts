@@ -61,6 +61,8 @@ async function main() {
     sealId,
     plaintextHash: hash,
     predictedValue: 25,
+    predictedLow: 25,
+    predictedHigh: 25,
     unlockPrice: 0n,
     lockTime: maturity,
   });

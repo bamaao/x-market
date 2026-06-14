@@ -21,6 +21,7 @@ import {
   appendCommitPrivateProphecy,
   appendUnlockProphecy,
   auditOutcomeLabel,
+  buildNormalIntervalPayload,
   buildProphecyPayload,
   buildSettlementPreview,
   canonicalProphecyJson,
@@ -37,9 +38,11 @@ import {
   fetchProphecy,
   fetchPublicProphecyContent,
   formatAccuracyPercent,
+  formatProphecyPrediction,
   formatScorePercent,
   formatUsdcBaseUnits,
   hashProphecyPlaintext,
+  intervalPrecisionBps,
   isPaidUnlockEligible,
   isPublicProphecy,
   loadStoredProphecyPlaintext,
@@ -49,6 +52,7 @@ import {
   parseProphecyFields,
   parseUsdcAmount,
   previewAuditOutcome,
+  prophecyIntervalWidth,
   prophecyStatusLabel,
   storeProphecyPlaintext,
   verifyProphecyPlaintextHash,
@@ -117,6 +121,8 @@ export default function ProphetPage() {
   const [selectedId, setSelectedId] = useState("");
   const [loadingList, setLoadingList] = useState(false);
   const [predictedValue, setPredictedValue] = useState("7");
+  const [normalLow, setNormalLow] = useState("25");
+  const [normalHigh, setNormalHigh] = useState("27");
   const [analysis, setAnalysis] = useState("");
   const [unlockPrice, setUnlockPrice] = useState("0");
   const [msg, setMsg] = useState<string | null>(null);
@@ -236,8 +242,13 @@ export default function ProphetPage() {
   }, [prophecy, protocolFeeBps]);
   const auditPreview = useMemo(() => {
     if (!prophecy || !storedPlaintext.trim()) return null;
-    return previewAuditOutcome(prophecy, resolvedValue, storedPlaintext);
-  }, [prophecy, resolvedValue, storedPlaintext]);
+    return previewAuditOutcome(
+      prophecy,
+      resolvedValue,
+      storedPlaintext,
+      market?.kind,
+    );
+  }, [prophecy, resolvedValue, storedPlaintext, market?.kind]);
   const hashVerification = useMemo(() => {
     if (!prophecy || !storedPlaintext.trim()) return null;
     return verifyProphecyPlaintextHash(storedPlaintext, prophecy);
@@ -261,8 +272,16 @@ export default function ProphetPage() {
     if (!market) return "预测值（链上 slot / tenths）";
     if (market.kind === "dirichlet") return "Dirichlet bucket 0–2";
     if (market.kind === "poisson") return "Poisson outcome slot 0–14";
-    return "Normal 宏观值（tenths，如 28 = 2.8%）";
+    return "Normal 宏观区间（tenths，如 25–27 = 2.5%–2.7%）";
   }, [market]);
+
+  const isNormalMarket = market?.kind === "normal";
+  const normalIntervalValid = useMemo(() => {
+    if (!isNormalMarket) return true;
+    const lo = Number(normalLow);
+    const hi = Number(normalHigh);
+    return Number.isFinite(lo) && Number.isFinite(hi) && lo <= hi;
+  }, [isNormalMarket, normalLow, normalHigh]);
 
   useEffect(() => {
     if (!PROPHET_REGISTRY_ID) return;
@@ -437,8 +456,25 @@ export default function ProphetPage() {
         : "Seal 加密 → Indexer 上传 → 链上 Commit…",
     );
     try {
-      const pv = Number(predictedValue);
-      const payload = buildProphecyPayload(poolId, pv, analysis.trim());
+      const analysisText = analysis.trim();
+      let payload;
+      let predictedLow: number;
+      let predictedHigh: number;
+      if (isNormalMarket) {
+        const lo = Number(normalLow);
+        const hi = Number(normalHigh);
+        if (!Number.isFinite(lo) || !Number.isFinite(hi) || lo > hi) {
+          throw new Error("Normal 区间无效：下限须 ≤ 上限（tenths）");
+        }
+        payload = buildNormalIntervalPayload(poolId, lo, hi, analysisText);
+        predictedLow = payload.predicted_low!;
+        predictedHigh = payload.predicted_high!;
+      } else {
+        const pv = Number(predictedValue);
+        payload = buildProphecyPayload(poolId, pv, analysisText);
+        predictedLow = pv;
+        predictedHigh = pv;
+      }
       const hash = hashProphecyPlaintext(payload);
       const json = canonicalProphecyJson(payload);
       let blobId: string;
@@ -476,7 +512,9 @@ export default function ProphetPage() {
         blobId,
         sealId,
         plaintextHash: hash,
-        predictedValue: pv,
+        predictedValue: payload.predicted_value,
+        predictedLow,
+        predictedHigh,
         unlockPrice: price,
         lockTime: maturityTs,
       });
@@ -567,7 +605,12 @@ export default function ProphetPage() {
       setMsg(hashCheck.reason ?? "明文 Hash 校验失败");
       return;
     }
-    const preview = previewAuditOutcome(prophecy, resolvedValue, plaintext);
+    const preview = previewAuditOutcome(
+      prophecy,
+      resolvedValue,
+      plaintext,
+      market?.kind,
+    );
     const settlement = buildSettlementPreview(prophecy, protocolFeeBps);
     runTx(
       (tx) => {
@@ -708,11 +751,54 @@ export default function ProphetPage() {
       <div className="grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
         <div className="card">
           <h2>1. {unlockPriceNum === 0n ? "Indexer → Commit（公开预测）" : "Seal → Indexer → Commit（私密付费）"}</h2>
-          <label>{predictedHint}</label>
-          <input
-            value={predictedValue}
-            onChange={(e) => setPredictedValue(e.target.value)}
-          />
+          {isNormalMarket ? (
+            <>
+              <label>{predictedHint}</label>
+              <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
+                <div>
+                  <label>下限 (tenths)</label>
+                  <input
+                    value={normalLow}
+                    onChange={(e) => setNormalLow(e.target.value)}
+                    placeholder="25"
+                  />
+                </div>
+                <div>
+                  <label>上限 (tenths)</label>
+                  <input
+                    value={normalHigh}
+                    onChange={(e) => setNormalHigh(e.target.value)}
+                    placeholder="27"
+                  />
+                </div>
+              </div>
+              {normalIntervalValid && (
+                <p className="hint">
+                  区间宽度 {Math.max(0, Number(normalHigh) - Number(normalLow))} tenths
+                  · 命中精度贡献约{" "}
+                  {formatScorePercent(
+                    intervalPrecisionBps(
+                      Math.max(0, Number(normalHigh) - Number(normalLow)),
+                    ),
+                  )}
+                  /100（越窄越高）
+                </p>
+              )}
+              {!normalIntervalValid && (
+                <p className="hint" style={{ color: "var(--warn, #c9a227)" }}>
+                  请填写有效区间：下限 ≤ 上限
+                </p>
+              )}
+            </>
+          ) : (
+            <>
+              <label>{predictedHint}</label>
+              <input
+                value={predictedValue}
+                onChange={(e) => setPredictedValue(e.target.value)}
+              />
+            </>
+          )}
           <label>独家分析</label>
           <textarea
             rows={4}
@@ -739,7 +825,8 @@ export default function ProphetPage() {
                 committing ||
                 !analysis.trim() ||
                 paidUnlockBlocked ||
-                !poolEligibility.canCommit
+                !poolEligibility.canCommit ||
+                !normalIntervalValid
               }
               onClick={() => void onCommit()}
             >
@@ -785,7 +872,7 @@ export default function ProphetPage() {
                 {isProphet ? "（你）" : ""}
               </dd>
               <dt>预测值</dt>
-              <dd>{prophecy.predictedValue}</dd>
+              <dd>{formatProphecyPrediction(prophecy, market?.kind)}</dd>
               <dt>解锁价</dt>
               <dd>{formatUsdcBaseUnits(prophecy.unlockPrice)} USDC</dd>
               <dt>锁定至</dt>
@@ -870,7 +957,7 @@ export default function ProphetPage() {
                 </dd>
                 <dt>预测值</dt>
                 <dd>
-                  <code>{prophecy.predictedValue}</code>
+                  <code>{formatProphecyPrediction(prophecy, market?.kind)}</code>
                 </dd>
                 <dt>托管总额</dt>
                 <dd>
@@ -927,6 +1014,20 @@ export default function ProphetPage() {
                   {auditPreview && hashVerification?.ok && (
                     <p className="hint">
                       预判：{auditOutcomeLabel(auditPreview.outcome)}
+                      {auditPreview.outcome === "win" &&
+                        auditPreview.precisionBps != null && (
+                          <>
+                            {" "}
+                            · 精度贡献{" "}
+                            {formatScorePercent(auditPreview.precisionBps)}/100
+                            {prophecyIntervalWidth(prophecy) > 0 && (
+                              <>
+                                {" "}
+                                （宽度 {prophecyIntervalWidth(prophecy)} tenths）
+                              </>
+                            )}
+                          </>
+                        )}
                       {settlementPreview && auditPreview.outcome !== "cheat" && (
                         <>
                           {" "}

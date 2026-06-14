@@ -19,9 +19,18 @@ fun experience_cap() {
 }
 
 #[test]
+fun interval_precision_narrower_wins() {
+    assert!(prophet_leaderboard::interval_precision_bps(0) == 10000, 0);
+    let narrow = prophet_leaderboard::interval_precision_bps(2);
+    let wide = prophet_leaderboard::interval_precision_bps(20);
+    assert!(narrow > wide, 1);
+    assert!(prophet_leaderboard::interval_precision_bps(200) == 0, 2);
+}
+
+#[test]
 fun audit_updates_streak() {
     let mut stats = prophet_leaderboard::new_stats(@0x1);
-    prophet_leaderboard::record_audit_win(&mut stats, 1_000_000);
+    prophet_leaderboard::record_audit_win(&mut stats, 1_000_000, 0);
     assert!(prophet_leaderboard::wins(&stats) == 1, 0);
     assert!(prophet_leaderboard::score_bps(&stats) > 0, 1);
     prophet_leaderboard::record_audit_loss(&mut stats, 0);
@@ -33,10 +42,10 @@ fun audit_updates_streak() {
 fun paid_unlock_eligibility() {
     let mut stats = prophet_leaderboard::new_stats(@0x1);
     assert!(!prophet_leaderboard::paid_unlock_eligible(&stats), 0);
-    prophet_leaderboard::record_audit_win(&mut stats, 0);
-    prophet_leaderboard::record_audit_win(&mut stats, 0);
+    prophet_leaderboard::record_audit_win(&mut stats, 0, 0);
+    prophet_leaderboard::record_audit_win(&mut stats, 0, 0);
     assert!(!prophet_leaderboard::paid_unlock_eligible(&stats), 1);
-    prophet_leaderboard::record_audit_win(&mut stats, 0);
+    prophet_leaderboard::record_audit_win(&mut stats, 0, 0);
     assert!(prophet_leaderboard::paid_unlock_eligible(&stats), 2);
     prophet_leaderboard::record_cheat(&mut stats);
     assert!(!prophet_leaderboard::paid_unlock_eligible(&stats), 3);
