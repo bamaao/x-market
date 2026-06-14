@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AuctionPanel } from "@/components/AuctionPanel";
+import { CommentPanel } from "@/components/CommentPanel";
 import { IvPanel } from "@/components/IvPanel";
 import { LpDepositPanel } from "@/components/LpDepositPanel";
 import { TradePanel } from "@/components/TradePanel";
@@ -80,6 +81,7 @@ export function MarketDetailView({ id }: Props) {
         <LpDepositPanel market={market} />
         <AuctionPanel market={market} />
         <IvPanel market={market} />
+        <CommentPanel market={market} />
       </div>
     </>
   );

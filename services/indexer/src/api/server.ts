@@ -20,6 +20,14 @@ import {
 } from "../market-tags.js";
 import { buildOracleQueueQueries } from "../oracle-queue-query.js";
 import { isValidSuiAddress, normalizeSuiAddress, parseFollowPair } from "../follows.js";
+import {
+  checkCommentRateLimits,
+  isValidPoolId,
+  normalizePoolId,
+  parseCreateCommentBody,
+  parseDeleteCommentBody,
+  verifySignedMessage,
+} from "../comments.js";
 
 type Handler = (
   req: http.IncomingMessage,
@@ -87,6 +95,7 @@ function matchRoute(
     { pattern: /^\/v1\/tags$/, route: "tags", keys: [] },
     { pattern: /^\/v1\/markets$/, route: "markets", keys: [] },
     { pattern: /^\/v1\/markets\/([^/]+)$/, route: "market", keys: ["poolId"] },
+    { pattern: /^\/v1\/markets\/([^/]+)\/comments$/, route: "marketComments", keys: ["poolId"] },
     { pattern: /^\/v1\/oracle\/queue$/, route: "oracleQueue", keys: [] },
     { pattern: /^\/v1\/feeds$/, route: "feeds", keys: [] },
     { pattern: /^\/v1\/feeds\/([^/]+)$/, route: "feed", keys: ["feedId"] },
@@ -296,6 +305,38 @@ export function createApiServer(config: IndexerConfig, state: { lastEventAt: str
         res.rows as Array<{ pool_id: string }>,
       );
       return { status: 200, body: { market } };
+    },
+
+    marketComments: async (req, params) => {
+      if (!isValidPoolId(params.poolId)) {
+        return { status: 400, body: { error: "invalid pool_id" } };
+      }
+      const q = parseQuery(req.url ?? "");
+      const limit = Math.min(100, Math.max(1, Number(q.get("limit") ?? "50")));
+      const offset = Math.max(0, Number(q.get("offset") ?? "0") || 0);
+      const poolId = normalizePoolId(params.poolId);
+      const countRes = await query<{ total: number }>(
+        config.databaseUrl,
+        `SELECT COUNT(*)::int AS total FROM market_comments
+         WHERE pool_id = $1 AND deleted_at IS NULL`,
+        [poolId],
+      );
+      const res = await query(
+        config.databaseUrl,
+        `SELECT id, pool_id, author, body, created_at
+         FROM market_comments
+         WHERE pool_id = $1 AND deleted_at IS NULL
+         ORDER BY created_at DESC
+         LIMIT $2 OFFSET $3`,
+        [poolId, limit, offset],
+      );
+      return {
+        status: 200,
+        body: {
+          comments: res.rows,
+          ...paginationMeta(countRes.rows[0]?.total ?? 0, limit, offset),
+        },
+      };
     },
 
     oracleQueue: async (req) => {
@@ -648,6 +689,105 @@ export function createApiServer(config: IndexerConfig, state: { lastEventAt: str
 
     if (req.method === "OPTIONS") {
       json(res, 204, {}, config.corsOrigin);
+      return;
+    }
+
+    const commentPostMatch = urlPath.match(/^\/v1\/markets\/([^/]+)\/comments$/);
+    if (req.method === "POST" && commentPostMatch) {
+      try {
+        const body = (await readJsonBody(req)) as Record<string, unknown>;
+        const parsed = parseCreateCommentBody(commentPostMatch[1], body);
+        if ("error" in parsed) {
+          json(res, 400, { error: parsed.error }, config.corsOrigin);
+          return;
+        }
+        const verified = await verifySignedMessage(
+          parsed.signMessage,
+          parsed.signature,
+          parsed.author,
+        );
+        if ("error" in verified) {
+          json(res, 401, { error: verified.error }, config.corsOrigin);
+          return;
+        }
+        const rate = await checkCommentRateLimits(
+          config.databaseUrl,
+          parsed.poolId,
+          parsed.author,
+        );
+        if ("error" in rate) {
+          json(res, 429, { error: rate.error }, config.corsOrigin);
+          return;
+        }
+        const inserted = await query<{
+          id: number;
+          pool_id: string;
+          author: string;
+          body: string;
+          created_at: string;
+        }>(
+          config.databaseUrl,
+          `INSERT INTO market_comments (pool_id, author, body, nonce)
+           VALUES ($1, $2, $3, $4)
+           RETURNING id, pool_id, author, body, created_at`,
+          [parsed.poolId, parsed.author, parsed.body, parsed.nonce],
+        );
+        json(res, 201, inserted.rows[0], config.corsOrigin);
+      } catch (e) {
+        const message = e instanceof Error ? e.message : "comment failed";
+        const status = message.includes("duplicate key") ? 409 : 500;
+        json(res, status, { error: message }, config.corsOrigin);
+      }
+      return;
+    }
+
+    const commentDeleteMatch = urlPath.match(/^\/v1\/markets\/([^/]+)\/comments\/(\d+)$/);
+    if (req.method === "DELETE" && commentDeleteMatch) {
+      try {
+        const body = (await readJsonBody(req)) as Record<string, unknown>;
+        const parsed = parseDeleteCommentBody(
+          commentDeleteMatch[1],
+          commentDeleteMatch[2],
+          body,
+        );
+        if ("error" in parsed) {
+          json(res, 400, { error: parsed.error }, config.corsOrigin);
+          return;
+        }
+        const verified = await verifySignedMessage(
+          parsed.signMessage,
+          parsed.signature,
+          parsed.author,
+        );
+        if ("error" in verified) {
+          json(res, 401, { error: verified.error }, config.corsOrigin);
+          return;
+        }
+        const existing = await query<{ id: number }>(
+          config.databaseUrl,
+          `SELECT id FROM market_comments
+           WHERE id = $1 AND pool_id = $2 AND author = $3 AND deleted_at IS NULL`,
+          [parsed.commentId, parsed.poolId, parsed.author],
+        );
+        if (!existing.rowCount) {
+          json(res, 404, { error: "comment not found" }, config.corsOrigin);
+          return;
+        }
+        await query(
+          config.databaseUrl,
+          `UPDATE market_comments SET deleted_at = NOW()
+           WHERE id = $1 AND pool_id = $2 AND author = $3`,
+          [parsed.commentId, parsed.poolId, parsed.author],
+        );
+        json(res, 200, { ok: true }, config.corsOrigin);
+      } catch (e) {
+        json(
+          res,
+          500,
+          { error: e instanceof Error ? e.message : "delete comment failed" },
+          config.corsOrigin,
+        );
+      }
       return;
     }
 
