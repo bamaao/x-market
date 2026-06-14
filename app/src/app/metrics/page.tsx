@@ -36,7 +36,7 @@ export default function MetricsPage() {
         title="Prophet 运营指标"
         subtitle={
           <>
-            付费解锁 GMV 与审计量（Indexer <code>prophet_gmv_daily</code>，P4.4）。
+            付费解锁 GMV 与审计量（Indexer <code>prophet_gmv_daily</code>）。
           </>
         }
       />

@@ -999,8 +999,7 @@ export default function ProphetPage() {
         <h2>战绩与排行</h2>
         <p className="hint">
           排行数据直读链上 <code>ProphetStats</code>，无需本地统计服务。详见{" "}
-          <Link href="/leaderboard">排行榜页</Link>（架构说明见{" "}
-          <code>docs/phase4-services.md</code>）
+          <Link href="/leaderboard">排行榜页</Link>。
         </p>
       </div>
 

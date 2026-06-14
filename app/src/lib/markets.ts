@@ -2,7 +2,7 @@ import { MARKET_COVER_BY_ID, resolveMarketImageUrl } from "./market-media";
 import { tagsForSeedMarket } from "./market-tags";
 import type { MarketRef } from "./position-display";
 
-/** Phase 1 Testnet 种子市场（PRD §6） */
+/** Testnet 种子市场（PRD §6） */
 export type MarketKind = "poisson" | "dirichlet" | "normal" | "beta";
 
 export interface SeedMarket {

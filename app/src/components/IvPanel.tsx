@@ -44,7 +44,7 @@ export function IvPanel({ market }: Props) {
 
   return (
     <div className="card panel">
-      <h2>IV / LP Guard 面板（Phase 2）</h2>
+      <h2>IV / LP Guard 面板</h2>
       <label>Pool ID</label>
       <input value={poolId} onChange={(e) => setPoolId(e.target.value)} />
       <button type="button" className="secondary" onClick={() => refetch()}>

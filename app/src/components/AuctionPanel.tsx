@@ -94,7 +94,7 @@ export function AuctionPanel({ market }: Props) {
 
   return (
     <div className="card panel">
-      <h2>Opening Auction（Phase 1.5）</h2>
+      <h2>Opening Auction</h2>
       <p className="hint">
         Auction → Trading：竞价 USDC 入桶，截止后 finalize 定标 Prior，Vault 内资金按 1:1 记为初始 LP。
       </p>

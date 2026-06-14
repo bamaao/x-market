@@ -84,7 +84,7 @@ export default function MarginPage() {
   return (
     <>
       <h1>Cross-Margin</h1>
-      <p className="sub">链上保证金账户与持仓责任登记（Phase 2）</p>
+      <p className="sub">链上保证金账户与持仓责任登记</p>
       {!account && <p className="hint">连接钱包后使用。</p>}
 
       <div className="card panel">

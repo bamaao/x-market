@@ -53,7 +53,7 @@ export default function LpPage() {
   return (
     <>
       <h1>LP 份额</h1>
-      <p className="sub">LpShare 对象（Phase 1.5 NAV 申购；Phase 2 赎回）</p>
+      <p className="sub">LpShare 对象（NAV 申购与赎回）</p>
       {!account && <p className="hint">连接钱包后查看。</p>}
       {account && (
         <button type="button" className="secondary" onClick={() => refetch()}>

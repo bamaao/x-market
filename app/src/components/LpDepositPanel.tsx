@@ -56,7 +56,7 @@ export function LpDepositPanel({ market }: Props) {
 
   return (
     <div className="card panel">
-      <h2>LP 申购（Phase 1.5）</h2>
+      <h2>LP 申购</h2>
       <p className="hint">
         按 NAV 铸造 LpShare；Dirichlet 池会等比放大 α，概率形状不变。
       </p>
