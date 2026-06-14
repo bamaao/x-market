@@ -2,10 +2,21 @@
 name = "x_market"
 edition = "2024.beta"
 
+[dependencies.sui_extensions]
+local = "./vendor/circle/sui_extensions"
+published-at = "0x252b1dd4b853d6b4c0721cf3f55c0587c940ee4d386d1b1cb5f46fa16e3de98a"
+
+[dependencies.stablecoin]
+local = "./vendor/circle/stablecoin"
+published-at = "0x346e3233f61eb0055713417bfaddda7dc3bf26816faad1f7606994a368b92917"
+
 [dependencies.usdc]
-local = "./vendor/usdc"
+local = "./vendor/circle/usdc"
+published-at = "0xa1ec7fc00a6f40db9693ad1415d0c193ad3906494428cf252621037bd7117e29"
 
 [addresses]
 x_market = "0x0"
 # Circle native USDC testnet; mainnet: 0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7
 usdc = "0xa1ec7fc00a6f40db9693ad1415d0c193ad3906494428cf252621037bd7117e29"
+stablecoin = "0x346e3233f61eb0055713417bfaddda7dc3bf26816faad1f7606994a368b92917"
+sui_extensions = "0x252b1dd4b853d6b4c0721cf3f55c0587c940ee4d386d1b1cb5f46fa16e3de98a"

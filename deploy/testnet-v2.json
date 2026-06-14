@@ -1,81 +1,45 @@
 {
-  "explorer": {
-    "package": "https://testnet.suivision.xyz/package/0x1a175ee8ba5ae34cedc2f09e5cde8da1bff2fd11cfda7ade4fc369e84e5602a0"
-  },
-  "maturityTs": 1783827038,
-  "adminCap": "0xac82ba3afba801350c95849f3d18048268c9c3753a0dbfe191c003a5c599096c",
-  "upgradeCap": "0xd1b1ca930af2f0ad53613ded8cb9517a6f02ec475bea93306b328faefa66e397",
-  "publishedAt": "2026-06-12",
-  "superseded": {
-    "packageId": "0x2e368e00532771eedd2df288bd61b0cb2324471b9fc6e14160a7f3079310ae6e",
-    "note": "v3 全量弃用；2026-06-12 fresh publish v4（含公开预测 + UMA DVM）"
-  },
-  "seedMarkets": {
-    "dirichlet_wdl": {
-      "poolId": "0xe600bb7269c52205af6c4c10e0eac1ae57aac409ddecb3223297d47a587563bf",
-      "alphas": [
-        10,
-        10,
-        10
-      ]
-    },
-    "normal_cpi": {
-      "poolId": "0x9b33a323620edfd2fca3328c59b34d99b4250d77f8322677faed7b91bcd60cdc",
-      "muTenths": 25,
-      "sigmaTenths": 4
-    },
-    "poisson_goals": {
-      "lambdaTenths": 25,
-      "poolId": "0xd06cc96ccceb7f974821613216388f1a63bee0c94af76946c7d405e62582bdfa"
-    },
-    "beta_vote": {
-      "alpha": 10,
-      "beta": 10,
-      "poolId": "0x4ef004ec7e21ce04c5a085ee45ac30309133b90f46e950a6a3dec3354c1018f6"
-    }
-  },
-  "treasuryCapUsdc": "0xf1d2ae673044bee56c8c0342b6294274c57103648e5abba0266b8d65acdfcd95",
+  "network": "testnet",
+  "publishedAt": "2026-06-14",
   "deployer": "0x87e487cd6b1c7a53f91999eb3a5372ced201b614b26924ba4cc1d282a2240c07",
-  "publishTx": "AbLsEBj5mxYRJdy488i5G5j6gHs6edT1ueLkbGKtAWky",
+  "packageId": "0x083d470a44ce73a290368ec18a8ee96c49cc3491e29117737e62c9f57dbec57d",
+  "publishTx": "see deploy log",
+  "globalConfig": "0x55d3205160a04f43eabcc3ee1dadd8cc39a071e0791cda00af3dd96258fe1111",
+  "adminCap": "0x5560450916bf31807ab5b3a389d9895c92d18de68e770ebe598ca3aa3f3ed528",
+  "upgradeCap": "0x2c5ebeeff2fd37deb349a6d9d2d005e90214b592ed288439c1b8bb672fec63eb",
+  "maturityTs": 1784030313,
   "oracle": {
-    "feedRegistryId": "0x261fa4cc2c02d07fe36e7a5ee93dd59b7e19ac31b9e8df365eb10d161b474a3e",
-    "oracleArbitratorId": "0x9ccf4333b28c0511111488696fdfae505e0df8b7222f74ef28400c2b64560580",
-    "oracleConfigId": "0xd9b613093f602967a23403fa961b892ede5d477b5404139ea9746e3bec6bdf58"
+    "oracleConfigId": "0x4d3e154b88aae952099c91bbb28c50c49140a3954d223f9c84570722b7a39f8a",
+    "feedRegistryId": "0x782b98880cdedd0bdc392fc91df11bad78837b81cfae1d79f4bbc22612b90472",
+    "oracleArbitratorId": "0x9926677bcba6d723d303d85c817147ed17cff7328a6d80d38306e802bfc936d9"
   },
   "prophet": {
-    "registryId": "0x51b2bc4fa6178689c28efc47237849ac9e730ff540a135e0f275ad6e7948b722"
+    "registryId": "0x1f654bad17271115bebd91e92639a0f80157539779192022ffb1d959a5f115c3"
   },
-  "globalConfig": "0xf8aba91108142fc0d9b621e1096546d25dc094a816b0282d3a32e1694dc470f6",
-  "packageId": "0x1a175ee8ba5ae34cedc2f09e5cde8da1bff2fd11cfda7ade4fc369e84e5602a0",
-  "network": "testnet",
-  "eventRoots": {
+  "usdc": {
+    "coinType": "0xa1ec7fc00a6f40db9693ad1415d0c193ad3906494428cf252621037bd7117e29::usdc::USDC",
+    "source": "circle-native"
+  },
+  "seedMarkets": {
+    "poisson_goals": {
+      "poolId": "0x075799eb6efda59c1834d8e70338cb11c9dc56c567c5ddb113a742ff419cc0d5",
+      "lambdaTenths": 25
+    },
     "dirichlet_wdl": {
-      "lockTime": 1783827038,
-      "feedId": "0xf6742b2d238aa3b02264a8a05f8129524af66cb5f0e4b50c0599c2a4e4b093ba",
-      "eventId": "DIRICHLET_FEED",
-      "poolId": "0xe600bb7269c52205af6c4c10e0eac1ae57aac409ddecb3223297d47a587563bf",
-      "eventRootId": "0xb1869ce02591ca91e1a0dbf6c34a975f491e5d93418543859204232b8368cedd"
+      "poolId": "0x296c749d8257d68a31a1da3b715ccb01acfabb85112e5cc9885755818b3dcd5e",
+      "alphas": [10, 10, 10]
     },
     "normal_cpi": {
-      "lockTime": 1783827038,
-      "feedId": "0x0f6d1c9587eab05d285fc7781bb7149fecb53a9f4425bb2fcbc6b29f5569008a",
-      "eventId": "CPI_FEED",
-      "poolId": "0x9b33a323620edfd2fca3328c59b34d99b4250d77f8322677faed7b91bcd60cdc",
-      "eventRootId": "0x2d24f7dd4db02f91efa19b8b0f883d4716e7953b3381b0a2f45515878a760224"
-    },
-    "poisson_goals": {
-      "lockTime": 1783827038,
-      "feedId": "0x593a0fe476d8fc83d6fc07a3b89ea9e08b024c9d240d815940c94b92cea51c86",
-      "eventId": "POISSON_FEED",
-      "poolId": "0xd06cc96ccceb7f974821613216388f1a63bee0c94af76946c7d405e62582bdfa",
-      "eventRootId": "0x679c17fd7e8432acf06ba0ad1d02834ed7335582c23f22641aaf2a40b2f59824"
-    },
-    "beta_vote": {
-      "eventRootId": "0x86b99682c0046425fe4f38df382dda349acb16575076956718a27ffa39e48c29",
-      "feedId": "0x7b1b69e344f8b8e5656b01eb37f97697cb1c4a1b2b90d8a7e5c21ac1d56746cf",
-      "lockTime": 1783827038,
-      "poolId": "0x4ef004ec7e21ce04c5a085ee45ac30309133b90f46e950a6a3dec3354c1018f6",
-      "eventId": "BETA_FEED"
+      "poolId": "0x407cbfcbab839d1fd192bf694d582c7cc1686b3ec7aed1b4e6f19335bb98cf91",
+      "muTenths": 25,
+      "sigmaTenths": 4
     }
+  },
+  "superseded": {
+    "packageId": "0x1a175ee8ba5ae34cedc2f09e5cde8da1bff2fd11cfda7ade4fc369e84e5602a0",
+    "note": "v4 package superseded; use seedMarkets in this file"
+  },
+  "explorer": {
+    "package": "https://testnet.suivision.xyz/package/0x083d470a44ce73a290368ec18a8ee96c49cc3491e29117737e62c9f57dbec57d"
   }
 }
