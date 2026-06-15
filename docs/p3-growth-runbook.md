@@ -11,13 +11,15 @@
   automatically becomes available under the Apache License 2.0.
 -->
 
-# P3 增长期 Runbook
+**English** | [简体中文](./p3-growth-runbook.zh.md)
 
-## 3.1 订阅者 ROI
+# P3 Growth Runbook
 
-- **表：** `buyer_roi` + `buyer_roi_summary`
-- **API：** `GET /v1/buyer-roi?buyer=` · `GET /v1/buyer-roi/summary?buyer=`
-- **前端：** `/roi`（需 `NEXT_PUBLIC_INDEXER_URL`）
+## 3.1 Subscriber ROI
+
+- **Tables:** `buyer_roi` + `buyer_roi_summary`
+- **API:** `GET /v1/buyer-roi?buyer=` · `GET /v1/buyer-roi/summary?buyer=`
+- **Frontend:** `/roi` (requires `NEXT_PUBLIC_INDEXER_URL`)
 
 ## 3.2 Pricing Engine / SDK
 
@@ -26,18 +28,18 @@ cd pricing-engine && npm install && npm start
 # → http://localhost:8801/v1/quote?kind=poisson&stake_usdc=1000000&...
 ```
 
-- **SDK：** `pricing-engine/src/index.ts` → `quoteBuy()`
-- **前端：** `TradePanel` 定价预览 · `NEXT_PUBLIC_PRICING_ENGINE_URL`
+- **SDK:** `pricing-engine/src/index.ts` → `quoteBuy()`
+- **Frontend:** `TradePanel` pricing preview · `NEXT_PUBLIC_PRICING_ENGINE_URL`
 
-## 3.3 Seal 明文缓存
+## 3.3 Seal Plaintext Cache
 
-Indexer `seal-cache` worker：当 `lock_time` 已过或 `is_public`，从 Indexer/IPFS blob 拉取明文写入 `seal_plaintext_cache`。
+Indexer `seal-cache` worker: when `lock_time` has passed or `is_public`, fetch plaintext from Indexer/IPFS blob and write to `seal_plaintext_cache`.
 
 ```
 GET /v1/prophecies/:prophecyId/plaintext
 ```
 
-环境：`INDEXER_PROPHET_BLOBS_DIR` · `IPFS_GATEWAY_URL`
+Env: `INDEXER_PROPHET_BLOBS_DIR` · `IPFS_GATEWAY_URL`
 
 ## 3.4 GeoBlock
 
@@ -46,22 +48,22 @@ GEO_BLOCK_ENABLED=true
 GEO_BLOCKED_COUNTRIES=US,CN
 ```
 
-依赖边缘 `x-vercel-ip-country` / `cf-ipcountry`。被拦截用户见 `/blocked`。
+Depends on edge `x-vercel-ip-country` / `cf-ipcountry`. Blocked users see `/blocked`.
 
-详见 [compliance-geoblock.md](./compliance-geoblock.md)。
+See [compliance-geoblock.md](./compliance-geoblock.md) for details.
 
-## 3.5 移动端主网配置
+## 3.5 Mobile Mainnet Config
 
 ```powershell
 .\scripts\bootstrap-mobile-env.ps1 -Network testnet
-# 主网发包后：
+# After mainnet publish:
 .\scripts\bootstrap-mobile-env.ps1 -Network mainnet -DeployJson deploy/mainnet.json
 cd mobile/x_market_flutter && flutter run
 ```
 
-`SuiConfig` 含 `network`、`rpcUrl`、`packageId`、种子池、Indexer/Gas Station URL。Phantom deeplink 使用 `SuiConfig.network`。
+`SuiConfig` includes `network`, `rpcUrl`, `packageId`, seed pools, Indexer/Gas Station URL. Phantom deeplink uses `SuiConfig.network`.
 
-## 验证
+## Verification
 
 ```powershell
 .\scripts\verify-p3-readiness.ps1

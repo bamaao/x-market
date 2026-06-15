@@ -11,127 +11,129 @@
   automatically becomes available under the Apache License 2.0.
 -->
 
-# X-Market Sui 主网上线前清单
+# X-Market Sui Mainnet Readiness Checklist
 
-本文将当前实现状态转成可执行上线步骤，默认面向 **Phase 3 已完成后的主网发布**。
+**English** | [简体中文](./mainnet-readiness-checklist.zh.md)
 
-> **基础设施优先级（P0–P3）：** [mainnet-infra-priority.md](./mainnet-infra-priority.md)  
-> **治理参数签字版：** [mainnet-governance-params.md](./mainnet-governance-params.md) · [governance-params-signoff.md](./governance-params-signoff.md)  
-> **参数校验：** `.\scripts\verify-governance-params.ps1`  
-> **P0 自动化检查：** `.\scripts\verify-p0-readiness.ps1`
+This checklist turns current implementation status into executable launch steps, assuming **mainnet release after Phase 3 completion**.
 
----
-
-## 1. 发布冻结与版本标记
-
-- [ ] 冻结发布窗口（禁止非主网阻断类改动）
-- [ ] 锁定目标提交哈希（记录 `git rev-parse HEAD`）
-- [ ] 生成候选版本号（建议语义化版本，如 `v0.3.0-mainnet-rc1`）
-- [ ] 输出变更摘要（协议、风控、前端、脚本、文档）
+> **Infrastructure priority (P0–P3):** [mainnet-infra-priority.md](./mainnet-infra-priority.md)  
+> **Governance params sign-off:** [mainnet-governance-params.md](./mainnet-governance-params.md) · [governance-params-signoff.md](./governance-params-signoff.md)  
+> **Param verification:** `.\scripts\verify-governance-params.ps1`  
+> **P0 automated checks:** `.\scripts\verify-p0-readiness.ps1`
 
 ---
 
-## 2. 合约与权限检查
+## 1. Release Freeze and Version Tag
 
-- [ ] `sui move build` 无错误
-- [ ] `sui move test` 全通过
-- [ ] `GlobalConfig` 管理员地址确认（冷/多签地址）
-- [ ] `AdminCap` 持有者迁移至治理地址
-- [ ] 主网 `USDC` 类型地址替换与验证（禁用测试币路径）
-
----
-
-## 3. 风险参数基线（上线前一次性确认）
-
-### 3.1 LP 防守参数
-
-- [ ] `fee_multiplier_bps` 基线确认
-- [ ] LP Guard Keeper 已部署（`services/lp-guard-keeper/`，authority 密钥托管）
-- [ ] `sigma_virtual_tenths` 基线确认
-- [ ] `concentration_virtual` 基线确认
-- [ ] `deposit_cutoff_bps` 基线确认
-- [ ] `resolution_window_ts` 基线确认
-
-### 3.2 Slash 治理参数
-
-- [ ] timelock（当前实现：`1800s`）是否满足治理要求
-- [ ] 单次限额（当前实现：`30%`）是否满足治理要求
-- [ ] 周期累计限额（当前实现：`50%`）是否满足治理要求
-- [ ] 是否启用多签执行通道（`SlashGovernance`）
-- [ ] 若启用：`signers` 与 `threshold` 清单完成双人复核
-
-### 3.3 ZK 流程参数
-
-- [ ] challenge window（当前实现：`3600s`）是否满足治理要求
-- [ ] 验证状态码语义对外文档一致（accepted/rejected/challenged）
-- [ ] 运营侧明确 `finalize_verification` 触发策略与责任人
+- [ ] Freeze release window (no non-mainnet-blocking changes)
+- [ ] Lock target commit hash (record `git rev-parse HEAD`)
+- [ ] Generate candidate version (semantic, e.g. `v0.3.0-mainnet-rc1`)
+- [ ] Publish change summary (protocol, risk, frontend, scripts, docs)
 
 ---
 
-## 4. 治理与应急演练（必须留痕）
+## 2. Contract and Access Control
 
-- [ ] 演练 A：正常买入/结算/兑奖全流程
-- [ ] 演练 B：触发 `slash_pool` 后 timelock 到期恢复
-- [ ] 演练 C：多签提案 `propose -> approve -> execute`
-- [ ] 演练 D：`ZkVerification` challenge + delayed finalization
-- [ ] 所有演练生成交易哈希与截图归档
-- [ ] 按模板输出演练报告：`docs/mainnet-drill-record-template.md`
+- [ ] `sui move build` with no errors
+- [ ] `sui move test` all pass
+- [ ] Confirm `GlobalConfig` admin address (cold / multisig)
+- [ ] Migrate `AdminCap` holder to governance address
+- [ ] Replace and verify mainnet `USDC` coin type (disable test token paths)
 
 ---
 
-## 5. 前端与配置发布
+## 3. Risk Parameter Baseline (One-Time Pre-Launch)
 
-- [ ] 主网环境变量注入：
+### 3.1 LP Guard Parameters
+
+- [ ] Confirm `fee_multiplier_bps` baseline
+- [ ] LP Guard Keeper deployed (`services/lp-guard-keeper/`, authority key custody)
+- [ ] Confirm `sigma_virtual_tenths` baseline
+- [ ] Confirm `concentration_virtual` baseline
+- [ ] Confirm `deposit_cutoff_bps` baseline
+- [ ] Confirm `resolution_window_ts` baseline
+
+### 3.2 Slash Governance Parameters
+
+- [ ] Timelock (current: `1800s`) meets governance requirements
+- [ ] Single-event cap (current: `30%`) meets governance requirements
+- [ ] Period cumulative cap (current: `50%`) meets governance requirements
+- [ ] Multisig execution channel enabled (`SlashGovernance`)
+- [ ] If enabled: `signers` and `threshold` list dual-reviewed
+
+### 3.3 ZK Flow Parameters
+
+- [ ] Challenge window (current: `3600s`) meets governance requirements
+- [ ] Verification status codes documented externally (accepted/rejected/challenged)
+- [ ] Ops defines `finalize_verification` trigger policy and owner
+
+---
+
+## 4. Governance and Emergency Drills (Must Leave Audit Trail)
+
+- [ ] Drill A: Full buy → settle → claim flow
+- [ ] Drill B: `slash_pool` → timelock expiry → recovery
+- [ ] Drill C: Multisig `propose -> approve -> execute`
+- [ ] Drill D: `ZkVerification` challenge + delayed finalization
+- [ ] Archive tx hashes and screenshots for all drills
+- [ ] Output drill report per template: `docs/mainnet-drill-record-template.md`
+
+---
+
+## 5. Frontend and Config Release
+
+- [ ] Inject mainnet env:
   - `NEXT_PUBLIC_SUI_NETWORK=mainnet`
   - `NEXT_PUBLIC_PACKAGE_ID=<mainnet_package_id>`
   - `NEXT_PUBLIC_SUI_CLOCK=0x6`
-- [ ] 前端合约入口与包 ID 一致性复核
-- [ ] `/positions` 新票据展示与估算逻辑复测
-- [ ] 关键页面手工回归（市场页、持仓页、LP 页）
+- [ ] Verify frontend contract entry points match package ID
+- [ ] Re-test `/positions` new ticket display and estimates
+- [ ] Manual regression on key pages (markets, positions, LP)
 
 ---
 
-## 6. 可观测性与告警
+## 6. Observability and Alerting
 
-- [ ] 监控 `SlashRecord` 事件（数量、金额、触发人）
-- [ ] 监控 `ZkVerification` 状态变化与未 finalize 积压
-- [ ] 监控市场 `paused` 状态变化
-- [ ] 监控关键交易失败率（buy/claim/deposit/withdraw）
-- [ ] 告警值班表与升级路径（on-call）确认
-
----
-
-## 7. 上线执行 Runbook
-
-1. [ ] 发布主网包并记录 `Package ID`
-2. [ ] 初始化/迁移治理对象（如 `SlashGovernance`）
-3. [ ] 创建首批种子市场并注入初始流动性
-4. [ ] 前端切主网配置并灰度发布
-5. [ ] 观察 30-60 分钟关键指标
-6. [ ] 对外宣布上线（附主网地址与风险提示）
+- [ ] Monitor `SlashRecord` events (count, amount, trigger)
+- [ ] Monitor `ZkVerification` status changes and unfinalized backlog
+- [ ] Monitor market `paused` status changes
+- [ ] Monitor key tx failure rates (buy/claim/deposit/withdraw)
+- [ ] Confirm on-call roster and escalation path
 
 ---
 
-## 8. 上线后 24 小时观察
+## 7. Launch Execution Runbook
 
-- [ ] 每 2 小时复核一次资金与负债关键指标
-- [ ] 核验至少 1 笔完整结算闭环交易
-- [ ] 审核所有异常告警处理闭环
-- [ ] 形成 `Day-1` 复盘文档（问题、修复、参数调整）
+1. [ ] Publish mainnet package and record `Package ID`
+2. [ ] Init/migrate governance objects (e.g. `SlashGovernance`)
+3. [ ] Create seed markets and inject initial liquidity
+4. [ ] Switch frontend to mainnet config and canary release
+5. [ ] Observe key metrics for 30–60 minutes
+6. [ ] Public launch announcement (mainnet addresses + risk disclosure)
 
 ---
 
-## 9. 当前已完成 vs 待完成（截至最近版本）
+## 8. First 24 Hours Post-Launch
 
-### 已完成
+- [ ] Review fund and liability metrics every 2 hours
+- [ ] Verify at least one full settlement closed loop
+- [ ] Close all abnormal alert tickets
+- [ ] Write `Day-1` postmortem (issues, fixes, param adjustments)
 
-- `u64 -> u8` 窄化前边界校验已全链路落地
-- Cross-Margin 同一持仓全局唯一注册锁已落地
-- ZK challenge period + delayed finalization 已落地
-- Slash timelock + 单次/累计限额 + 多签执行通道已落地
+---
 
-### 待完成
+## 9. Done vs Pending (Latest Version)
 
-- 外部审计报告关闭所有主网阻断项
-- 主网参数签字版（治理、风控、运营）归档
-- 主网最终发布与 Day-1 复盘
+### Completed
+
+- `u64 -> u8` narrowing boundary checks end-to-end
+- Cross-Margin global unique position registration lock
+- ZK challenge period + delayed finalization
+- Slash timelock + single/cumulative caps + multisig execution
+
+### Pending
+
+- External audit report closes all mainnet blockers
+- Mainnet parameter sign-off (governance, risk, ops) archived
+- Final mainnet release and Day-1 postmortem

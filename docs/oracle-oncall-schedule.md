@@ -11,54 +11,56 @@
   automatically becomes available under the Apache License 2.0.
 -->
 
-# Oracle 运营排班与 SLA（P1.2）
+**English** | [简体中文](./oracle-oncall-schedule.zh.md)
 
-> 关联：[oracle-playbook.md](./oracle-playbook.md) · [p1-services-runbook.md](./p1-services-runbook.md)
+# Oracle Operations Schedule & SLA (P1.2)
 
-## 值班角色
+> Related: [oracle-playbook.md](./oracle-playbook.md) · [p1-services-runbook.md](./p1-services-runbook.md)
 
-| 角色 | 职责 | 响应 SLA |
+## On-call Roles
+
+| Role | Responsibility | Response SLA |
 |------|------|----------|
-| **Primary Proposer** | `event_ts` 到达后 4h 内 `propose_data` | P1：4h |
-| **Backup Proposer** | Primary 不可用时接管提议 | P1：8h |
-| **Dispute Monitor** | 争议窗口内监控 `AssertionDisputed` / 仲裁委员会 | P1：1h 内确认 |
-| **Committee Lead** | `ArbitrationCaseOpened` 后组织多签投票 | P1：24h 内首轮投票 |
-| **Ops On-call** | 服务健康、Gas 余额、Relayer 提醒 | P1：30min |
+| **Primary Proposer** | `propose_data` within 4h after `event_ts` | P1: 4h |
+| **Backup Proposer** | Take over proposals when Primary unavailable | P1: 8h |
+| **Dispute Monitor** | Monitor `AssertionDisputed` / arbitration committee during dispute window | P1: confirm within 1h |
+| **Committee Lead** | Organize multisig vote after `ArbitrationCaseOpened` | P1: first vote within 24h |
+| **Ops On-call** | Service health, Gas balance, Relayer reminders | P1: 30min |
 
-## 每周排班模板
+## Weekly Schedule Template
 
-| 周次 | Primary | Backup | Committee Lead | Ops |
+| Week | Primary | Backup | Committee Lead | Ops |
 |------|---------|--------|----------------|-----|
-| W-1 | _姓名_ | _姓名_ | _姓名_ | _姓名_ |
-| W0（上线周） | _姓名_ | _姓名_ | _姓名_ | _姓名_ |
+| W-1 | _name_ | _name_ | _name_ | _name_ |
+| W0 (launch week) | _name_ | _name_ | _name_ | _name_ |
 
-填写后归档至 `docs/oncall/YYYY-MM-schedule.md`（人工维护）。
+After filling in, archive to `docs/oncall/YYYY-MM-schedule.md` (manually maintained).
 
-## 自动化提醒（P1.3）
+## Automated Reminders (P1.3)
 
-`oracle-relayer` 服务每 2 分钟扫描种子池 `DataFeed`：
+`oracle-relayer` scans seed pool `DataFeed` every 2 minutes:
 
-| 条件 | 日志事件 | 动作 |
+| Condition | Log Event | Action |
 |------|----------|------|
-| `now >= event_ts` 且无 active assertion | `oracle_relay_reminder` `propose_ready` | Primary Proposer 提议 |
-| 距 72h nullify 不足 6h | `nullify_soon` | 升级至 Backup + Committee Lead |
-| 已过 nullify 截止 | `nullify_overdue` | 紧急：协议运营评估 `nullify_feed` |
+| `now >= event_ts` and no active assertion | `oracle_relay_reminder` `propose_ready` | Primary Proposer proposes |
+| Less than 6h until 72h nullify | `nullify_soon` | Escalate to Backup + Committee Lead |
+| Past nullify deadline | `nullify_overdue` | Urgent: protocol ops evaluate `nullify_feed` |
 
-配置 `ALERT_WEBHOOK_URL` 可对接 Slack/PagerDuty。
+Set `ALERT_WEBHOOK_URL` to integrate Slack/PagerDuty.
 
-## 升级路径
+## Escalation Path
 
 ```
-Relayer 提醒 → Primary（4h）
-  → 无响应 → Backup（+4h）
-    → nullify_soon → Committee Lead + 协议运营
-      → nullify_overdue → 事故响应（P0 演练 B/D 流程）
+Relayer reminder → Primary (4h)
+  → no response → Backup (+4h)
+    → nullify_soon → Committee Lead + protocol ops
+      → nullify_overdue → incident response (P0 drill B/D flow)
 ```
 
-## 交接清单（每次换班）
+## Handoff Checklist (Each Shift Change)
 
-- [ ] `verify-services-health.ps1 -IncludeP1` 全绿
-- [ ] `check-gas-balances.ps1` 无 low
-- [ ] `http://localhost:8790/health` reminders 已处理
-- [ ] 打开 `/oracle` 确认无滞留 OPEN feed
-- [ ] 阅读 `.run/oracle-relayer.log` 最近 50 行
+- [ ] `verify-services-health.ps1 -IncludeP1` all green
+- [ ] `check-gas-balances.ps1` no low balances
+- [ ] `http://localhost:8790/health` reminders handled
+- [ ] Open `/oracle` and confirm no stale OPEN feeds
+- [ ] Read last 50 lines of `.run/oracle-relayer.log`

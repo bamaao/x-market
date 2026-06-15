@@ -11,86 +11,88 @@
   automatically becomes available under the Apache License 2.0.
 -->
 
-# Gas Station（赞助交易）
+# Gas Station (Sponsored Transactions)
+
+**English** | [简体中文](./README.zh.md)
 
 PRD §11.3.6 · Phase 4
 
-## 是否需要本地服务？
+## Do You Need a Local Service?
 
-**是。** Gas Station 必须运行链下 **Gas Payer 服务**，无法用纯前端或纯链上合约替代。
+**Yes.** Gas Station requires an off-chain **Gas Payer service**; it cannot be replaced by a frontend-only or on-chain-only setup.
 
-| 组件 | 部署位置 | 职责 |
+| Component | Deployment | Responsibility |
 | --- | --- | --- |
-| Gas Payer 钱包 | 服务端密钥库 | 持有 SUI，作为 `gasOwner` 签署赞助交易 |
-| Sponsor API | `services/gas-station/` | 校验 PTB 白名单 → `TransactionBlock` 双签 → 广播 |
-| Web App | `app/src/lib/gas-station.ts` | 构建用户 PTB → 请求赞助 → 钱包签 USDC 部分 |
+| Gas Payer wallet | Server key store | Holds SUI, signs sponsored transactions as `gasOwner` |
+| Sponsor API | `services/gas-station/` | Validate PTB allowlist → dual-sign `TransactionBlock` → broadcast |
+| Web App | `app/src/lib/gas-station.ts` | Build user PTB → request sponsorship → wallet signs USDC portion |
 
-## 流程
+## Flow
 
 ```
-用户钱包构建 PTB（仅 USDC transfer / unlock / commit）
+User wallet builds PTB (USDC transfer / unlock / commit only)
         ↓
 POST /v1/sponsor { txBytes, sender, allowedMoveCalls[] }
         ↓
-服务端 dry-run 校验 → Gas Payer 签 gasData
+Server dry-run validation → Gas Payer signs gasData
         ↓
-返回双签 bytes → 用户钱包签 authority → execute
+Return dual-signed bytes → user wallet signs authority → execute
 ```
 
-## 白名单（MVP）
+## Allowlist (MVP)
 
-- `prophet_registry::commit_private_prophecy`（仅 `unlock_price = 0` 免费练手，v3 包已链上支持）
+- `prophet_registry::commit_private_prophecy` (free practice only when `unlock_price = 0`; supported on-chain in v3 package)
 - `prophet_registry::unlock_prophecy`
 - `prophet_registry::audit_prophecy`
-- `market_pool::buy_*`（可选）
+- `market_pool::buy_*` (optional)
 
-## 环境变量（服务端）
+## Environment Variables (Server)
 
-见 [.env.example](./.env.example)。生产部署：
+See [.env.example](./.env.example). Production deployment:
 
 ```bash
 cp .env.example .env.local
-# 填写 GAS_PAYER_PRIVATE_KEY、PACKAGE_ID、CORS_ORIGIN
+# Set GAS_PAYER_PRIVATE_KEY, PACKAGE_ID, CORS_ORIGIN
 GAS_STATION_PRODUCTION=true npm start
 ```
 
-| 变量 | 说明 |
+| Variable | Description |
 | --- | --- |
-| `GAS_PAYER_PRIVATE_KEY` | Gas Payer 私钥（生产必须） |
-| `PACKAGE_ID` | 白名单包 ID（生产必须） |
-| `GAS_STATION_PRODUCTION` | `true` 时强制密钥 + 非 `*` CORS |
-| `GAS_MIN_BALANCE_MIST` | 低于此余额 `/health` 返回 503（默认 0.5 SUI） |
+| `GAS_PAYER_PRIVATE_KEY` | Gas Payer private key (required in production) |
+| `PACKAGE_ID` | Allowlisted package ID (required in production) |
+| `GAS_STATION_PRODUCTION` | When `true`, enforces key + non-`*` CORS |
+| `GAS_MIN_BALANCE_MIST` | `/health` returns 503 below this balance (default 0.5 SUI) |
 
-## 健康检查
+## Health Check
 
 ```
 GET /health
 ```
 
-返回 `gasOwner`、`gasBalanceMist`、`gasBalanceLow`；余额不足或配置缺失时 `ok: false`。
+Returns `gasOwner`, `gasBalanceMist`, `gasBalanceLow`; `ok: false` when balance is low or configuration is missing.
 
-## 状态
+## Status
 
-- [x] HTTP API 实现（`src/server.ts` — `POST /v1/sponsor`）
-- [x] 前端 `useSponsoredTransaction` hook（`app/src/hooks/useSponsoredTransaction.ts`）
-- [ ] Testnet Gas Payer 充值与监控（部署时配置 `GAS_PAYER_PRIVATE_KEY`）
+- [x] HTTP API implemented (`src/server.ts` — `POST /v1/sponsor`)
+- [x] Frontend `useSponsoredTransaction` hook (`app/src/hooks/useSponsoredTransaction.ts`)
+- [ ] Testnet Gas Payer funding and monitoring (configure `GAS_PAYER_PRIVATE_KEY` at deploy time)
 
-## 本地启动
+## Local Start
 
 ```bash
 cd services/gas-station
 npm install
-# 从 sui keytool export 获取私钥
+# Export private key via sui keytool export
 export GAS_PAYER_PRIVATE_KEY=suiprivkey1...
 export PACKAGE_ID=<NEXT_PUBLIC_PACKAGE_ID>
 export SUI_RPC_URL=https://fullnode.testnet.sui.io
 npm run dev
 ```
 
-前端在 `app/.env.local` 增加：
+Add to `app/.env.local`:
 
 ```
 NEXT_PUBLIC_GAS_STATION_URL=http://localhost:8787
 ```
 
-用户侧仅看到 USDC 变动；SUI Gas 由协议代付。
+Users only see USDC changes; SUI gas is paid by the protocol.

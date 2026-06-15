@@ -11,57 +11,59 @@
   automatically becomes available under the Apache License 2.0.
 -->
 
-# Testnet 链下服务部署 Runbook（P0.4 / P0.5）
+**English** | [简体中文](./services-testnet-runbook.zh.md)
 
-Gas Station 与 LP Guard Keeper 的 Testnet 预发/生产化流程。
+# Testnet Off-chain Services Deployment Runbook (P0.4 / P0.5)
+
+Testnet staging/production workflow for Gas Station and LP Guard Keeper.
 
 ---
 
-## 1. 一键部署
+## 1. One-click Deployment
 
 ```powershell
-# 生成 .env.local（从 deploy/testnet-v2.json + sui 活跃地址导出密钥，勿提交 git）
+# Generate .env.local (from deploy/testnet-v2.json + sui active address key export; do not commit to git)
 .\scripts\bootstrap-services-env.ps1
 
-# 首次可先用 DRY_RUN 观察 Keeper 日志
+# First run: use DRY_RUN to observe Keeper logs
 .\scripts\bootstrap-services-env.ps1 -DryRunKeeper
 
-# 安装依赖并后台启动
+# Install dependencies and start in background
 .\scripts\start-services-testnet.ps1
 
-# 健康检查
+# Health check
 .\scripts\verify-services-health.ps1
 
-# 停止
+# Stop
 .\scripts\stop-services-testnet.ps1
 ```
 
 ---
 
-## 2. 端点
+## 2. Endpoints
 
-| 服务 | 端口 | 健康检查 | 说明 |
+| Service | Port | Health Check | Description |
 |------|------|----------|------|
-| Gas Station | 8787 | `GET /health` | `POST /v1/sponsor` 赞助 Prophet PTB |
-| LP Guard Keeper | 8788 | `GET /health` | 轮询种子池并 `set_lp_guard_params` |
+| Gas Station | 8787 | `GET /health` | `POST /v1/sponsor` sponsors Prophet PTB |
+| LP Guard Keeper | 8788 | `GET /health` | Polls seed pools and calls `set_lp_guard_params` |
 
-前端：`app/.env.local` 中 `NEXT_PUBLIC_GAS_STATION_URL=http://localhost:8787`
+Frontend: `NEXT_PUBLIC_GAS_STATION_URL=http://localhost:8787` in `app/.env.local`
 
 ---
 
-## 3. 生产化开关
+## 3. Production Switches
 
-| 变量 | Gas Station | LP Guard |
+| Variable | Gas Station | LP Guard |
 |------|-------------|----------|
-| 生产模式 | `GAS_STATION_PRODUCTION=true` | `LP_GUARD_PRODUCTION=true` |
-| 密钥 | `GAS_PAYER_PRIVATE_KEY` | `LP_GUARD_KEEPER_SECRET_KEY`（须 = 池 `authority`） |
-| 包 ID | `PACKAGE_ID`（v3） | `X_MARKET_PACKAGE_ID` |
+| Production mode | `GAS_STATION_PRODUCTION=true` | `LP_GUARD_PRODUCTION=true` |
+| Keys | `GAS_PAYER_PRIVATE_KEY` | `LP_GUARD_KEEPER_SECRET_KEY` (must = pool `authority`) |
+| Package ID | `PACKAGE_ID` (v3) | `X_MARKET_PACKAGE_ID` |
 | CORS | `CORS_ORIGIN=http://localhost:3000` | — |
-| 发链上 tx | — | `LP_GUARD_DRY_RUN=false` |
+| On-chain tx | — | `LP_GUARD_DRY_RUN=false` |
 
 ---
 
-## 4. Docker（可选）
+## 4. Docker (Optional)
 
 ```powershell
 .\scripts\bootstrap-services-env.ps1
@@ -71,21 +73,21 @@ docker compose -f docker-compose.services.yml up -d --build
 
 ---
 
-## 5. 运维检查清单
+## 5. Ops Checklist
 
-- [ ] `/health` 返回 `ok: true`，Gas Payer 余额 > `GAS_MIN_BALANCE_MIST`
-- [ ] Keeper `keeper` 地址与种子池 `authority` 一致
-- [ ] `LP_GUARD_DRY_RUN=false` 后 `.run/lp-guard-keeper.log` 出现 `lp_guard_tick`
-- [ ] `/prophet` 免费 Commit 可走 Gas Station 赞助
-- [ ] 密钥仅存在于 `.env.local`（已在 `.gitignore`）
+- [ ] `/health` returns `ok: true`, Gas Payer balance > `GAS_MIN_BALANCE_MIST`
+- [ ] Keeper `keeper` address matches seed pool `authority`
+- [ ] After `LP_GUARD_DRY_RUN=false`, `.run/lp-guard-keeper.log` shows `lp_guard_tick`
+- [ ] `/prophet` free Commit works via Gas Station sponsorship
+- [ ] Keys exist only in `.env.local` (listed in `.gitignore`)
 
 ---
 
-## 6. 日志
+## 6. Logs
 
 ```
 .run/gas-station.log
 .run/lp-guard-keeper.log
 ```
 
-Keeper 结构化日志：`lp_guard_tick` / `lp_guard_updated` / `lp_guard_error`
+Keeper structured logs: `lp_guard_tick` / `lp_guard_updated` / `lp_guard_error`

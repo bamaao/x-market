@@ -11,28 +11,30 @@
   automatically becomes available under the Apache License 2.0.
 -->
 
-# Phase 4 架构：EventRoot · Gas Station · 排行榜
+**English** | [简体中文](./phase4-services.zh.md)
 
-> 回答：统计/排行是否必须本地服务？
+# Phase 4 Architecture: EventRoot · Gas Station · Leaderboard
 
-## 结论一览
+> Do stats/rankings require local services?
 
-| 能力 | 链上真相源 | 是否必须本地服务 | 说明 |
+## Summary
+
+| Capability | On-chain source of truth | Local service required? | Notes |
 | --- | --- | --- | --- |
-| **战绩 / Prophet Score** | `ProphetRegistry` → DF `ProphetStats` | **否（MVP）** | 前端 RPC + 事件扫描即可 |
-| **排行榜页** | 同上 | **否（MVP）** | `/leaderboard` 直读链上 |
-| **订阅者 ROI 聚合** | 分散在 `PrivateProphecy` + 审计事件 | **建议 Indexer** | 非关键路径，可 Phase 4+ |
-| **Gas Station** | 无（赞助签名为链下） | **是** | 必须 Gas Payer 服务端 |
-| **LP Guard Keeper** | `MarketPool.fee_multiplier_bps` 等 | **否** | 动态费率自动调控；见 `services/lp-guard-keeper/` |
-| **EventRoot** | `event_root.move` shared object | **否** | 纯链上；迁移脚本链下一次性 |
+| **Track record / Prophet Score** | `ProphetRegistry` → DF `ProphetStats` | **No (MVP)** | Frontend RPC + event scan |
+| **Leaderboard page** | Same | **No (MVP)** | `/leaderboard` reads chain directly |
+| **Subscriber ROI aggregation** | Scattered in `PrivateProphecy` + audit events | **Indexer recommended** | Non-critical path; Phase 4+ |
+| **Gas Station** | None (sponsor signature off-chain) | **Yes** | Requires Gas Payer server |
+| **LP Guard Keeper** | `MarketPool.fee_multiplier_bps`, etc. | **No** | Auto dynamic fees; see `services/lp-guard-keeper/` |
+| **EventRoot** | `event_root.move` shared object | **No** | Pure on-chain; one-time migration script off-chain |
 
-**原则：** 排行与战绩的**权威性**来自链上 `prophet_leaderboard`；本地服务只做**加速、聚合与体验**，不做第二真相源。
+**Principle:** Leaderboard and track-record **authority** comes from on-chain `prophet_leaderboard`; local services only **accelerate, aggregate, and improve UX** — not a second source of truth.
 
 ---
 
-## EventRoot（L1 市场根）
+## EventRoot (L1 market root)
 
-**模块：** `sources/event_root.move`（`create_and_link` 一键包装迁移）
+**Module:** `sources/event_root.move` (`create_and_link` one-shot wrap migration)
 
 ```
 EventRoot (shared)
@@ -41,52 +43,52 @@ EventRoot (shared)
   └─ oracle_feed_id · lock_time · status
 ```
 
-**当前 Testnet 过渡：** `MarketPool` + `DataFeed.market_id` 充当事实根；新市场可逐步改用 `create_event_root` + `link_*`。
+**Current Testnet transition:** `MarketPool` + `DataFeed.market_id` act as factual root; new markets can migrate to `create_event_root` + `link_*`.
 
-**本地服务：** 仅需一次性迁移脚本 `scripts/wrap-event-roots-testnet.ps1`，非运行时依赖。
+**Local service:** One-time migration script `scripts/wrap-event-roots-testnet.ps1` only; not a runtime dependency.
 
 ---
 
-## 排行榜
+## Leaderboard
 
-### MVP（已实现）
+### MVP (implemented)
 
-1. `queryEvents(ProphecyCommitted)` 收集预言家地址
-2. `getDynamicFieldObject(registry, prophet)` 读取 `ProphetStats`
-3. 客户端排序 → `/leaderboard`
+1. `queryEvents(ProphecyCommitted)` collects prophet addresses
+2. `getDynamicFieldObject(registry, prophet)` reads `ProphetStats`
+3. Client-side sort → `/leaderboard`
 
-### 生产增强（可选 Indexer）
+### Production enhancement (optional Indexer)
 
-| 索引表 | 用途 |
+| Index table | Purpose |
 | --- | --- |
-| `prophet_stats` | 缓存 Score、排名变化 |
-| `prophecy_index` | 按市场/时间列出预测 |
-| `buyer_roi` | 订阅者跟随收益（需关联 unlock + audit 结果） |
+| `prophet_stats` | Cache Score, rank changes |
+| `prophecy_index` | List prophecies by market/time |
+| `buyer_roi` | Subscriber follow ROI (link unlock + audit results) |
 
-Indexer **不参与**付费开通判定；门槛由链上 `paid_unlock_eligible` 强制。
+Indexer **does not** participate in paid-unlock eligibility; threshold enforced on-chain via `paid_unlock_eligible`.
 
 ---
 
 ## Gas Station
 
-见 [services/gas-station/README.md](../services/gas-station/README.md)。
+See [services/gas-station/README.md](../services/gas-station/README.md).
 
-**必须本地服务：** 持有 Gas Payer 私钥，对用户 PTB 做白名单校验后代付 SUI。
+**Local service required:** Holds Gas Payer private key; validates user PTB against whitelist and pays SUI gas.
 
 ---
 
-## 预言家付费开通门槛（PRD §11.3.7）
+## Prophet paid-unlock threshold (PRD §11.3.7)
 
-链上 `commit_private_prophecy` 当 `unlock_price > 0` 时检查：
+On-chain `commit_private_prophecy` when `unlock_price > 0` checks:
 
 - `cheats == 0`
 - `total_audited >= 3`
-- `score_bps >= 4000`（40/100）
+- `score_bps >= 4000` (40/100)
 
-新预言家须先发布 **`unlock_price = 0`** 免费预测，经 Oracle 审计积累战绩后方可收费。
+New prophets must publish **`unlock_price = 0`** free prophecies first; after Oracle audits accumulate track record, paid unlock is allowed.
 
-### Testnet v3（已升级）
+### Testnet v3 (upgraded)
 
-**Package v3**（`0x2e368e…ae6e`）已修复 `unlock_price == 0` 免费 Commit。升级交易见 `deploy/testnet-v2.json` → `upgradeTx` / `explorer.upgradeV3`。
+**Package v3** (`0x2e368e…ae6e`) fixes free Commit when `unlock_price == 0`. Upgrade tx in `deploy/testnet-v2.json` → `upgradeTx` / `explorer.upgradeV3`.
 
-Gas Station 白名单仅允许赞助 `unlock_price = 0` 的 `commit_private_prophecy`。
+Gas Station whitelist only sponsors `commit_private_prophecy` with `unlock_price = 0`.

@@ -11,36 +11,38 @@
   automatically becomes available under the Apache License 2.0.
 -->
 
-# X-Market Mobile（Flutter）
+# X-Market Mobile (Flutter)
 
-Sui Testnet 预测市场 **产品化 Mobile 客户端**，对齐 Web 端核心能力。
+**English** | [简体中文](./README.zh.md)
 
-## 功能
+Production-grade **mobile client** for the Sui Testnet prediction market, aligned with core Web capabilities.
 
-| Tab | 能力 |
+## Features
+
+| Tab | Capabilities |
 | --- | --- |
-| **市场** | 种子池列表（Poisson / Dirichlet / Normal / Beta）→ 详情（交易 / LP / 拍卖） |
-| **持仓** | 列出 `Position`，结算后领取赔付 |
-| **LP** | 列出 `LpShare`，按 Pool 赎回 |
-| **Prophet** | 公开预测 Commit + 排行榜（P3） |
-| **保证金** | 开户、登记/取消持仓、账户列表 |
-| **钱包** | Phantom 连接、USDC 余额、Testnet Faucet |
+| **Markets** | Seed pool list (Poisson / Dirichlet / Normal / Beta) → detail (trade / LP / auction) |
+| **Positions** | List `Position`, claim payout after settlement |
+| **LP** | List `LpShare`, redeem per pool |
+| **Prophet** | Public prophecy commit + leaderboard (P3) |
+| **Margin** | Open account, register/cancel positions, account list |
+| **Wallet** | Phantom connect, USDC balance, Testnet Faucet |
 
-### 链上交易（Phantom signAndSend）
+### On-Chain Transactions (Phantom signAndSend)
 
-- 买入：全部 `buy_*`（Poisson / Dirichlet / Normal）
-- LP：`deposit_liquidity` / `withdraw_liquidity`
-- 拍卖：`auction_bid` / `finalize_*_auction`
-- 结算：`claim_position`
-- 保证金：`open_account` / `register_position` / `unregister_position`
-- Faucet：`mint_to_sender`
+- Buy: all `buy_*` (Poisson / Dirichlet / Normal)
+- LP: `deposit_liquidity` / `withdraw_liquidity`
+- Auction: `auction_bid` / `finalize_*_auction`
+- Settlement: `claim_position`
+- Margin: `open_account` / `register_position` / `unregister_position`
+- Faucet: `mint_to_sender`
 
-### Pricing Engine + Gas Station（P2）
+### Pricing Engine + Gas Station (P2)
 
-| 服务 | 配置 | 能力 |
+| Service | Config | Capabilities |
 | --- | --- | --- |
-| Pricing Engine | `SuiConfig.pricingEngineUrl`（默认 `:8801`） | 交易 Tab 买入前胜率 / 兑付 / ROI 预览 |
-| Gas Station | `SuiConfig.gasStationUrl`（默认 `:8787`） | 白名单 PTB 双签赞助 Gas（Phantom signOnly + 链上广播） |
+| Pricing Engine | `SuiConfig.pricingEngineUrl` (default `:8801`) | Win rate / payout / ROI preview before buy on Trade tab |
+| Gas Station | `SuiConfig.gasStationUrl` (default `:8787`) | Allowlisted PTB dual-sign gas sponsorship (Phantom signOnly + on-chain broadcast) |
 
 ```powershell
 cd pricing-engine && npm start   # :8801
@@ -48,41 +50,41 @@ cd services/gas-station && npm start  # :8787
 .\scripts\bootstrap-mobile-env.ps1
 ```
 
-### Indexer（P1）
+### Indexer (P1)
 
-- 市场列表 / 持仓标题：`SuiConfig.indexerUrl`（默认 `:8800`）
-- 离线回退种子池 RPC
+- Market list / position titles: `SuiConfig.indexerUrl` (default `:8800`)
+- Offline fallback to seed pool RPC
 
-### SuiProphet 公开预测（P3）
+### SuiProphet Public Prophecies (P3)
 
-- **发布**：Indexer 明文 blob → `commit_private_prophecy`（`unlock_price=0`）
-- **排行榜**：Indexer `/v1/prophet/leaderboard`
-- 付费 Seal 加密请用 Web `/prophet`
-- Blob：`ProphetBlobService` → `POST /v1/prophecies/blob`（需 Indexer）
+- **Publish**: Indexer plaintext blob → `commit_private_prophecy` (`unlock_price=0`)
+- **Leaderboard**: Indexer `/v1/prophet/leaderboard`
+- Paid Seal encryption: use Web `/prophet`
+- Blob: `ProphetBlobService` → `POST /v1/prophecies/blob` (requires Indexer)
 
-### 技术栈
+### Tech Stack
 
 - Flutter + Material 3
-- `flutter_rust_bridge`：Phantom X25519 加解密
-- `sui` Dart SDK：PTB 构建与 RPC
-- `url_launcher`：一键打开 Phantom Deeplink
+- `flutter_rust_bridge`: Phantom X25519 encrypt/decrypt
+- `sui` Dart SDK: PTB construction and RPC
+- `url_launcher`: one-tap Phantom deeplink
 
-## 架构
+## Architecture
 
 ```
 lib/
 ├── main.dart
 └── src/
-    ├── app/           # AppController、底部导航 Shell
-    ├── screens/       # 市场、持仓、LP、Prophet、保证金、钱包
-    ├── services/      # RPC、Indexer、Prophet blob、Prophet、MarketCatalog
-    ├── prophet/       # 预测 JSON / blake2b / 资格校验
-    ├── wallet/        # PhantomWalletController、Deep Link
+    ├── app/           # AppController, bottom-nav shell
+    ├── screens/       # Markets, positions, LP, Prophet, margin, wallet
+    ├── services/      # RPC, Indexer, Prophet blob, Prophet, MarketCatalog
+    ├── prophet/       # Prophecy JSON / blake2b / eligibility checks
+    ├── wallet/        # PhantomWalletController, deep link
     ├── trade/         # ChainTransactionService
     └── theme/
 ```
 
-## 本地运行
+## Local Run
 
 ```bash
 cd mobile/x_market_flutter
@@ -90,30 +92,30 @@ flutter pub get
 flutter run
 ```
 
-Android Release：
+Android Release:
 
 ```bash
 flutter build apk --release
-# 输出: build/app/outputs/flutter-apk/app-release.apk
+# Output: build/app/outputs/flutter-apk/app-release.apk
 ```
 
-## Phantom 联调
+## Phantom Integration
 
-1. **钱包** Tab → 连接 Phantom（自动打开钱包 App）
-2. 铸造测试 USDC（Testnet Faucet）
-3. **市场** → 选择池 → 交易 / LP / 拍卖
-4. 签名后自动回到 App（`xmarket://wallet-callback`）
+1. **Wallet** tab → connect Phantom (opens wallet app automatically)
+2. Mint test USDC (Testnet Faucet)
+3. **Markets** → select pool → trade / LP / auction
+4. After signing, returns to app automatically (`xmarket://wallet-callback`)
 
-## 重新生成 FRB
+## Regenerate FRB
 
 ```bash
 flutter_rust_bridge_codegen generate
 ```
 
-## 已知限制
+## Known Limitations
 
-- 仅 Phantom 完整联调；OKX/Slush 为模板
-- Release 包当前使用 debug 签名（上架需配置 keystore）
-- 持仓领取需手动填写 Pool ID（与 Web 一致）
-- 网络配置由 `scripts/bootstrap-mobile-env.ps1` 生成（支持 `-Network mainnet`）
-- 补建 Beta 种子池：`.\scripts\seed-beta-pool-testnet.ps1`（v4 部署后一次性执行）
+- Full integration tested with Phantom only; OKX/Slush are templates
+- Release build currently uses debug signing (configure keystore for store release)
+- Position claims require manual Pool ID entry (same as Web)
+- Network config generated by `scripts/bootstrap-mobile-env.ps1` (supports `-Network mainnet`)
+- Seed Beta pool: `.\scripts\seed-beta-pool-testnet.ps1` (one-time after v4 deploy)

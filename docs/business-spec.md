@@ -11,874 +11,876 @@
   automatically becomes available under the Apache License 2.0.
 -->
 
-# X-Market Sui 业务规格文档
+**English** | [简体中文](./business-spec.zh.md)
 
-> **版本：** v1.1 · **日期：** 2026-06-11  
-> **状态：** 草案  
-> **关联：** [PRD.md](../PRD.md) · [test-cases.md](./test-cases.md) · [demo-walkthrough.md](./demo-walkthrough.md)
+# X-Market Sui Business Specification
 
----
-
-## 目录
-
-1. [文档说明](#1-文档说明)
-2. [系统概览](#2-系统概览)
-3. [业务事件目录](#3-业务事件目录)
-4. [业务流程](#4-业务流程)
-5. [用例规格](#5-用例规格)
-6. [交互规格](#6-交互规格)
-7. [状态机总览](#7-状态机总览)
-8. [附录：编号索引](#8-附录编号索引)
+> **Version:** v1.1 · **Date:** 2026-06-11  
+> **Status:** Draft  
+> **Related:** [PRD.md](../PRD.md) · [test-cases.md](./test-cases.md) · [demo-walkthrough.md](./demo-walkthrough.md)
 
 ---
 
-## 1. 文档说明
+## Table of Contents
 
-### 1.1 目的
+1. [Document Overview](#1-document-overview)
+2. [System Overview](#2-system-overview)
+3. [Business Event Catalog](#3-business-event-catalog)
+4. [Business Processes](#4-business-processes)
+5. [Use Case Specifications](#5-use-case-specifications)
+6. [Interaction Specifications](#6-interaction-specifications)
+7. [State Machine Overview](#7-state-machine-overview)
+8. [Appendix: ID Index](#8-appendix-id-index)
 
-本文从 **业务事件 → 业务流程 → 用例 → 交互（界面 / 事件 / 时序）** 四层整理 X-Market on Sui 产品体系的业务规格，供产品、研发、运维与审计对齐语义。测试用例与自动化映射见 [test-cases.md](./test-cases.md)。
+---
 
-### 1.2 编号规则
+## 1. Document Overview
 
-| 层级 | 前缀 | 示例 | 说明 |
+### 1.1 Purpose
+
+This document organizes the business specification of the X-Market on Sui product system across four layers: **business events → business processes → use cases → interactions (UI / events / sequences)**, for alignment among product, engineering, operations, and audit. Test cases and automation mappings are in [test-cases.md](./test-cases.md).
+
+### 1.2 ID Conventions
+
+| Layer | Prefix | Example | Description |
 | --- | --- | --- | --- |
-| 业务事件 | `BE-xx` | BE-01 ProphecyCommitted | 链上 emit 或链下可观测事件 |
-| 业务流程 | `BP-xx` | BP-01 市场生命周期 | 端到端业务链路 |
-| 用例 | `UC-xx.y` | UC-01.2 Opening Auction | 角色目标与前置/后置 |
-| 交互事件 | `E-xx.y.z` | E-01.2.3 finalize_auction | 单次可触发动作 |
-| 交互界面 | `UI-xx` | UI-03 市场详情页 | 页面或组件 |
+| Business event | `BE-xx` | BE-01 ProphecyCommitted | On-chain emit or off-chain observable event |
+| Business process | `BP-xx` | BP-01 Market lifecycle | End-to-end business flow |
+| Use case | `UC-xx.y` | UC-01.2 Opening Auction | Role goals with pre/post conditions |
+| Interaction event | `E-xx.y.z` | E-01.2.3 finalize_auction | Single triggerable action |
+| Interaction UI | `UI-xx` | UI-03 Market detail page | Page or component |
 
-### 1.3 三层产品架构
+### 1.3 Three-Layer Product Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  应用层：Web App · Flutter · Indexer API · Gas Station      │
+│  Application layer: Web App · Flutter · Indexer API · Gas Station      │
 ├─────────────────────────────────────────────────────────────┤
-│  L2 业务模块                                                 │
+│  L2 business modules                                                 │
 │  ┌─────────────────────┐    ┌─────────────────────────┐   │
-│  │ X-Market 博弈模块    │    │ SuiProphet 预言家模块    │   │
-│  │ MarketPool · Position│    │ ProphetStats · 排行榜     │   │
-│  │                      │    │ PrivateProphecy · 知识付费│   │
+│  │ X-Market trading     │    │ SuiProphet prophet       │   │
+│  │ MarketPool · Position│    │ ProphetStats · Leaderboard│   │
+│  │                      │    │ PrivateProphecy · Paid unlock│   │
 │  └──────────┬──────────┘    └────────────┬────────────┘   │
 │             └──────────────┬───────────────┘                 │
 │                            ▼                               │
-│              EventRoot（市场根 · Phase 4）                    │
+│              EventRoot (market root · Phase 4)                    │
 ├─────────────────────────────────────────────────────────────┤
-│  L0 统一事件中心：macro_oracle · oracle_arbitrator          │
+│  L0 unified event hub: macro_oracle · oracle_arbitrator          │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 2. 系统概览
+## 2. System Overview
 
-### 2.1 产品定位
+### 2.1 Product Positioning
 
-**X-Market on Sui** 是 Sui 链上的预测市场产品体系：底层共享 **Macro Oracle（L0）** 作为唯一结算真相源，上层挂载 **博弈模块（X-Market）** 与 **预言家模块（SuiProphet）**，共用同一现实世界事件与 `lock_time`。
+**X-Market on Sui** is a prediction market product system on Sui: the shared **Macro Oracle (L0)** is the single settlement source of truth; the **trading module (X-Market)** and **prophet module (SuiProphet)** share the same real-world events and `lock_time`.
 
-| 模块 | 核心问题 | 用户行为 |
+| Module | Core question | User behavior |
 | --- | --- | --- |
-| **X-Market 博弈** | 如何用 USDC 承担赔付博弈 | 买入 Position、做 LP |
-| **SuiProphet 预言家** | 谁值得跟随、谁预测可信 | 发布预测、积累战绩、被筛选；优秀者开通知识付费 |
+| **X-Market trading** | How to take payout risk with USDC | Buy Positions, provide LP |
+| **SuiProphet prophet** | Who is worth following, who is credible | Publish prophecies, build track record, get ranked; top performers enable paid unlock |
 
-### 2.2 SuiProphet 模块定位
+### 2.2 SuiProphet Module Positioning
 
-**SuiProphet 是预言家模块，不是独立的「内容商城」。** 其核心职责是 **筛选预言家**——通过 Oracle 结算后的链上审计与 Prophet Score，把预测能力可验证、可排序、可发现；**知识付费**是筛选体系之上的 **特权能力**，仅战绩达标的优秀预言家可开通。
+**SuiProphet is a prophet module, not a standalone “content marketplace.”** Its core job is **prophet selection**—after Oracle settlement, on-chain audit and Prophet Score make prediction ability verifiable, rankable, and discoverable; **paid knowledge unlock** is a **privileged capability** on top of the selection system, available only to prophets who meet performance thresholds.
 
-#### 2.2.1 与 X-Market 博弈模块的分工
+#### 2.2.1 Division of Labor with X-Market Trading
 
-| 维度 | X-Market 博弈 | SuiProphet 预言家 |
+| Dimension | X-Market trading | SuiProphet prophet |
 | --- | --- | --- |
-| 核心价值 | 参数化 AMM 定价与赔付 | 预测声誉与预言家筛选 |
-| 用户投入 | USDC 买入 Position | 发布预测、接受链上审计 |
-| 结果载体 | Position + Vault 兑付 | ProphetStats + 排行榜 |
-| 收入模式 | LP 滑点 + 协议费 | 优秀预言家解锁费（特权） |
-| 共用依赖 | L0 Oracle `resolved_value` | 同一 Feed 触发 audit |
+| Core value | Parametric AMM pricing and payout | Prediction reputation and prophet selection |
+| User stake | USDC to buy Positions | Publish prophecies, accept on-chain audit |
+| Outcome carrier | Position + Vault redemption | ProphetStats + leaderboard |
+| Revenue model | LP slippage + protocol fee | Unlock fee for top prophets (privilege) |
+| Shared dependency | L0 Oracle `resolved_value` | Same Feed triggers audit |
 
-#### 2.2.2 筛选闭环（模块主线）
+#### 2.2.2 Selection Loop (module main line)
 
 ```
-预言家 Commit 预测 → Oracle 结算 → audit_prophecy（WIN/LOSS/CHEAT）
-    → 更新 ProphetStats / Prophet Score → 排行榜 / ROI 展示
-    → 订阅者 / 跟单者筛选优秀预言家
+Prophet commits prophecy → Oracle settlement → audit_prophecy (WIN/LOSS/CHEAT)
+    → update ProphetStats / Prophet Score → leaderboard / ROI display
+    → subscribers / copy traders filter top prophets
 ```
 
-- **战绩真相源：** 链上 `prophet_leaderboard::ProphetStats`，Indexer 仅缓存增强。
-- **筛选指标：** 胜率、审计场次、连胜、Prophet Score（`score_bps`）。
-- **发现入口：** `/leaderboard`（排行榜）、`/roi`（跟单 ROI）、市场页关联预言列表。
+- **Track record source of truth:** on-chain `prophet_leaderboard::ProphetStats`; Indexer is cache/enrichment only.
+- **Selection metrics:** win rate, audited count, streak, Prophet Score (`score_bps`).
+- **Discovery entry points:** `/leaderboard`, `/roi` (copy ROI), prophet list on market pages.
 
-#### 2.2.3 知识付费（优秀预言家特权）
+#### 2.2.3 Paid Knowledge Unlock (top prophet privilege)
 
-知识付费 **不是** 模块入口条件，而是 **筛选通过后的变现能力**：
+Paid unlock is **not** a module entry requirement; it is **monetization after passing selection**:
 
-| 阶段 | 条件 | 能力 |
+| Stage | Condition | Capability |
 | --- | --- | --- |
-| **练手期** | 任意地址 | 可 Commit；`unlock_price = 0`（免费公开）；参与 audit 积累战绩 |
-| **付费开通** | `paid_unlock_eligible` 链上 gate | 可设 `unlock_price > 0`；订阅者 USDC 解锁 Seal 加密分析 |
+| **Practice period** | Any address | Can Commit; `unlock_price = 0` (free public); participate in audit to build track record |
+| **Paid enablement** | `paid_unlock_eligible` on-chain gate | Can set `unlock_price > 0`; subscribers unlock Seal-encrypted analysis with USDC |
 
-**付费开通门槛**（`prophet_leaderboard::paid_unlock_eligible`，`commit` 时 `unlock_price > 0` 强制校验）：
+**Paid enablement thresholds** (`prophet_leaderboard::paid_unlock_eligible`, enforced at `commit` when `unlock_price > 0`):
 
-| 条件 | 阈值 | 说明 |
+| Condition | Threshold | Description |
 | --- | --- | --- |
-| 无作弊记录 | `cheats = 0` | CHEAT 永久失去付费资格 |
-| 最少审计场次 | `total_audited ≥ 3` | 样本量不足不可收费 |
-| Prophet Score | `score_bps ≥ 4000` | 综合胜率 + 经验 + 收入，满分 10000 |
+| No cheat record | `cheats = 0` | CHEAT permanently revokes paid eligibility |
+| Minimum audited count | `total_audited ≥ 3` | Insufficient sample size cannot charge |
+| Prophet Score | `score_bps ≥ 4000` | Combined win rate + experience + revenue, max 10000 |
 
-**付费流程（特权层）：** Commit（Seal+Indexer/IPFS）→ Unlock（USDC）→ Decrypt → Audit 后 escrow 分账。
+**Paid flow (privilege layer):** Commit (Seal+Indexer/IPFS) → Unlock (USDC) → Decrypt → escrow split after Audit.
 
-> 详见 [PRD §11](../PRD.md#11-suiprophet-network知识付费模块) · [prophet-playbook.md](./prophet-playbook.md)
+> See [PRD §11](../PRD.md#11-suiprophet-network-knowledge-monetization-module) · [prophet-playbook.md](./prophet-playbook.md)
 
-### 2.3 用户角色
+### 2.3 User Roles
 
-| 角色 | 职责 | 典型链上入口 |
+| Role | Responsibility | Typical on-chain entry |
 | --- | --- | --- |
-| 协议运营 (Admin) | Oracle 基础设施、Slash、治理 | `create_oracle_config`、`slash_pool` |
-| 市场创建者 | 建池 + 注册 Feed | `start_*_auction`、`create_*_pool_with_feed` |
-| 交易者 (Buyer) | 买入头寸、claim | `buy_*`、`claim_position` |
-| LP | 提供流动性 | `deposit_liquidity` / `withdraw_liquidity` |
-| Proposer | 搬运官方数据上链 | `propose_data` |
-| Disputer | 争议提议 | `dispute_and_request_arbitration` |
-| 委员会委员 | 仲裁终裁 | `propose_verdict` → `execute_arbitration` |
-| 预言家 (Prophet) | 发布预测、积累战绩；达标后开通知识付费 | `commit_private_prophecy` |
-| 跟随者 / 订阅者 | 通过排行榜筛选预言家；可选付费解锁分析 | 浏览 `/leaderboard`；`unlock_prophecy` |
-| Pool Authority | LP Guard 参数 | `set_lp_guard_params` |
+| Protocol operator (Admin) | Oracle infrastructure, Slash, governance | `create_oracle_config`, `slash_pool` |
+| Market creator | Create pool + register Feed | `start_*_auction`, `create_*_pool_with_feed` |
+| Trader (Buyer) | Buy positions, claim | `buy_*`, `claim_position` |
+| LP | Provide liquidity | `deposit_liquidity` / `withdraw_liquidity` |
+| Proposer | Bring official data on-chain | `propose_data` |
+| Disputer | Dispute a proposal | `dispute_and_request_arbitration` |
+| Committee member | Final arbitration | `propose_verdict` → `execute_arbitration` |
+| Prophet | Publish prophecies, build track record; enable paid unlock when eligible | `commit_private_prophecy` |
+| Follower / subscriber | Filter prophets via leaderboard; optionally pay to unlock analysis | Browse `/leaderboard`; `unlock_prophecy` |
+| Pool Authority | LP Guard parameters | `set_lp_guard_params` |
 
-### 2.4 核心实体
+### 2.4 Core Entities
 
-| 实体 | 类型 | 模块 | 说明 |
+| Entity | Type | Module | Description |
 | --- | --- | --- | --- |
-| MarketPool | Shared Object | `market_pool` | AMM 池：vault、μ/σ/λ/α、status |
-| Position | Owned Object | `position` | 用户头寸：8 种合约类型 |
-| LpShare | Owned Object | `lp_token` | LP 份额 |
-| DataFeed | Shared Object | `macro_oracle` | Oracle 指标与结算值 |
-| DataAssertion | Object | `macro_oracle` | 乐观提议与争议状态 |
-| ArbitrationCase | Shared Object | `oracle_arbitrator` | 委员会仲裁案件 |
-| **ProphetStats** | 链上战绩 | `prophet_leaderboard` | **筛选核心**：wins/losses/score_bps/付费资格 |
-| PrivateProphecy | Shared Object | `prophet_registry` | 单次预测载体；含 blob、hash、unlock_price |
-| ProphetRegistry | Shared Object | `prophet_registry` | 协议费、预言计数 |
-| EventRoot | Shared Object | `event_root` | 市场根（Phase 4） |
+| MarketPool | Shared Object | `market_pool` | AMM pool: vault, μ/σ/λ/α, status |
+| Position | Owned Object | `position` | User position: 8 contract types |
+| LpShare | Owned Object | `lp_token` | LP share |
+| DataFeed | Shared Object | `macro_oracle` | Oracle metric and settlement value |
+| DataAssertion | Object | `macro_oracle` | Optimistic proposal and dispute state |
+| ArbitrationCase | Shared Object | `oracle_arbitrator` | Committee arbitration case |
+| **ProphetStats** | On-chain track record | `prophet_leaderboard` | **Selection core**: wins/losses/score_bps/paid eligibility |
+| PrivateProphecy | Shared Object | `prophet_registry` | Single prophecy carrier; blob, hash, unlock_price |
+| ProphetRegistry | Shared Object | `prophet_registry` | Protocol fee, prophecy count |
+| EventRoot | Shared Object | `event_root` | Market root (Phase 4) |
 
 ---
 
-## 3. 业务事件目录
+## 3. Business Event Catalog
 
-业务事件分为 **链上显式事件**、**状态变迁事件（隐式）**、**链下服务事件** 与 **前端工作流事件** 四类。
+Business events fall into four categories: **explicit on-chain events**, **implicit state-transition events**, **off-chain service events**, and **frontend workflow events**.
 
-### 3.1 链上显式事件（Move `event::emit`）
+### 3.1 Explicit On-Chain Events (Move `event::emit`)
 
-| ID | 事件结构 | 模块 | 触发时机 | 关键字段 | Indexer |
+| ID | Event struct | Module | Trigger | Key fields | Indexer |
 | --- | --- | --- | --- | --- | --- |
 | BE-01 | `ProphecyCommitted` | `prophet_registry` | `commit_private_prophecy` | `prophecy_id`, `market_id`, `prophet`, `lock_time`, `unlock_price` | ✅ |
 | BE-02 | `ArbitrationCaseOpened` | `oracle_arbitrator` | `dispute_and_request_arbitration` | `case_id`, `assertion_id`, `feed_id`, `pool_id`, proposer/disputer, `claimed_value` | ✅ |
-| BE-03 | `UmaDvmArbitrationRequested` | `oracle_arbitrator` | UMA 适配器争议 | `data_identifier`, `claimed_value` 等 | ✅（relayer 消费） |
+| BE-03 | `UmaDvmArbitrationRequested` | `oracle_arbitrator` | UMA adapter dispute | `data_identifier`, `claimed_value`, etc. | ✅ (relayer consumes) |
 
-> 买入、LP、Oracle finalize 等 **无显式 Move Event**；Indexer 通过 RPC 轮询对象状态 + 上述事件流索引。
+> Buy, LP, Oracle finalize, etc. have **no explicit Move Event**; Indexer indexes via RPC object polling + the event streams above.
 
-### 3.2 状态变迁事件（隐式 · 对象字段变更）
+### 3.2 State-Transition Events (implicit · object field changes)
 
-| ID | 事件语义 | 主体对象 | 触发入口 | 状态变更 |
+| ID | Event semantics | Subject object | Trigger entry | State change |
 | --- | --- | --- | --- | --- |
-| BE-10 | 市场进入竞价 | MarketPool | `start_*_auction` | → `Auction` |
-| BE-11 | 竞价定标 | MarketPool | `finalize_*_auction` | `Auction` → `Trading` |
-| BE-12 | 头寸买入 | MarketPool + Position | `buy_*` | vault↑、参数更新、Position mint |
-| BE-13 | 头寸兑付 | Position + MarketPool | `claim_position` | USDC 转出、`claimed=true` |
-| BE-14 | 市场结算 | MarketPool | `set_resolution` / `report_resolution` | `resolved=true` → `Settled` |
-| BE-15 | LP 申购 | MarketPool + LpShare | `deposit_liquidity` | vault↑、LpShare mint |
-| BE-16 | LP 赎回 | MarketPool + LpShare | `withdraw_liquidity` | vault↓、LpShare burn |
-| BE-20 | Oracle 提议 | DataAssertion | `propose_data` | → `ASSERTION_PROPOSED` |
-| BE-21 | Oracle 争议 | DataAssertion + ArbitrationCase | `dispute_and_request_arbitration` | → `ASSERTION_DISPUTED` |
-| BE-22 | Oracle 固化 | DataFeed | `finalize_assertion` / 仲裁回调 | → `FEED_FINALIZED` |
-| BE-23 | Feed 作废 | DataFeed | `nullify_feed` | → `FEED_NULLIFIED` |
-| BE-30 | 预言解锁 | PrivateProphecy | `unlock_prophecy` | `paid_buyers` 追加 |
-| BE-31 | 预言审计 | PrivateProphecy + ProphetStats | `audit_prophecy` | → WIN/LOSS/CHEAT；**Prophet Score 刷新（筛选）** |
-| BE-40 | 池暂停 | MarketPool | `slash_pool` | `paused=true` |
-| BE-41 | 池恢复 | MarketPool | `unslash_resume_pool` | `paused=false` |
-| BE-50 | LP Guard 调参 | MarketPool | `set_lp_guard_params` | 动态费率 / 虚拟 σ |
+| BE-10 | Market enters auction | MarketPool | `start_*_auction` | → `Auction` |
+| BE-11 | Auction finalized | MarketPool | `finalize_*_auction` | `Auction` → `Trading` |
+| BE-12 | Position bought | MarketPool + Position | `buy_*` | vault↑, params update, Position mint |
+| BE-13 | Position redeemed | Position + MarketPool | `claim_position` | USDC out, `claimed=true` |
+| BE-14 | Market settled | MarketPool | `set_resolution` / `report_resolution` | `resolved=true` → `Settled` |
+| BE-15 | LP deposit | MarketPool + LpShare | `deposit_liquidity` | vault↑, LpShare mint |
+| BE-16 | LP withdraw | MarketPool + LpShare | `withdraw_liquidity` | vault↓, LpShare burn |
+| BE-20 | Oracle proposal | DataAssertion | `propose_data` | → `ASSERTION_PROPOSED` |
+| BE-21 | Oracle dispute | DataAssertion + ArbitrationCase | `dispute_and_request_arbitration` | → `ASSERTION_DISPUTED` |
+| BE-22 | Oracle finalized | DataFeed | `finalize_assertion` / arbitration callback | → `FEED_FINALIZED` |
+| BE-23 | Feed nullified | DataFeed | `nullify_feed` | → `FEED_NULLIFIED` |
+| BE-30 | Prophecy unlocked | PrivateProphecy | `unlock_prophecy` | `paid_buyers` appended |
+| BE-31 | Prophecy audited | PrivateProphecy + ProphetStats | `audit_prophecy` | → WIN/LOSS/CHEAT; **Prophet Score refresh (selection)** |
+| BE-40 | Pool paused | MarketPool | `slash_pool` | `paused=true` |
+| BE-41 | Pool resumed | MarketPool | `unslash_resume_pool` | `paused=false` |
+| BE-50 | LP Guard param update | MarketPool | `set_lp_guard_params` | dynamic fee / virtual σ |
 
-### 3.3 链下服务事件
+### 3.3 Off-Chain Service Events
 
-| ID | 来源 | 语义 | 消费方 |
+| ID | Source | Semantics | Consumer |
 | --- | --- | --- | --- |
-| BE-60 | LP Guard Keeper | 风险分评估 → `set_lp_guard_params` | 链上 MarketPool |
-| BE-61 | Oracle Relayer | 到期自动 finalize / nullify | macro_oracle |
-| BE-62 | Prophet Audit Keeper | Oracle 后自动 `audit_prophecy` | prophet_registry |
-| BE-63 | UMA DVM Relayer | 消费 BE-03 → 链下投票 → 回调 | oracle_arbitrator |
-| BE-64 | Brevis ZK Prover | 生成 proof → `submit_proof` | zk_coprocessor |
-| BE-65 | Indexer Workers | 快照 / IV / GMV / ROI 聚合 | REST API |
-| BE-66 | Gas Station | `POST /v1/sponsor` 赞助 Gas | 前端 PTB |
-| BE-67 | Indexer Prophet blob | `POST /v1/prophecies/blob` 上传 blob | Prophet Commit |
+| BE-60 | LP Guard Keeper | Risk score → `set_lp_guard_params` | on-chain MarketPool |
+| BE-61 | Oracle Relayer | Auto finalize / nullify at expiry | macro_oracle |
+| BE-62 | Prophet Audit Keeper | Auto `audit_prophecy` after Oracle | prophet_registry |
+| BE-63 | UMA DVM Relayer | Consume BE-03 → off-chain vote → callback | oracle_arbitrator |
+| BE-64 | Brevis ZK Prover | Generate proof → `submit_proof` | zk_coprocessor |
+| BE-65 | Indexer Workers | Snapshot / IV / GMV / ROI aggregation | REST API |
+| BE-66 | Gas Station | `POST /v1/sponsor` gas sponsorship | frontend PTB |
+| BE-67 | Indexer Prophet blob | `POST /v1/prophecies/blob` blob upload | Prophet Commit |
 
-### 3.4 前端工作流事件（抽象）
+### 3.4 Frontend Workflow Events (abstract)
 
-| 工作流 | 步骤 ID | 标签 | 库文件 |
+| Workflow | Step ID | Label | Library file |
 | --- | --- | --- | --- |
-| Oracle | `register_feed` | 注册 Feed | `app/src/lib/oracle.ts` |
-| Oracle | `propose` | 1. 提议 | 同上 |
-| Oracle | `liveness` | 2. 争议窗口 | 同上 |
-| Oracle | `finalize_or_dispute` | 3. 结算 | 同上 |
-| Oracle | `arbitration` | 3. 委员会终裁 | 同上 |
-| Oracle | `settled` | 4. 领取 | 同上 |
-| Prophet | `commit` | 1. 发布预测（练手/付费） | `app/src/lib/prophet.ts` |
-| Prophet | `audit` | 2. Oracle 审计 → 战绩（筛选核心） | 同上 |
-| Prophet | `unlock` | 3. 解锁（仅付费预言家） | 同上 |
-| Prophet | `decrypt` | 4. Seal 解密 | 同上 |
-| Prophet | `done` | 完成 | 同上 |
+| Oracle | `register_feed` | Register Feed | `app/src/lib/oracle.ts` |
+| Oracle | `propose` | 1. Propose | same |
+| Oracle | `liveness` | 2. Dispute window | same |
+| Oracle | `finalize_or_dispute` | 3. Settle | same |
+| Oracle | `arbitration` | 3. Committee final ruling | same |
+| Oracle | `settled` | 4. Claim | same |
+| Prophet | `commit` | 1. Publish prophecy (practice/paid) | `app/src/lib/prophet.ts` |
+| Prophet | `audit` | 2. Oracle audit → track record (selection core) | same |
+| Prophet | `unlock` | 3. Unlock (paid prophets only) | same |
+| Prophet | `decrypt` | 4. Seal decrypt | same |
+| Prophet | `done` | Done | same |
 
 ---
 
-## 4. 业务流程
+## 4. Business Processes
 
-### 4.1 流程总览
+### 4.1 Process Overview
 
 ```mermaid
 flowchart TB
-    subgraph L0["L0 事件中心"]
-        BP04[BP-04 Oracle 结算]
+    subgraph L0["L0 event hub"]
+        BP04[BP-04 Oracle settlement]
     end
-    subgraph L2["L2 博弈模块"]
-        BP01[BP-01 市场生命周期]
-        BP02[BP-02 头寸交易]
-        BP03[BP-03 LP 流动性]
+    subgraph L2["L2 trading module"]
+        BP01[BP-01 Market lifecycle]
+        BP02[BP-02 Position trading]
+        BP03[BP-03 LP liquidity]
         BP05[BP-05 Cross-Margin]
         BP06[BP-06 LP Guard]
         BP07[BP-07 ZK Attestation]
         BP08[BP-08 Slash]
     end
-    subgraph L2P["L2 预言家模块"]
+    subgraph L2P["L2 prophet module"]
         BP09[BP-09 SuiProphet]
     end
-    subgraph App["应用层"]
-        BP10[BP-10 前端 E2E]
+    subgraph App["Application layer"]
+        BP10[BP-10 Frontend E2E]
     end
     BP01 --> BP02
     BP01 --> BP03
     BP04 --> BP02
     BP04 --> BP09
     BP06 --> BP02
-    BP07 -.->|冷路径| BP02
-    BP08 -.->|风控| BP01
+    BP07 -.->|cold path| BP02
+    BP08 -.->|risk control| BP01
 ```
 
-| ID | 流程名称 | 简述 | 关键状态机 |
+| ID | Process name | Summary | Key state machine |
 | --- | --- | --- | --- |
-| BP-01 | 市场生命周期 | 创建池 → Opening Auction → Trading → Oracle 结算 → Settled | MarketPool |
-| BP-02 | 头寸交易 | USDC → PDF 定价 → 参数更新 + Position 铸造 | MarketPool + Position |
-| BP-03 | LP 流动性 | NAV 申购 → LpShare → 赎回 | MarketPool + LpShare |
-| BP-04 | Oracle 结算 | 提议 → 争议窗口 → [仲裁] → Finalized → claim | DataFeed + Assertion |
-| BP-05 | Cross-Margin | 同地址多 Position 统一 VaR | MarginAccount |
-| BP-06 | LP Guard | Keeper 观测 → 动态费率/虚拟 σ | lp_guard 参数 |
-| BP-07 | ZK Attestation | 冷路径证明见证（不阻塞 buy） | ZkVerification |
-| BP-08 | Slash | 应急罚没 + timelock 恢复 | pool.paused |
-| BP-09 | SuiProphet 预言家 | 预测 → Audit → 战绩/排行榜（筛选）；达标者知识付费 | ProphetStats + PrivateProphecy |
-| BP-10 | 前端 E2E | 全页面与服务健康回归 | — |
+| BP-01 | Market lifecycle | Create pool → Opening Auction → Trading → Oracle settlement → Settled | MarketPool |
+| BP-02 | Position trading | USDC → PDF pricing → param update + Position mint | MarketPool + Position |
+| BP-03 | LP liquidity | NAV deposit → LpShare → withdraw | MarketPool + LpShare |
+| BP-04 | Oracle settlement | Propose → dispute window → [arbitration] → Finalized → claim | DataFeed + Assertion |
+| BP-05 | Cross-Margin | Same-address multi-Position unified VaR | MarginAccount |
+| BP-06 | LP Guard | Keeper observes → dynamic fee/virtual σ | lp_guard params |
+| BP-07 | ZK Attestation | Cold-path proof attestation (does not block buy) | ZkVerification |
+| BP-08 | Slash | Emergency slash + timelock resume | pool.paused |
+| BP-09 | SuiProphet prophet | Prophecy → Audit → track record/leaderboard (selection); paid unlock for eligible | ProphetStats + PrivateProphecy |
+| BP-10 | Frontend E2E | Full-page and service health regression | — |
 
 ---
 
-### 4.2 BP-01 市场生命周期
+### 4.2 BP-01 Market Lifecycle
 
-**流程：** 创建池 → Opening Auction → Trading → Oracle 结算 → Settled
+**Flow:** Create pool → Opening Auction → Trading → Oracle settlement → Settled
 
-**状态机：** `Auction (0)` → `Trading (1)` → `Settled (2)`
+**State machine:** `Auction (0)` → `Trading (1)` → `Settled (2)`
 
-**涉及实体：** MarketPool、DataFeed、EventRoot（Phase 4）
+**Entities involved:** MarketPool, DataFeed, EventRoot (Phase 4)
 
-**关键链上入口：**
+**Key on-chain entries:**
 
-| 阶段 | 入口函数 | 模块 |
+| Phase | Entry function | Module |
 | --- | --- | --- |
-| 初始化 Oracle | `create_oracle_config` | `macro_oracle` |
-| 启动竞价 | `start_poisson_auction` / `start_dirichlet_auction` / `start_normal_auction` / `start_beta_auction` | `pool` |
-| 建池即注册 Feed | `create_*_pool_with_feed` | `pool` |
-| 竞价注资 | `auction_bid` | `pool` |
-| 定标 | `finalize_*_auction` | `pool` |
-| 结算绑定 | `set_resolution` / `report_resolution` | `settlement_oracle` / oracle 回调 |
+| Initialize Oracle | `create_oracle_config` | `macro_oracle` |
+| Start auction | `start_poisson_auction` / `start_dirichlet_auction` / `start_normal_auction` / `start_beta_auction` | `pool` |
+| Create pool with Feed | `create_*_pool_with_feed` | `pool` |
+| Auction deposit | `auction_bid` | `pool` |
+| Finalize | `finalize_*_auction` | `pool` |
+| Settlement binding | `set_resolution` / `report_resolution` | `settlement_oracle` / oracle callback |
 
 ---
 
-### 4.3 BP-02 头寸交易（Parametric AMM）
+### 4.3 BP-02 Position Trading (Parametric AMM)
 
-**流程：** 用户 USDC → 链上 PDF 定价 → 参数更新 + Position 铸造
+**Flow:** User USDC → on-chain PDF pricing → param update + Position mint
 
-**Tier 1 热路径：** 单笔 PTB 内原子完成定价与状态变更。
+**Tier 1 hot path:** Single PTB atomically completes pricing and state change.
 
-**分布模板与入口：**
+**Distribution templates and entries:**
 
-| 分布 | 场景 | 区间入口 | 数字入口 |
+| Distribution | Scenario | Interval entry | Digital entry |
 | --- | --- | --- | --- |
-| Poisson | 足球进球 | `buy_poisson_interval` | `buy_poisson_digital` |
-| Dirichlet | 胜平负 | `buy_dirichlet_outcome` | — |
-| Normal | CPI / 宏观 | `buy_normal_interval` | `buy_normal_digital` |
-| Beta | 得票率 | `buy_beta_interval` | — |
+| Poisson | Football goals | `buy_poisson_interval` | `buy_poisson_digital` |
+| Dirichlet | Win/draw/loss | `buy_dirichlet_outcome` | — |
+| Normal | CPI / macro | `buy_normal_interval` | `buy_normal_digital` |
+| Beta | Vote share | `buy_beta_interval` | — |
 
-**Phase 3 结构化（Normal）：** `buy_normal_linear_call/put/straddle/variance_swap/structured_note/range_note/barrier_note`
+**Phase 3 structured (Normal):** `buy_normal_linear_call/put/straddle/variance_swap/structured_note/range_note/barrier_note`
 
-**守卫：** 仅 `Trading` 状态；`risk` Max-Loss；`lp_guard` 有效费率与 resolution_window。
-
----
-
-### 4.4 BP-03 LP 流动性（NAV）
-
-**流程：** deposit（申购）→ 持有 LpShare → withdraw（赎回）
-
-**NAV 公式：** `(vault − L_mtm) / lp_shares`
-
-**Dirichlet 特殊行为：** 申购时 α 等比放大，概率形状不变。
+**Guards:** `Trading` status only; `risk` Max-Loss; `lp_guard` effective fee and resolution_window.
 
 ---
 
-### 4.5 BP-04 Oracle 结算（Macro Data Oracle）
+### 4.4 BP-03 LP Liquidity (NAV)
 
-**流程：** 事件发生 → 提议 → 争议窗口 → [仲裁] → Finalized → claim
+**Flow:** deposit → hold LpShare → withdraw
 
-**无争议路径：**
+**NAV formula:** `(vault − L_mtm) / lp_shares`
+
+**Dirichlet special behavior:** On deposit, α scales proportionally; probability shape unchanged.
+
+---
+
+### 4.5 BP-04 Oracle Settlement (Macro Data Oracle)
+
+**Flow:** Event occurs → propose → dispute window → [arbitration] → Finalized → claim
+
+**No-dispute path:**
 
 ```
 Proposer → propose_data(bond)
-        → liveness 窗口
+        → liveness window
         → finalize_assertion
         → set_resolution(resolved_value)
-用户     → claim_position
+User     → claim_position
 ```
 
-**争议路径：**
+**Dispute path:**
 
 ```
-Disputer → dispute_and_request_arbitration (同一 PTB，emit BE-02)
-委员     → propose_verdict → approve_verdict → execute_arbitration
+Disputer → dispute_and_request_arbitration (same PTB, emit BE-02)
+Committee → propose_verdict → approve_verdict → execute_arbitration
         → Feed Finalized + resolved_value
 ```
 
-**Testnet 快路径：** Admin `report_resolution`（生产禁用）。
+**Testnet fast path:** Admin `report_resolution` (disabled in production).
 
 ---
 
-### 4.6 BP-05 Cross-Margin 保证金
+### 4.6 BP-05 Cross-Margin
 
-**流程：** 同地址多 Position → 统一 VaR 账本 → 限制新开仓
+**Flow:** Same-address multi-Position → unified VaR ledger → limits new positions
 
-**链上模块：** `cross_margin` · 前端 `/margin` 展示组合 VaR。
+**On-chain module:** `cross_margin` · frontend `/margin` shows portfolio VaR.
 
 ---
 
-### 4.7 BP-06 LP Guard 风控
+### 4.7 BP-06 LP Guard Risk Control
 
-**流程：** Keeper 观测池状态 → 评估风险分 → `set_lp_guard_params` → 动态费率 / 虚拟 σ
+**Flow:** Keeper observes pool → assess risk score → `set_lp_guard_params` → dynamic fee / virtual σ
 
-| 参数 | 效果 |
+| Parameter | Effect |
 | --- | --- |
-| `fee_multiplier_bps` | 有效费率抬高 |
-| `sigma_virtual_tenths` | Normal 定价 σ 增大 |
-| `deposit_cutoff_bps` | T2 禁申购 |
-| `resolution_window_ts` | 到期前禁 buy |
+| `fee_multiplier_bps` | Raises effective fee |
+| `sigma_virtual_tenths` | Increases Normal pricing σ |
+| `deposit_cutoff_bps` | T2 deposit ban |
+| `resolution_window_ts` | Buy ban before expiry |
 
-**链下服务：** `services/lp-guard-keeper`
-
----
-
-### 4.8 BP-07 ZK Attestation（冷路径）
-
-**流程：** submit_proof → 委员会 attest → [challenge 3600s] → finalize
-
-**原则：** **不阻塞** `buy_*` 热路径。
+**Off-chain service:** `services/lp-guard-keeper`
 
 ---
 
-### 4.9 BP-08 Slash 罚没与恢复
+### 4.8 BP-07 ZK Attestation (cold path)
 
-**流程：**
+**Flow:** submit_proof → committee attest → [challenge 3600s] → finalize
+
+**Principle:** **Does not block** `buy_*` hot path.
+
+---
+
+### 4.9 BP-08 Slash and Recovery
+
+**Flow:**
 
 ```
 Admin → slash_pool → paused + timelock(1800s)
-     → [等待] → unslash_resume_pool
+     → [wait] → unslash_resume_pool
 ```
 
-**多签路径：** `propose_slash_request` → `approve` (≥ threshold) → `execute`
+**Multisig path:** `propose_slash_request` → `approve` (≥ threshold) → `execute`
 
-**约束：** 单次 ≤30% vault；周期累计 ≤50%。
+**Constraints:** Single slash ≤30% vault; cumulative per period ≤50%.
 
 ---
 
-### 4.10 BP-09 SuiProphet 预言家（筛选 + 知识付费）
+### 4.10 BP-09 SuiProphet Prophet (selection + paid unlock)
 
-BP-09 分 **两层**：**筛选层（主线）** 与 **知识付费层（特权）**。
+BP-09 has **two layers**: **selection layer (main line)** and **paid unlock layer (privilege)**.
 
-#### 4.10.1 筛选层（模块主线）
+#### 4.10.1 Selection Layer (module main line)
 
-**流程：** Commit 预测 → Oracle 结算 → `audit_prophecy` → 更新 ProphetStats → 排行榜 / ROI
+**Flow:** Commit prophecy → Oracle settlement → `audit_prophecy` → update ProphetStats → leaderboard / ROI
 
-**Prophet Score 公式：**
+**Prophet Score formula:**
 
 $$\text{Prophet Score} = w_1 \cdot \text{Accuracy} + w_2 \cdot \log(N) + w_3 \cdot \text{Revenue}$$
 
-权重（链上 bps）：`w1=6000` · `w2=2000` · `w3=2000`
+Weights (on-chain bps): `w1=6000` · `w2=2000` · `w3=2000`
 
-| 审计结果 | 战绩影响 | 筛选语义 |
+| Audit result | Track record impact | Selection semantics |
 | --- | --- | --- |
-| WIN | wins++、streak++、score 上升 | 预测与 Oracle 一致，声誉加分 |
-| LOSS | losses++、streak 归零 | 预测错误，仍可继续练手 |
-| CHEAT | cheats++、永久失付费资格 | 明文 hash 篡改，从筛选池剔除 |
+| WIN | wins++, streak++, score up | Prediction matches Oracle, reputation boost |
+| LOSS | losses++, streak reset | Wrong prediction, can continue practice |
+| CHEAT | cheats++, permanent paid revocation | Plaintext hash tampered, removed from selection pool |
 
-**发现入口：** `/leaderboard` · `/roi` · Indexer `GET /v1/prophet/leaderboard`
+**Discovery entry points:** `/leaderboard` · `/roi` · Indexer `GET /v1/prophet/leaderboard`
 
-#### 4.10.2 知识付费层（优秀预言家特权）
+#### 4.10.2 Paid Unlock Layer (top prophet privilege)
 
-**前置：** `paid_unlock_eligible(stats) = true`（见 [§2.2.3](#223-知识付费优秀预言家特权)）
+**Prerequisite:** `paid_unlock_eligible(stats) = true` (see [§2.2.3](#223-paid-knowledge-unlock-top-prophet-privilege))
 
-**流程：** Commit（Seal+Indexer/IPFS，`unlock_price > 0`）→ Unlock（USDC）→ Decrypt → Audit 后 escrow 分账
+**Flow:** Commit (Seal+Indexer/IPFS, `unlock_price > 0`) → Unlock (USDC) → Decrypt → escrow split after Audit
 
-**Seal 访问 OR 策略：**
+**Seal access OR policy:**
 
-| 条件 | 说明 |
+| Condition | Description |
 | --- | --- |
-| A 付费 | sender ∈ `paid_buyers` |
-| B 公开 | `now > lock_time` 或 `is_public`（audit 后） |
+| A paid | sender ∈ `paid_buyers` |
+| B public | `now > lock_time` or `is_public` (after audit) |
 
-**练手 vs 付费：**
+**Practice vs paid:**
 
-| 模式 | unlock_price | 谁可 Commit | 筛选作用 |
+| Mode | unlock_price | Who can Commit | Selection role |
 | --- | --- | --- | --- |
-| 练手（免费） | `0` | 任意地址 | 积累 audit 样本，进入排行榜 |
-| 知识付费 | `> 0` | 仅 `paid_unlock_eligible` | 变现能力；不影响筛选主线 |
+| Practice (free) | `0` | Any address | Build audit samples, enter leaderboard |
+| Paid unlock | `> 0` | `paid_unlock_eligible` only | Monetization; does not change selection main line |
 
 ---
 
-### 4.11 BP-10 前端与服务 E2E
+### 4.11 BP-10 Frontend and Service E2E
 
-覆盖 Web 全路由、Gas Station 赞助、Indexer 只读 API、Keeper 健康检查。详见 [§6 交互规格](#6-交互规格) 与 [p0-drill-ef-checklist.md](./p0-drill-ef-checklist.md)。
-
----
-
-## 5. 用例规格
-
-用例按业务流程分组；交互事件编号 `E-xx.y.z` 与 [test-cases.md](./test-cases.md) 一致。
-
-### 5.1 BP-01 市场生命周期
-
-#### UC-01.1 创建带 Feed 的市场
-
-| 属性 | 内容 |
-| --- | --- |
-| 角色 | 协议运营、市场创建者 |
-| 目标 | 初始化 Oracle 并创建可结算的竞价池 |
-| 前置 | 无 OracleConfig 或已存在 GlobalConfig |
-| 后置 | MarketPool.status = Auction；Feed 可通过 `lookup_feed_by_market` 发现 |
-
-| 交互事件 | 发起方 | 链上入口 | 后置条件 |
-| --- | --- | --- | --- |
-| E-01.1.1 创建 Oracle 配置 | 协议运营 | `macro_oracle::create_oracle_config` | OracleConfig + FeedRegistry |
-| E-01.1.2 启动竞价池 | 市场创建者 | `start_*_auction` | status = Auction |
-| E-01.1.3 建池即注册 Feed | 市场创建者 | `create_*_pool_with_feed` | Feed 绑定 market_id |
-
-#### UC-01.2 Opening Auction 竞价与定标
-
-| 属性 | 内容 |
-| --- | --- |
-| 角色 | 任意用户（竞价）、任意用户（定标） |
-| 目标 | 通过桶比例确定初始 λ/α/μ,σ，进入 Trading |
-| 前置 | MarketPool.status = Auction |
-| 后置 | status = Trading；Vault 锁定；lp_shares seed |
-
-| 交互事件 | 发起方 | 链上入口 | 约束 |
-| --- | --- | --- | --- |
-| E-01.2.1 竞价注资 | 任意用户 | `auction_bid` | 仅 Auction；USDC 入桶 |
-| E-01.2.2 定标 | 任意用户 | `finalize_*_auction` | `now >= auction_end_ts` |
-| E-01.2.3 状态切换 | 链上原子 | finalize 内部 | Auction → Trading |
-
-#### UC-01.3 到期与结算状态
-
-| 交互事件 | 发起方 | 链上入口 | 后置条件 |
-| --- | --- | --- | --- |
-| E-01.3.1 Oracle 固化 | Proposer / 委员会 | `finalize_assertion` / 仲裁 | DataFeed.resolved_value 可读 |
-| E-01.3.2 池绑定结算 | Admin / 回调 | `set_resolution` | MarketPool.resolved = true |
-| E-01.3.3 状态 Settled | 链上 | resolution 后 | 禁 `buy_*`；可 claim |
+Covers Web full routes, Gas Station sponsorship, Indexer read-only API, Keeper health checks. See [§6 Interaction Specifications](#6-interaction-specifications) and [p0-drill-ef-checklist.md](./p0-drill-ef-checklist.md).
 
 ---
 
-### 5.2 BP-02 头寸交易
+## 5. Use Case Specifications
 
-#### UC-02.1 区间 / 数字期权（P0）
+Use cases grouped by business process; interaction event IDs `E-xx.y.z` align with [test-cases.md](./test-cases.md).
 
-| 属性 | 内容 |
+### 5.1 BP-01 Market Lifecycle
+
+#### UC-01.1 Create Market with Feed
+
+| Attribute | Content |
 | --- | --- |
-| 角色 | 交易者 |
-| 目标 | 用 USDC 买入 Position，承担赔付博弈 |
-| 前置 | Pool Trading；有足够 USDC；未超 Max-Loss |
-| 后置 | Position owned object 至买家；池参数更新 |
+| Roles | Protocol operator, market creator |
+| Goal | Initialize Oracle and create a settleable auction pool |
+| Precondition | No OracleConfig or GlobalConfig exists |
+| Postcondition | MarketPool.status = Auction; Feed discoverable via `lookup_feed_by_market` |
 
-| 交互事件 | 说明 |
+| Interaction event | Initiator | On-chain entry | Postcondition |
+| --- | --- | --- | --- |
+| E-01.1.1 Create Oracle config | Protocol operator | `macro_oracle::create_oracle_config` | OracleConfig + FeedRegistry |
+| E-01.1.2 Start auction pool | Market creator | `start_*_auction` | status = Auction |
+| E-01.1.3 Create pool with Feed | Market creator | `create_*_pool_with_feed` | Feed bound to market_id |
+
+#### UC-01.2 Opening Auction Bidding and Finalization
+
+| Attribute | Content |
 | --- | --- |
-| E-02.1.1 合并 USDC | 前端/PTB 合并多枚 Coin |
-| E-02.1.2 Max-Loss 检查 | `risk.move` 最坏情景 ≤ Vault |
-| E-02.1.3 参数更新 | μ/σ/λ/α 随成交量拨动 |
-| E-02.1.4 铸造 Position | owned object 至买家地址 |
+| Roles | Any user (bid), any user (finalize) |
+| Goal | Determine initial λ/α/μ,σ via bucket ratios, enter Trading |
+| Precondition | MarketPool.status = Auction |
+| Postcondition | status = Trading; Vault locked; lp_shares seeded |
 
-#### UC-02.2 线性期权与 Straddle（P1）
+| Interaction event | Initiator | On-chain entry | Constraint |
+| --- | --- | --- | --- |
+| E-01.2.1 Auction deposit | Any user | `auction_bid` | Auction only; USDC into buckets |
+| E-01.2.2 Finalize | Any user | `finalize_*_auction` | `now >= auction_end_ts` |
+| E-01.2.3 State transition | On-chain atomic | internal to finalize | Auction → Trading |
 
-入口：`buy_normal_call` / `buy_normal_put` / `buy_normal_straddle`
+#### UC-01.3 Expiry and Settlement State
 
-#### UC-02.3 Phase 3 结构化票据（P1）
-
-Variance Swap、Structured Note、Range Note、Barrier Note
-
-#### UC-02.4 Position 转让（P2）
-
-E-02.4.1：原生 `transfer` Position 至新地址，新 owner 可 claim
+| Interaction event | Initiator | On-chain entry | Postcondition |
+| --- | --- | --- | --- |
+| E-01.3.1 Oracle finalize | Proposer / committee | `finalize_assertion` / arbitration | DataFeed.resolved_value readable |
+| E-01.3.2 Pool bind settlement | Admin / callback | `set_resolution` | MarketPool.resolved = true |
+| E-01.3.3 Settled state | On-chain | after resolution | `buy_*` disabled; claim enabled |
 
 ---
 
-### 5.3 BP-03 LP 流动性
+### 5.2 BP-02 Position Trading
 
-#### UC-03.1 NAV 申购
+#### UC-02.1 Interval / Digital Options (P0)
 
-| 交互事件 | 链上入口 | 行为 |
+| Attribute | Content |
+| --- | --- |
+| Role | Trader |
+| Goal | Buy Position with USDC, take payout risk |
+| Precondition | Pool Trading; sufficient USDC; within Max-Loss |
+| Postcondition | Position owned object to buyer; pool params updated |
+
+| Interaction event | Description |
+| --- | --- |
+| E-02.1.1 Merge USDC | Frontend/PTB merges multiple Coins |
+| E-02.1.2 Max-Loss check | `risk.move` worst case ≤ Vault |
+| E-02.1.3 Param update | μ/σ/λ/α move with volume |
+| E-02.1.4 Mint Position | owned object to buyer address |
+
+#### UC-02.2 Linear Options and Straddle (P1)
+
+Entries: `buy_normal_call` / `buy_normal_put` / `buy_normal_straddle`
+
+#### UC-02.3 Phase 3 Structured Notes (P1)
+
+Variance Swap, Structured Note, Range Note, Barrier Note
+
+#### UC-02.4 Position Transfer (P2)
+
+E-02.4.1: native `transfer` Position to new address; new owner can claim
+
+---
+
+### 5.3 BP-03 LP Liquidity
+
+#### UC-03.1 NAV Deposit
+
+| Interaction event | On-chain entry | Behavior |
 | --- | --- | --- |
-| E-03.1.1 计算 NAV | `nav::nav_pre` | (vault − L_mtm) / lp_shares |
-| E-03.1.2 申购 | `deposit_liquidity` | mint_lp = amount / nav_pre |
-| E-03.1.3 α 缩放 | Dirichlet 内部 | 等比放大 α |
+| E-03.1.1 Compute NAV | `nav::nav_pre` | (vault − L_mtm) / lp_shares |
+| E-03.1.2 Deposit | `deposit_liquidity` | mint_lp = amount / nav_pre |
+| E-03.1.3 α scaling | Dirichlet internal | proportional α scale |
 
-#### UC-03.2 NAV 赎回
+#### UC-03.2 NAV Withdraw
 
-E-03.2.1：`withdraw_liquidity` → payout = burn × nav_pre
-
----
-
-### 5.4 BP-04 Oracle 结算
-
-#### UC-04.1 无争议路径
-
-| 属性 | 内容 |
-| --- | --- |
-| 角色 | Proposer、用户 |
-| 目标 | 固化官方数据并兑付头寸 |
-| 前置 | DataFeed 已注册；bond 充足 |
-| 后置 | Feed Finalized；Pool resolved；用户可 claim |
-
-#### UC-04.2 争议与委员会仲裁
-
-| 属性 | 内容 |
-| --- | --- |
-| 角色 | Disputer、委员会委员 |
-| 目标 | 争议窗口内发起仲裁，委员会 2-of-N 终裁 |
-| 前置 | Assertion Proposed；liveness 未结束 |
-| 后置 | BE-02 发出；Case Executed；Feed Finalized |
-
-#### UC-04.3 Testnet Admin 快路径
-
-`settlement_oracle::report_resolution` — 仅联调用
+E-03.2.1: `withdraw_liquidity` → payout = burn × nav_pre
 
 ---
 
-### 5.5 BP-05 ~ BP-08 用例摘要
+### 5.4 BP-04 Oracle Settlement
 
-| 用例 | 角色 | 目标 |
+#### UC-04.1 No-Dispute Path
+
+| Attribute | Content |
+| --- | --- |
+| Roles | Proposer, user |
+| Goal | Finalize official data and redeem positions |
+| Precondition | DataFeed registered; sufficient bond |
+| Postcondition | Feed Finalized; Pool resolved; user can claim |
+
+#### UC-04.2 Dispute and Committee Arbitration
+
+| Attribute | Content |
+| --- | --- |
+| Roles | Disputer, committee members |
+| Goal | Initiate arbitration within dispute window; committee 2-of-N final ruling |
+| Precondition | Assertion Proposed; liveness not ended |
+| Postcondition | BE-02 emitted; Case Executed; Feed Finalized |
+
+#### UC-04.3 Testnet Admin Fast Path
+
+`settlement_oracle::report_resolution` — integration testing only
+
+---
+
+### 5.5 BP-05 ~ BP-08 Use Case Summary
+
+| Use case | Role | Goal |
 | --- | --- | --- |
-| UC-05.1 组合 VaR | 交易者 | 同地址多 Position 统一保证金视图 |
-| UC-06.1 LP Guard 链上 | Pool Authority | 设动态费率 / 虚拟 σ / 禁买窗口 |
-| UC-06.2 LP Guard Keeper | 链下 Keeper | 自动评估风险并上链调参 |
-| UC-07.1 ZK 见证 | Verifier / Admin | 冷路径 proof 提交与 finalize |
-| UC-08.1 Admin Slash | Admin | 应急罚没 + timelock 恢复 |
-| UC-08.2 多签 Slash | Signers | 提案 → 审批 → 执行 |
+| UC-05.1 Portfolio VaR | Trader | Unified margin view for same-address multi-Position |
+| UC-06.1 LP Guard on-chain | Pool Authority | Set dynamic fee / virtual σ / buy ban window |
+| UC-06.2 LP Guard Keeper | Off-chain Keeper | Auto assess risk and update params on-chain |
+| UC-07.1 ZK attestation | Verifier / Admin | Cold-path proof submit and finalize |
+| UC-08.1 Admin Slash | Admin | Emergency slash + timelock recovery |
+| UC-08.2 Multisig Slash | Signers | Propose → approve → execute |
 
 ---
 
-### 5.6 BP-09 SuiProphet 预言家
+### 5.6 BP-09 SuiProphet Prophet
 
-#### UC-09.0 预言家筛选与发现（主线）
+#### UC-09.0 Prophet Selection and Discovery (main line)
 
-| 属性 | 内容 |
+| Attribute | Content |
 | --- | --- |
-| 角色 | 跟随者 / 任意用户 |
-| 目标 | 通过链上战绩发现、比较、筛选优秀预言家 |
-| 前置 | 至少一名预言家已完成 audit |
-| 后置 | 用户选定目标预言家；可选进入跟单或付费解锁 |
+| Role | Follower / any user |
+| Goal | Discover, compare, and filter top prophets via on-chain track record |
+| Precondition | At least one prophet has completed audit |
+| Postcondition | User selects target prophet; optionally copy trade or paid unlock |
 
-| 交互事件 | 说明 |
+| Interaction event | Description |
 | --- | --- |
-| E-09.0.1 浏览排行榜 | `/leaderboard` 读链上 ProphetStats |
-| E-09.0.2 查看跟单 ROI | `/roi` 读 Indexer buyer-roi |
-| E-09.0.3 对比 Score | 胜率、场次、streak、付费开通状态 |
+| E-09.0.1 Browse leaderboard | `/leaderboard` reads on-chain ProphetStats |
+| E-09.0.2 View copy ROI | `/roi` reads Indexer buyer-roi |
+| E-09.0.3 Compare Score | Win rate, count, streak, paid enablement status |
 
-#### UC-09.1 预言家发布预测（练手 / 付费）
+#### UC-09.1 Prophet Publishes Prophecy (practice / paid)
 
-| 属性 | 内容 |
+| Attribute | Content |
 | --- | --- |
-| 角色 | 预言家 |
-| 目标 | 对绑定市场提交 Seal 加密预测，进入 audit 筛选池 |
-| 前置 | ProphetRegistry 已创建 |
-| 后置 | BE-01 发出；PrivateProphecy 共享对象 |
+| Role | Prophet |
+| Goal | Submit Seal-encrypted prophecy for bound market, enter audit selection pool |
+| Precondition | ProphetRegistry created |
+| Postcondition | BE-01 emitted; PrivateProphecy shared object |
 
-| 模式 | 前置（额外） | unlock_price |
+| Mode | Precondition (extra) | unlock_price |
 | --- | --- | --- |
-| 练手 | 无 | `0`（任意地址） |
-| 知识付费 | `paid_unlock_eligible` | `> 0`（链上 gate） |
+| Practice | None | `0` (any address) |
+| Paid unlock | `paid_unlock_eligible` | `> 0` (on-chain gate) |
 
-#### UC-09.2 Oracle 审计与战绩更新（筛选核心）
+#### UC-09.2 Oracle Audit and Track Record Update (selection core)
 
-| 属性 | 内容 |
+| Attribute | Content |
 | --- | --- |
-| 角色 | Audit Keeper / 任意用户 |
-| 目标 | Oracle 结算后比对 `plaintext_hash`，更新 ProphetStats 与排行榜 |
-| 前置 | Pool resolved；预言 status = OPEN |
-| 后置 | WIN / LOSS / CHEAT；Prophet Score 刷新；筛选池更新 |
+| Role | Audit Keeper / any user |
+| Goal | After Oracle settlement, compare `plaintext_hash`, update ProphetStats and leaderboard |
+| Precondition | Pool resolved; prophecy status = OPEN |
+| Postcondition | WIN / LOSS / CHEAT; Prophet Score refresh; selection pool update |
 
-> **Audit 是筛选闭环的关键节点**，知识付费分账依附于 audit 结果，但不改变筛选语义。
+> **Audit is the key node in the selection loop**; paid unlock escrow split depends on audit result but does not change selection semantics.
 
-#### UC-09.3 知识付费解锁（特权层）
+#### UC-09.3 Paid Unlock (privilege layer)
 
-| 属性 | 内容 |
+| Attribute | Content |
 | --- | --- |
-| 角色 | 跟随者 / 订阅者 |
-| 目标 | 对 **已开通付费** 的预言家，USDC 解锁 Seal 加密分析 |
-| 前置 | 预言 `unlock_price > 0`；钱包有足够 USDC |
-| 后置 | `paid_buyers` 含买家；Seal decrypt 成功 |
+| Role | Follower / subscriber |
+| Goal | For **paid-enabled** prophets, unlock Seal-encrypted analysis with USDC |
+| Precondition | Prophecy `unlock_price > 0`; wallet has sufficient USDC |
+| Postcondition | `paid_buyers` includes buyer; Seal decrypt succeeds |
 
-#### UC-09.4 付费资格开通
+#### UC-09.4 Paid Eligibility Enablement
 
-| 属性 | 内容 |
+| Attribute | Content |
 | --- | --- |
-| 角色 | 预言家 |
-| 目标 | 战绩达标后，首次以 `unlock_price > 0` Commit，开通知识付费 |
-| 前置 | `total_audited ≥ 3` · `score_bps ≥ 4000` · `cheats = 0` |
-| 后置 | 前端 `/prophet` 展示「付费已开通」；后续 Commit 可收费 |
+| Role | Prophet |
+| Goal | After meeting thresholds, first Commit with `unlock_price > 0` to enable paid unlock |
+| Precondition | `total_audited ≥ 3` · `score_bps ≥ 4000` · `cheats = 0` |
+| Postcondition | Frontend `/prophet` shows “Paid enabled”; subsequent Commits can charge |
 
 ---
 
-## 6. 交互规格
+## 6. Interaction Specifications
 
-### 6.1 交互界面（UI）
+### 6.1 Interaction UI
 
-#### 6.1.1 Web 路由与页面
+#### 6.1.1 Web Routes and Pages
 
-| ID | 路由 | 文件 | 用途 | 关联 BP |
+| ID | Route | File | Purpose | Related BP |
 | --- | --- | --- | --- | --- |
-| UI-01 | `/` | `app/src/app/page.tsx` | 首页、种子市场列表 | BP-01, BP-10 |
-| UI-02 | `/markets/[id]` | `app/src/app/markets/[id]/page.tsx` | 单市场详情 | BP-01, BP-02, BP-06 |
-| UI-03 | `/positions` | `app/src/app/positions/page.tsx` | 持仓列表 + claim | BP-02, BP-04 |
-| UI-04 | `/lp` | `app/src/app/lp/page.tsx` | LP 申购/赎回 | BP-03 |
-| UI-05 | `/margin` | `app/src/app/margin/page.tsx` | 保证金账户 | BP-05 |
-| UI-06 | `/oracle` | `app/src/app/oracle/page.tsx` | Oracle 全流程 UI | BP-04 |
-| UI-07 | `/prophet` | `app/src/app/prophet/page.tsx` | 预言家发布 / 解锁 / 付费门槛进度 | BP-09 |
-| UI-08 | `/leaderboard` | `app/src/app/leaderboard/page.tsx` | **预言家筛选**：排行榜、Score、付费开通状态 | BP-09 |
-| UI-09 | `/roi` | `app/src/app/roi/page.tsx` | 跟单 ROI（筛选辅助） | BP-09 |
-| UI-10 | `/metrics` | `app/src/app/metrics/page.tsx` | Prophet GMV 指标 | BP-10 |
-| UI-11 | `/blocked` | `app/src/app/blocked/page.tsx` | 地理封锁页 | 合规 |
+| UI-01 | `/` | `app/src/app/page.tsx` | Home, seed market list | BP-01, BP-10 |
+| UI-02 | `/markets/[id]` | `app/src/app/markets/[id]/page.tsx` | Single market detail | BP-01, BP-02, BP-06 |
+| UI-03 | `/positions` | `app/src/app/positions/page.tsx` | Position list + claim | BP-02, BP-04 |
+| UI-04 | `/lp` | `app/src/app/lp/page.tsx` | LP deposit/withdraw | BP-03 |
+| UI-05 | `/margin` | `app/src/app/margin/page.tsx` | Margin account | BP-05 |
+| UI-06 | `/oracle` | `app/src/app/oracle/page.tsx` | Oracle full-flow UI | BP-04 |
+| UI-07 | `/prophet` | `app/src/app/prophet/page.tsx` | Prophet publish / unlock / paid threshold progress | BP-09 |
+| UI-08 | `/leaderboard` | `app/src/app/leaderboard/page.tsx` | **Prophet selection**: leaderboard, Score, paid status | BP-09 |
+| UI-09 | `/roi` | `app/src/app/roi/page.tsx` | Copy ROI (selection aid) | BP-09 |
+| UI-10 | `/metrics` | `app/src/app/metrics/page.tsx` | Prophet GMV metrics | BP-10 |
+| UI-11 | `/blocked` | `app/src/app/blocked/page.tsx` | Geo-block page | Compliance |
 
-**导航组件：** `app/src/components/SiteNav.tsx`
+**Navigation component:** `app/src/components/SiteNav.tsx`
 
-#### 6.1.2 核心组件
+#### 6.1.2 Core Components
 
-| ID | 组件 | 文件 | 用途 | 用户动作 |
+| ID | Component | File | Purpose | User action |
 | --- | --- | --- | --- | --- |
-| UI-C01 | TradePanel | `TradePanel.tsx` | 买入 UI | 选合约类型、区间、USDC 金额 → 买入 |
-| UI-C02 | AuctionPanel | `AuctionPanel.tsx` | Opening Auction | 选桶、注资 → 竞价 |
-| UI-C03 | LpDepositPanel | `LpDepositPanel.tsx` | LP 存入 | 输入 USDC → 申购 |
-| UI-C04 | IvPanel | `IvPanel.tsx` | 隐含波动率 | 只读（Indexer） |
-| UI-C05 | PositionCard | `PositionCard.tsx` | 单头寸 + claim | 点击 claim |
-| UI-C06 | ArbitrationCasesPanel | `ArbitrationCasesPanel.tsx` | 仲裁案件 | 委员投票 / 只读 |
-| UI-C07 | MintUsdcButton | `MintUsdcButton.tsx` | 测试 USDC | Testnet 铸造 |
-| UI-C08 | WalletButton | `WalletButton.tsx` | 钱包连接 | 连接 Sui 钱包 |
+| UI-C01 | TradePanel | `TradePanel.tsx` | Buy UI | Select contract type, interval, USDC amount → buy |
+| UI-C02 | AuctionPanel | `AuctionPanel.tsx` | Opening Auction | Select bucket, deposit → bid |
+| UI-C03 | LpDepositPanel | `LpDepositPanel.tsx` | LP deposit | Enter USDC → subscribe |
+| UI-C04 | IvPanel | `IvPanel.tsx` | Implied volatility | Read-only (Indexer) |
+| UI-C05 | PositionCard | `PositionCard.tsx` | Single position + claim | Click claim |
+| UI-C06 | ArbitrationCasesPanel | `ArbitrationCasesPanel.tsx` | Arbitration cases | Committee vote / read-only |
+| UI-C07 | MintUsdcButton | `MintUsdcButton.tsx` | Test USDC | Testnet mint |
+| UI-C08 | WalletButton | `WalletButton.tsx` | Wallet connect | Connect Sui wallet |
 
-#### 6.1.3 Flutter 移动端
+#### 6.1.3 Flutter Mobile
 
-| Tab | 屏幕 | 文件 |
+| Tab | Screen | File |
 | --- | --- | --- |
-| 市场 | Markets / Detail | `markets_screen.dart`, `market_detail_screen.dart` |
-| 持仓 | Positions | `positions_screen.dart` |
+| Markets | Markets / Detail | `markets_screen.dart`, `market_detail_screen.dart` |
+| Positions | Positions | `positions_screen.dart` |
 | LP | LP | `lp_screen.dart` |
-| 保证金 | Margin | `margin_screen.dart` |
-| 钱包 | Wallet | `wallet_screen.dart` |
+| Margin | Margin | `margin_screen.dart` |
+| Wallet | Wallet | `wallet_screen.dart` |
 
-Shell：`mobile/x_market_flutter/lib/src/app/app_shell.dart`
+Shell: `mobile/x_market_flutter/lib/src/app/app_shell.dart`
 
 ---
 
-### 6.2 交互事件映射（UI → 链上/服务）
+### 6.2 Interaction Event Mapping (UI → on-chain/service)
 
-| UI 动作 | 交互事件 | 链上/服务 | 库文件 |
+| UI action | Interaction event | On-chain/service | Library file |
 | --- | --- | --- | --- |
-| 连接钱包 | — | Sui Wallet | `WalletButton.tsx` |
-| 铸造测试 USDC | — | Faucet / `usdc::mint_to_sender` | `app/src/lib/usdc.ts` |
-| 市场页 · 买入 | E-02.1.x | `pool::buy_*` | `app/src/lib/trade.ts` |
-| 市场页 · 竞价 | E-01.2.1 | `pool::auction_bid` | `app/src/lib/auction.ts` |
-| 市场页 · 定标 | E-01.2.2 | `pool::finalize_*_auction` | `app/src/lib/auction.ts` |
-| LP 页 · 申购 | E-03.1.2 | `pool::deposit_liquidity` | `app/src/lib/lp.ts` |
-| LP 页 · 赎回 | E-03.2.1 | `pool::withdraw_liquidity` | `app/src/lib/lp.ts` |
-| 持仓页 · claim | E-01.3.x | `settlement::claim_position` | `PositionCard.tsx` |
-| 报价预览 | — | `GET /v1/quote` | `app/src/lib/pricing.ts` |
-| Gas 赞助 | BE-66 | `POST /v1/sponsor` | `hooks/useSponsoredTransaction.ts` |
-| Oracle · 提议 | E-04.x | `macro_oracle::propose_data` | `app/src/lib/oracle.ts` |
-| Oracle · 争议 | E-04.x | `dispute_and_request_arbitration` | 同上 |
-| Oracle · 终裁 | E-04.x | `execute_arbitration` | 同上 |
+| Connect wallet | — | Sui Wallet | `WalletButton.tsx` |
+| Mint test USDC | — | Faucet / `usdc::mint_to_sender` | `app/src/lib/usdc.ts` |
+| Market page · buy | E-02.1.x | `pool::buy_*` | `app/src/lib/trade.ts` |
+| Market page · bid | E-01.2.1 | `pool::auction_bid` | `app/src/lib/auction.ts` |
+| Market page · finalize | E-01.2.2 | `pool::finalize_*_auction` | `app/src/lib/auction.ts` |
+| LP page · deposit | E-03.1.2 | `pool::deposit_liquidity` | `app/src/lib/lp.ts` |
+| LP page · withdraw | E-03.2.1 | `pool::withdraw_liquidity` | `app/src/lib/lp.ts` |
+| Positions page · claim | E-01.3.x | `settlement::claim_position` | `PositionCard.tsx` |
+| Quote preview | — | `GET /v1/quote` | `app/src/lib/pricing.ts` |
+| Gas sponsorship | BE-66 | `POST /v1/sponsor` | `hooks/useSponsoredTransaction.ts` |
+| Oracle · propose | E-04.x | `macro_oracle::propose_data` | `app/src/lib/oracle.ts` |
+| Oracle · dispute | E-04.x | `dispute_and_request_arbitration` | same |
+| Oracle · final ruling | E-04.x | `execute_arbitration` | same |
 | Prophet · Commit | E-09.1.x | Seal + Indexer/IPFS + `commit_private_prophecy` | `prophet.ts`, `prophet-blob*.ts`, `seal-prophet.ts` |
 | Prophet · Unlock | E-09.2.x | `unlock_prophecy` | `app/src/lib/prophet.ts` |
-| Prophet · Audit | E-09.3.x | `audit_prophecy` | 同上 |
-| 读取市场/Feed | — | Indexer `GET /v1/*` | `app/src/lib/indexer.ts` |
-| 地理封锁 | — | middleware | `app/src/middleware.ts` |
+| Prophet · Audit | E-09.3.x | `audit_prophecy` | same |
+| Read market/Feed | — | Indexer `GET /v1/*` | `app/src/lib/indexer.ts` |
+| Geo-block | — | middleware | `app/src/middleware.ts` |
 
 ---
 
-### 6.3 时序图
+### 6.3 Sequence Diagrams
 
-#### 6.3.1 Opening Auction 定标（UC-01.2）
+#### 6.3.1 Opening Auction Finalization (UC-01.2)
 
 ```mermaid
 sequenceDiagram
-    participant U1 as 用户 A
-    participant U2 as 用户 B
+    participant U1 as User A
+    participant U2 as User B
     participant Pool as MarketPool
-    participant Chain as Sui 链
+    participant Chain as Sui chain
 
     U1->>Chain: E-01.2.1 auction_bid(bucket=0, usdc)
-    Chain->>Pool: 桶 0 USDC 累计
+    Chain->>Pool: bucket 0 USDC accumulated
     U2->>Chain: E-01.2.1 auction_bid(bucket=1, usdc)
-    Chain->>Pool: 桶 1 USDC 累计
-    Note over Pool: 等待 auction_end_ts
+    Chain->>Pool: bucket 1 USDC accumulated
+    Note over Pool: wait for auction_end_ts
     U1->>Chain: E-01.2.2 finalize_auction
-    Chain->>Pool: E-01.2.3 桶比例 → λ/α/μ,σ
+    Chain->>Pool: E-01.2.3 bucket ratios → λ/α/μ,σ
     Chain->>Pool: status = Trading
 ```
 
-#### 6.3.2 头寸买入 — Poisson 区间（UC-02.1）
+#### 6.3.2 Position Buy — Poisson Interval (UC-02.1)
 
 ```mermaid
 sequenceDiagram
-    participant User as 交易者
+    participant User as Trader
     participant UI as TradePanel
     participant PE as Pricing Engine
     participant Chain as pool.move
     participant Pool as MarketPool
 
-    User->>UI: 选区间 [L,U]、输入 USDC
-    UI->>PE: GET /v1/quote（预览，非真相）
-    PE-->>UI: 预估价格
-    User->>UI: 确认买入
+    User->>UI: select interval [L,U], enter USDC
+    UI->>PE: GET /v1/quote (preview, not source of truth)
+    PE-->>UI: estimated price
+    User->>UI: confirm buy
     UI->>Chain: buy_poisson_interval(pool, [L,U], usdc)
     Chain->>Chain: lp_guard effective_fee
-    Chain->>Chain: Poisson PDF 积分定价
+    Chain->>Chain: Poisson PDF integral pricing
     Chain->>Chain: risk Max-Loss assert
-    Chain->>Pool: vault += usdc; 更新 lambda
+    Chain->>Pool: vault += usdc; update lambda
     Chain-->>User: mint Position
 ```
 
-#### 6.3.3 Oracle 无争议结算（UC-04.1）
+#### 6.3.3 Oracle No-Dispute Settlement (UC-04.1)
 
 ```mermaid
 sequenceDiagram
     participant P as Proposer
     participant O as macro_oracle
     participant Pool as MarketPool
-    participant U as 用户
+    participant U as User
 
     P->>O: propose_data(feed, value, bond)
-    Note over O: BE-20 status=Proposed, liveness 启动
-    P->>O: finalize_assertion (liveness 后)
+    Note over O: BE-20 status=Proposed, liveness starts
+    P->>O: finalize_assertion (after liveness)
     Note over O: BE-22 Feed Finalized
     O->>Pool: set_resolution(resolved_value)
     Note over Pool: BE-14 resolved=true, Settled
     U->>Pool: claim_position
-    Note over U: BE-13 USDC 兑付
+    Note over U: BE-13 USDC redemption
 ```
 
-#### 6.3.4 Oracle 争议与仲裁（UC-04.2）
+#### 6.3.4 Oracle Dispute and Arbitration (UC-04.2)
 
 ```mermaid
 sequenceDiagram
     participant D as Disputer
     participant O as macro_oracle
     participant A as oracle_arbitrator
-    participant C as 委员会委员
+    participant C as Committee member
     participant Pool as MarketPool
 
     D->>O: dispute_and_request_arbitration
-    O->>A: 同一 PTB 创建 Case
+    O->>A: create Case in same PTB
     Note over A: BE-02 ArbitrationCaseOpened
     C->>A: propose_verdict
     C->>A: approve_verdict (≥ threshold)
     C->>A: execute_arbitration
-    A->>O: 固化 resolved_value
+    A->>O: finalize resolved_value
     O->>Pool: set_resolution
 ```
 
-#### 6.3.5 LP NAV 申购（UC-03.1）
+#### 6.3.5 LP NAV Deposit (UC-03.1)
 
 ```mermaid
 sequenceDiagram
-    participant LP as LP 用户
+    participant LP as LP user
     participant Chain as pool.move
     participant Pool as MarketPool
 
     LP->>Chain: deposit_liquidity(pool, usdc)
-    Chain->>Chain: E-03.1.1 nav_pre 计算
+    Chain->>Chain: E-03.1.1 nav_pre compute
     Chain->>Pool: vault += usdc
-    Chain->>Pool: E-03.1.3 Dirichlet α 等比缩放
+    Chain->>Pool: E-03.1.3 Dirichlet α proportional scale
     Chain-->>LP: E-03.1.2 mint LpShare
 ```
 
-#### 6.3.6 SuiProphet 筛选 + 知识付费（UC-09.0 ~ UC-09.4）
+#### 6.3.6 SuiProphet Selection + Paid Unlock (UC-09.0 ~ UC-09.4)
 
 ```mermaid
 sequenceDiagram
-    participant Prophet as 预言家
+    participant Prophet as Prophet
     participant Seal as Seal
     participant Indexer as Indexer blob API
     participant Chain as prophet_registry
     participant Oracle as macro_oracle
     participant Stats as prophet_leaderboard
-    participant Follower as 跟随者
+    participant Follower as Follower
 
-    Note over Prophet: 练手：unlock_price=0<br/>付费：须 paid_unlock_eligible
-    Prophet->>Seal: 加密 JSON payload
+    Note over Prophet: practice: unlock_price=0<br/>paid: requires paid_unlock_eligible
+    Prophet->>Seal: encrypt JSON payload
     Prophet->>Indexer: POST /v1/prophecies/blob
     Prophet->>Chain: commit_private_prophecy
     Note over Chain: BE-01 ProphecyCommitted
     Oracle->>Chain: Pool resolved
     Chain->>Chain: audit_prophecy
     Chain->>Stats: WIN/LOSS/CHEAT → Prophet Score
-    Note over Stats: 筛选层：排行榜更新
-    Follower->>Stats: 浏览 /leaderboard 筛选预言家
-    alt 预言家已开通知识付费
+    Note over Stats: selection layer: leaderboard update
+    Follower->>Stats: browse /leaderboard to filter prophets
+    alt prophet has paid unlock enabled
         Follower->>Chain: unlock_prophecy(USDC)
-        Note over Chain: BE-30 paid_buyers 追加
+        Note over Chain: BE-30 paid_buyers appended
         Follower->>Seal: decrypt
     end
-    Note over Chain: BE-31 audit 后 escrow 分账（付费层）
+    Note over Chain: BE-31 escrow split after audit (paid layer)
 ```
 
-#### 6.3.7 Gas 赞助买入（前端 E2E）
+#### 6.3.7 Gas-Sponsored Buy (frontend E2E)
 
 ```mermaid
 sequenceDiagram
-    participant User as 用户
-    participant UI as 前端
+    participant User as User
+    participant UI as Frontend
     participant GS as Gas Station
     participant Chain as Sui
 
-    User->>UI: 发起 buy PTB
+    User->>UI: initiate buy PTB
     UI->>GS: POST /v1/sponsor (tx bytes)
-    GS->>Chain: 赞助者签名 + 执行
-    Chain-->>User: Position 到账
+    GS->>Chain: sponsor signs + executes
+    Chain-->>User: Position received
 ```
 
 ---
 
-### 6.4 Indexer REST API（只读交互）
+### 6.4 Indexer REST API (read-only interaction)
 
-| 方法 | 路由 | 用途 | 消费 UI |
+| Method | Route | Purpose | Consuming UI |
 | --- | --- | --- | --- |
-| GET | `/v1/markets` | 市场列表 | UI-01 |
-| GET | `/v1/markets/:poolId` | 单市场 | UI-02 |
+| GET | `/v1/markets` | Market list | UI-01 |
+| GET | `/v1/markets/:poolId` | Single market | UI-02 |
 | GET | `/v1/feeds` | Oracle Feed | UI-06 |
-| GET | `/v1/pools/:poolId/iv-history` | IV 历史 | UI-C04 |
-| GET | `/v1/prophecies` | 预言列表 | UI-07 |
-| GET | `/v1/prophet/leaderboard` | 排行榜 | UI-08 |
-| GET | `/v1/buyer-roi` | 跟单 ROI | UI-09 |
+| GET | `/v1/pools/:poolId/iv-history` | IV history | UI-C04 |
+| GET | `/v1/prophecies` | Prophecy list | UI-07 |
+| GET | `/v1/prophet/leaderboard` | Leaderboard | UI-08 |
+| GET | `/v1/buyer-roi` | Copy ROI | UI-09 |
 | GET | `/v1/metrics/prophet-gmv` | GMV | UI-10 |
-| GET | `/v1/arbitration/cases` | 仲裁案件 | UI-C06 |
-| GET | `/v1/events` | 链上事件 | 运维 |
+| GET | `/v1/arbitration/cases` | Arbitration cases | UI-C06 |
+| GET | `/v1/events` | On-chain events | Operations |
 
 ---
 
-## 7. 状态机总览
+## 7. State Machine Overview
 
 ### 7.1 MarketPool
 
@@ -886,15 +888,15 @@ sequenceDiagram
 Auction (0) ──finalize──▶ Trading (1) ──set_resolution──▶ Settled (2)
 ```
 
-模块：`sources/market_status.move`
+Module: `sources/market_status.move`
 
-### 7.2 EventRoot（Phase 4）
+### 7.2 EventRoot (Phase 4)
 
 ```
 Open (0) → Trading (1) → Locked (2) → Settled (3) / Nullified (4)
 ```
 
-模块：`sources/event_root.move`
+Module: `sources/event_root.move`
 
 ### 7.3 Oracle DataFeed
 
@@ -902,7 +904,7 @@ Open (0) → Trading (1) → Locked (2) → Settled (3) / Nullified (4)
 FEED_OPEN (0) → FEED_FINALIZED (1) / FEED_NULLIFIED (2)
 ```
 
-72h 无提议可 `nullify_feed`。
+`nullify_feed` if no proposal within 72h.
 
 ### 7.4 Oracle Assertion
 
@@ -916,7 +918,7 @@ ASSERTION_PROPOSED (0) → ASSERTION_DISPUTED (1) → ASSERTION_FINALIZED (2) / 
 CASE_OPEN (0) → CASE_EXECUTED (1)
 ```
 
-Verdict：`PROPOSER_WINS` / `DISPUTER_WINS` / `UNRESOLVED`
+Verdict: `PROPOSER_WINS` / `DISPUTER_WINS` / `UNRESOLVED`
 
 ### 7.6 PrivateProphecy
 
@@ -924,28 +926,28 @@ Verdict：`PROPOSER_WINS` / `DISPUTER_WINS` / `UNRESOLVED`
 OPEN (0) → AUDITED_WIN (1) / AUDITED_LOSS (2) / CHEAT (3)
 ```
 
-### 7.7 ZkVerification（冷路径）
+### 7.7 ZkVerification (cold path)
 
 ```
 submit_proof → verify/attest → [challenge 3600s] → finalize_verification
 ```
 
-### 7.8 Position 合约类型
+### 7.8 Position Contract Types
 
-| kind | 名称 | 说明 |
+| kind | Name | Description |
 | --- | --- | --- |
-| 0 | INTERVAL | 区间合约 |
-| 1 | DIGITAL | 数字期权 |
-| 2-5 | LINEAR_CALL/PUT/STRADDLE/VARIANCE_SWAP | 线性衍生品 |
-| 6-8 | STRUCTURED/RANGE/BARRIER NOTE | 结构化票据 |
+| 0 | INTERVAL | Interval contract |
+| 1 | DIGITAL | Digital option |
+| 2-5 | LINEAR_CALL/PUT/STRADDLE/VARIANCE_SWAP | Linear derivatives |
+| 6-8 | STRUCTURED/RANGE/BARRIER NOTE | Structured notes |
 
 ---
 
-## 8. 附录：编号索引
+## 8. Appendix: ID Index
 
-### 8.1 业务流程 → 用例
+### 8.1 Business Process → Use Cases
 
-| BP | 用例 |
+| BP | Use cases |
 | --- | --- |
 | BP-01 | UC-01.1, UC-01.2, UC-01.3 |
 | BP-02 | UC-02.1, UC-02.2, UC-02.3, UC-02.4 |
@@ -958,46 +960,46 @@ submit_proof → verify/attest → [challenge 3600s] → finalize_verification
 | BP-09 | UC-09.0, UC-09.1, UC-09.2, UC-09.3, UC-09.4 |
 | BP-10 | UC-10.1, UC-10.2 |
 
-### 8.2 种子市场（Testnet）
+### 8.2 Seed Markets (Testnet)
 
-| slug | 分布 | 场景 |
+| slug | Distribution | Scenario |
 | --- | --- | --- |
-| `poisson-goals` | Poisson | 足球总进球 |
-| `dirichlet-wdl` | Dirichlet | 胜平负 |
-| `normal-cpi` | Normal | CPI 宏观区间 |
-| `beta-vote` | Beta | 得票率区间 |
+| `poisson-goals` | Poisson | Football total goals |
+| `dirichlet-wdl` | Dirichlet | Win/draw/loss |
+| `normal-cpi` | Normal | CPI macro interval |
+| `beta-vote` | Beta | Vote share interval |
 
-定义：`app/src/lib/markets.ts` · 部署 ID：`deploy/testnet-v2.json`
+Definition: `app/src/lib/markets.ts` · Deploy IDs: `deploy/testnet-v2.json`
 
-### 8.3 关键源码索引
+### 8.3 Key Source Index
 
-| 类别 | 路径 |
+| Category | Path |
 | --- | --- |
-| Move 入口全集 | `sources/pool.move` |
+| Move entry points | `sources/pool.move` |
 | Oracle | `sources/macro_oracle.move`, `sources/oracle_arbitrator.move` |
-| Prophet 筛选 | `sources/prophet_leaderboard.move` |
-| Prophet 预测/付费 | `sources/prophet_registry.move` |
-| 前端交易 | `app/src/lib/trade.ts`, `app/src/components/TradePanel.tsx` |
+| Prophet selection | `sources/prophet_leaderboard.move` |
+| Prophet prophecy/paid | `sources/prophet_registry.move` |
+| Frontend trading | `app/src/lib/trade.ts`, `app/src/components/TradePanel.tsx` |
 | Indexer API | `services/indexer/src/api/server.ts` |
-| 事件索引 | `services/indexer/src/workers/events.ts` |
+| Event indexing | `services/indexer/src/workers/events.ts` |
 
-### 8.4 相关文档
+### 8.4 Related Documents
 
-| 文档 | 关系 |
+| Document | Relationship |
 | --- | --- |
-| [test-cases.md](./test-cases.md) | 同编号体系的 **测试用例**（TC-xx.y.z） |
-| [PRD.md](../PRD.md) | 产品需求与 Phase 规划 |
-| [demo-walkthrough.md](./demo-walkthrough.md) | 路演演示路线 |
-| [oracle-playbook.md](./oracle-playbook.md) | Oracle 运维 |
-| [prophet-playbook.md](./prophet-playbook.md) | Prophet 运维 |
-| [prophet-market-and-encryption-guide.md](./prophet-market-and-encryption-guide.md) | 创建市场 + 公开/加密预测操作指南 |
+| [test-cases.md](./test-cases.md) | **Test cases** in same ID system (TC-xx.y.z) |
+| [PRD.md](../PRD.md) | Product requirements and Phase planning |
+| [demo-walkthrough.md](./demo-walkthrough.md) | Demo walkthrough route |
+| [oracle-playbook.md](./oracle-playbook.md) | Oracle operations |
+| [prophet-playbook.md](./prophet-playbook.md) | Prophet operations |
+| [prophet-market-and-encryption-guide.md](./prophet-market-and-encryption-guide.md) | Create market + public/encrypted prophecy guide |
 
 ---
 
-## 修订记录
+## Revision History
 
-| 日期 | 版本 | 说明 |
+| Date | Version | Description |
 | --- | --- | --- |
-| 2026-06-12 | v1.2 | 新增 [prophet-market-and-encryption-guide.md](./prophet-market-and-encryption-guide.md)：创建市场与加密预测操作指南 |
-| 2026-06-11 | v1.1 | 重定位 SuiProphet：预言家筛选为主线，知识付费为优秀预言家特权 |
-| 2026-06-11 | v1.0 | 初版：业务事件目录、10 大流程、用例、交互界面/事件/时序 |
+| 2026-06-12 | v1.2 | Added [prophet-market-and-encryption-guide.md](./prophet-market-and-encryption-guide.md): create market and encrypted prophecy guide |
+| 2026-06-11 | v1.1 | Repositioned SuiProphet: prophet selection as main line, paid unlock as top prophet privilege |
+| 2026-06-11 | v1.0 | Initial: business event catalog, 10 processes, use cases, interaction UI/events/sequences |

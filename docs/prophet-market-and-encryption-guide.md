@@ -11,58 +11,60 @@
   automatically becomes available under the Apache License 2.0.
 -->
 
-# SuiProphet：创建市场与加密预测操作指南
+**English** | [简体中文](./prophet-market-and-encryption-guide.zh.md)
 
-> **适用：** Testnet / 本地开发 · **关联：** [prophet-playbook.md](./prophet-playbook.md) · [oracle-playbook.md](./oracle-playbook.md) · [business-spec.md](./business-spec.md) §4.10  
-> **更新：** 2026-06-12（v4 包：公开预测 `unlock_price=0`、付费预测 Seal 加密）
+# SuiProphet: Market Creation and Encrypted Prophecy Guide
+
+> **Applies to:** Testnet / local development · **Related:** [prophet-playbook.md](./prophet-playbook.md) · [oracle-playbook.md](./oracle-playbook.md) · [business-spec.md](./business-spec.md) §4.10  
+> **Updated:** 2026-06-12 (v4 package: public prophecies `unlock_price=0`, paid prophecies Seal encrypted)
 
 ---
 
-## 1. 概念澄清
+## 1. Concept Clarification
 
-本产品中**不存在单独的「加密市场」类型**。
+There is **no separate "encrypted market" type** in this product.
 
-| 层级 | 是否加密 | 说明 |
+| Layer | Encrypted? | Description |
 | --- | --- | --- |
-| **市场（MarketPool）** | 否 | 标准 AMM + Oracle Feed，链上公开 |
-| **预言（PrivateProphecy）** | 可选 | 分析内容可 **Seal 加密**（付费）或 **Indexer 明文**（公开练手） |
+| **Market (MarketPool)** | No | Standard AMM + Oracle Feed, public on-chain |
+| **Prophecy (PrivateProphecy)** | Optional | Analysis content may be **Seal encrypted** (paid) or **Indexer plaintext** (public practice) |
 
-**「加密」指的是 SuiProphet 的私密付费预测**：预言家把分析 JSON 经 Seal 加密后存 Indexer/IPFS，订阅者 USDC 解锁后才能解密；链上只锁定 `plaintext_hash` 与 `predicted_value`。
+**"Encryption" refers to SuiProphet private paid prophecies:** prophets encrypt analysis JSON via Seal, store in Indexer/IPFS; subscribers decrypt after USDC unlock; on-chain only locks `plaintext_hash` and `predicted_value`.
 
-完整路径分两步：**先建市场 → 再在该市场上发加密预测**。
+Full path is two steps: **create market first → publish encrypted prophecy on that market**.
 
 ---
 
-## 2. 第一步：创建市场
+## 2. Step 1: Create Market
 
-任意新建市场都支持后续挂载 Prophet 预测（共用同一 Pool 的 `maturity_ts` 与 Oracle 结算）。
+Any new market supports subsequent Prophet prophecies (shares same Pool `maturity_ts` and Oracle settlement).
 
-### 2.1 前端（推荐）
+### 2.1 Frontend (Recommended)
 
-1. 连接 Testnet 钱包
-2. 打开 **`/markets/create`**
-3. 填写表单：
+1. Connect Testnet wallet
+2. Open **`/markets/create`**
+3. Fill form:
 
-| 字段 | 说明 |
+| Field | Description |
 | --- | --- |
-| 标题 / 描述 / slug | 展示与 URL（`/markets/{slug}`） |
-| 分布类型 | Poisson / Dirichlet / Normal / Beta |
-| 到期时间 | 表单按**所选时区**输入；链上存 **UTC Unix 秒**；默认时区为浏览器系统时区 |
-| 交易费率 | 0–500 bps |
-| Feed 标识 | Oracle 指标 ID，默认可与 slug 相同 |
-| 辅助说明 | Ancillary 文本，默认用描述 |
-| 主题标签 | 可选，Indexer 发现与筛选 |
-| 封面 | 可选，经 Indexer 上传；存储由 `INDEXER_COVER_STORAGE` 选择 **local** 或 **ipfs**（Pin） |
+| Title / description / slug | Display and URL (`/markets/{slug}`) |
+| Distribution type | Poisson / Dirichlet / Normal / Beta |
+| Maturity time | Form input in **selected timezone**; on-chain stores **UTC Unix seconds**; default timezone is browser system timezone |
+| Trading fee rate | 0–500 bps |
+| Feed ID | Oracle metric ID; default may match slug |
+| Ancillary text | Ancillary text; default uses description |
+| Topic tags | Optional; Indexer discovery and filtering |
+| Cover | Optional; uploaded via Indexer; storage via `INDEXER_COVER_STORAGE` chooses **local** or **ipfs** (Pin) |
 
-4. 点击 **「创建市场」**
+4. Click **"Create Market"**
 
-链上一笔交易调用 `create_*_pool_with_feed`，同时创建 **MarketPool** 并注册 **DataFeed**。
+Single on-chain transaction calls `create_*_pool_with_feed`, creating **MarketPool** and registering **DataFeed** simultaneously.
 
-成功后跳转市场详情页；若 Indexer 在跑，元数据会同步到 `GET /v1/markets`。
+After success, redirects to market detail page; if Indexer is running, metadata syncs to `GET /v1/markets`.
 
-### 2.2 前置环境
+### 2.2 Prerequisites
 
-`app/.env.local` 至少需：
+`app/.env.local` requires at minimum:
 
 ```env
 NEXT_PUBLIC_PACKAGE_ID=0x...
@@ -70,163 +72,163 @@ NEXT_PUBLIC_ORACLE_CONFIG_ID=0x...
 NEXT_PUBLIC_SUI_NETWORK=testnet
 ```
 
-当前 Testnet v4 部署 ID 见 [deploy/testnet-v2.json](../deploy/testnet-v2.json)。
+Current Testnet v4 deployment IDs see [deploy/testnet-v2.json](../deploy/testnet-v2.json).
 
-### 2.3 链上入口（脚本 / CLI）
+### 2.3 On-chain Entry (Script / CLI)
 
-与前端等价的核心调用：
+Core calls equivalent to frontend:
 
 ```bash
-# 示例：Poisson + Feed（需 ORACLE_CONFIG_ID、FeedRegistry ID）
+# Example: Poisson + Feed (requires ORACLE_CONFIG_ID, FeedRegistry ID)
 sui client call --package $PKG --module pool --function create_poisson_pool_with_feed \
   --args $ORACLE_CONFIG $FEED_REGISTRY 25 $MATURITY_TS 30 \
   "vector<u8>:MY_FEED_ID" "vector<u8>:规则说明" \
   --gas-budget 150000000
 ```
 
-批量种子市场见 `scripts/deploy-oracle-prophet-testnet.ps1`；单池见 `scripts/seed-testnet.ps1`。
+Batch seed markets: `scripts/deploy-oracle-prophet-testnet.ps1`; single pool: `scripts/seed-testnet.ps1`.
 
 ---
 
-## 3. 第二步：发布加密预测（私密付费）
+## 3. Step 2: Publish Encrypted Prophecy (Private Paid)
 
-加密的是**预言家分析内容**，不是市场本身。
+What is encrypted is **prophet analysis content**, not the market itself.
 
-### 3.1 入口
+### 3.1 Entry
 
-打开 **`/prophet`** → 在 **Prophet 市场选择器** 中选择目标市场（自建池或种子池均可，须 **未结算** 且 **未过 maturity**）。
+Open **`/prophet`** → select target market in **Prophet market selector** (self-created or seed pool; must be **unsettled** and **before maturity**).
 
-### 3.2 两种预测模式
+### 3.2 Two Prophecy Modes
 
-| 模式 | `unlock_price` | 存储 | 可读时机 |
+| Mode | `unlock_price` | Storage | Readable when |
 | --- | --- | --- | --- |
-| **公开练手** | `0` | Indexer **明文** JSON（`idx:` / `ipfs:`） | Commit 后立即可读（`is_public=true`） |
-| **加密付费** | `> 0` | **Seal 加密** → Indexer/IPFS 密文 | 付费解锁 / `lock_time` 后 / audit 后公开 |
+| **Public practice** | `0` | Indexer **plaintext** JSON (`idx:` / `ipfs:`) | Immediately after Commit (`is_public=true`) |
+| **Encrypted paid** | `> 0` | **Seal encrypted** → Indexer/IPFS ciphertext | After paid unlock / after `lock_time` / after audit public |
 
-### 3.3 加密付费的前置门槛
+### 3.3 Prerequisites for Encrypted Paid
 
-链上 `prophet_leaderboard::paid_unlock_eligible`，Commit 时 `unlock_price > 0` 强制校验：
+On-chain `prophet_leaderboard::paid_unlock_eligible`, enforced at Commit when `unlock_price > 0`:
 
-| 条件 | 阈值 |
+| Condition | Threshold |
 | --- | --- |
-| 无作弊 | `cheats = 0` |
-| 最少审计场次 | `total_audited ≥ 3` |
-| Prophet Score | `score_bps ≥ 4000`（40/100） |
+| No cheats | `cheats = 0` |
+| Minimum audited count | `total_audited ≥ 3` |
+| Prophet Score | `score_bps ≥ 4000` (40/100) |
 
-未达标只能发 **`unlock_price = 0`** 公开练手预测，在 `/leaderboard` 积累战绩后再开通付费。
+If not eligible, only **`unlock_price = 0`** public practice prophecies; build track record on `/leaderboard` before enabling paid.
 
-### 3.4 提交加密预测（UI）
+### 3.4 Submit Encrypted Prophecy (UI)
 
-1. 填写 **预测值**（与 Pool 分布类型一致：slot / bucket / tenths）
-2. 填写 **独家分析** 文本
-3. **解锁价 > 0**（如 `1` USDC）
-4. 点击 **「Seal 加密 → Indexer → Commit 私密预测」**
+1. Fill **predicted value** (matches Pool distribution type: slot / bucket / tenths)
+2. Fill **exclusive analysis** text
+3. **Unlock price > 0** (e.g. `1` USDC)
+4. Click **"Seal encrypt → Indexer → Commit private prophecy"**
 
-后台流程：
+Backend flow:
 
 ```
 canonical JSON
   → SealClient.encrypt(seal_id)
-  → POST Indexer /v1/prophecies/blob（local 或 IPFS pin）
+  → POST Indexer /v1/prophecies/blob (local or IPFS pin)
   → commit_private_prophecy(registry, pool, blob_id, seal_id, plaintext_hash, …)
 ```
 
-链上锁定：`predicted_value`、`plaintext_hash`（blake2b256）、`lock_time = pool.maturity_ts`。
+On-chain locks: `predicted_value`, `plaintext_hash` (blake2b256), `lock_time = pool.maturity_ts`.
 
-### 3.5 提交公开练手预测（UI）
+### 3.5 Submit Public Practice Prophecy (UI)
 
-同上，但 **解锁价填 `0`** → Indexer 上传**明文**，链上 `is_public=true`、空 `seal_id`，无需 Seal 解密。
+Same as above, but **unlock price = `0`** → Indexer uploads **plaintext**; on-chain `is_public=true`, empty `seal_id`, no Seal decrypt needed.
 
-### 3.6 订阅者阅读加密预测
+### 3.6 Subscriber Reading Encrypted Prophecy
 
-1. `/prophet` 选择预测 → **解锁**（`unlock_prophecy`，付 USDC）
-2. **Seal 解密**（SessionKey + `seal_approve_prophecy` 链上 gate）
-3. Oracle 结算后 **audit** → 战绩更新、escrow 分账、`is_public=true`
+1. `/prophet` select prophecy → **Unlock** (`unlock_prophecy`, pay USDC)
+2. **Seal decrypt** (SessionKey + `seal_approve_prophecy` on-chain gate)
+3. After Oracle settlement **audit** → track record update, escrow split, `is_public=true`
 
-Seal OR 策略（`seal_access_allowed`）：
+Seal OR policy (`seal_access_allowed`):
 
-| 条件 | 说明 |
+| Condition | Description |
 | --- | --- |
-| A 付费 | `sender ∈ paid_buyers` |
-| B 公开 | `is_public` 或 `now > lock_time` |
+| A Paid | `sender ∈ paid_buyers` |
+| B Public | `is_public` or `now > lock_time` |
 
-详见 [prophet-playbook.md](./prophet-playbook.md)。
+See [prophet-playbook.md](./prophet-playbook.md).
 
 ---
 
-## 4. 端到端流程
+## 4. End-to-End Flow
 
 ```mermaid
 flowchart LR
-    A["/markets/create<br/>建 Pool + Feed"] --> B["/prophet<br/>选市场"]
+    A["/markets/create<br/>Create Pool + Feed"] --> B["/prophet<br/>Select market"]
     B --> C{"unlock_price?"}
-    C -->|0| D["公开预测<br/>Indexer 明文"]
-    C -->|">0 且 paid_unlock_eligible"| E["Seal 加密预测<br/>Indexer/IPFS 密文"]
-    E --> F["订阅者 unlock USDC"]
-    F --> G["Seal 解密"]
-    G --> H["Oracle 结算 → audit"]
+    C -->|0| D["Public prophecy<br/>Indexer plaintext"]
+    C -->|">0 and paid_unlock_eligible"| E["Seal encrypted prophecy<br/>Indexer/IPFS ciphertext"]
+    E --> F["Subscriber unlock USDC"]
+    F --> G["Seal decrypt"]
+    G --> H["Oracle settlement → audit"]
     D --> H
 ```
 
 ---
 
-## 5. 环境检查清单
+## 5. Environment Checklist
 
-| 变量 / 服务 | 用途 |
+| Variable / service | Purpose |
 | --- | --- |
-| `NEXT_PUBLIC_PACKAGE_ID` | 建池、Commit、Unlock、Audit |
-| `NEXT_PUBLIC_ORACLE_CONFIG_ID` | 建池带 Feed |
-| `NEXT_PUBLIC_PROPHET_REGISTRY_ID` | 提交 / 解锁 / 审计预测 |
-| `NEXT_PUBLIC_INDEXER_URL` | **必需**（Prophet blob 上传/读取、市场列表、排行榜） |
-| `NEXT_PUBLIC_IPFS_GATEWAY_URL` | `INDEXER_PROPHET_STORAGE=ipfs` 时解析 `ipfs:` blob |
-| `NEXT_PUBLIC_SEAL_THRESHOLD` | Seal 门限（Testnet 默认 1） |
-| `NEXT_PUBLIC_GAS_STATION_URL` | 可选；练手 Commit 可 Gas 代付 |
-| Indexer + Postgres | Prophet blob、市场元数据、`/leaderboard` |
-| `INDEXER_PROPHET_STORAGE` | Indexer 侧：`local`（磁盘）或 `ipfs`（Pin） |
-| `NEXT_PUBLIC_IPFS_GATEWAY_URL` | `INDEXER_PROPHET_STORAGE=ipfs` 时解析 `ipfs:` blob |
+| `NEXT_PUBLIC_PACKAGE_ID` | Create pool, Commit, Unlock, Audit |
+| `NEXT_PUBLIC_ORACLE_CONFIG_ID` | Create pool with Feed |
+| `NEXT_PUBLIC_PROPHET_REGISTRY_ID` | Submit / unlock / audit prophecy |
+| `NEXT_PUBLIC_INDEXER_URL` | **Required** (Prophet blob upload/read, market list, leaderboard) |
+| `NEXT_PUBLIC_IPFS_GATEWAY_URL` | Resolve `ipfs:` blob when `INDEXER_PROPHET_STORAGE=ipfs` |
+| `NEXT_PUBLIC_SEAL_THRESHOLD` | Seal threshold (Testnet default 1) |
+| `NEXT_PUBLIC_GAS_STATION_URL` | Optional; practice Commit may use gas sponsorship |
+| Indexer + Postgres | Prophet blob, market metadata, `/leaderboard` |
+| `INDEXER_PROPHET_STORAGE` | Indexer side: `local` (disk) or `ipfs` (Pin) |
+| `NEXT_PUBLIC_IPFS_GATEWAY_URL` | Resolve `ipfs:` blob when `INDEXER_PROPHET_STORAGE=ipfs` |
 
-本地 Postgres（不用 Docker）：`.\scripts\bootstrap-local-postgres.ps1` → `.\scripts\start-indexer.ps1`。
+Local Postgres (no Docker): `.\scripts\bootstrap-local-postgres.ps1` → `.\scripts\start-indexer.ps1`.
 
 ---
 
-## 6. 常见误解
+## 6. Common Misconceptions
 
-1. **「加密市场」≠ 新建一种市场类型**  
-   任何带 Feed、未结算的 Pool 均可挂 Prophet；加密发生在预测层。
+1. **"Encrypted market" ≠ new market type**  
+   Any Pool with Feed, unsettled, can host Prophet; encryption happens at prophecy layer.
 
-2. **市场封面与 Prophet blob 均走 Indexer**  
-   封面：`POST /v1/markets/cover`（`INDEXER_COVER_STORAGE=local|ipfs`）。  
-   Prophet：`POST /v1/prophecies/blob`（`INDEXER_PROPHET_STORAGE=local|ipfs`），链上 `blob_id` 为 `idx:…` 或 `ipfs:…`。
+2. **Market cover and Prophet blob both go through Indexer**  
+   Cover: `POST /v1/markets/cover` (`INDEXER_COVER_STORAGE=local|ipfs`).  
+   Prophet: `POST /v1/prophecies/blob` (`INDEXER_PROPHET_STORAGE=local|ipfs`); on-chain `blob_id` is `idx:…` or `ipfs:…`.
 
 3. **EventRoot**  
-   种子市场已通过 `wrap-event-roots-testnet.ps1` 包装 EventRoot；自建市场可直接用 `poolId` Commit，EventRoot 为架构统一项，**非**加密预测前置条件。
+   Seed markets wrapped via `wrap-event-roots-testnet.ps1`; self-created markets can Commit directly with `poolId`. EventRoot is architectural unification, **not** prerequisite for encrypted prophecy.
 
-4. **重新 publish 包后**  
-   须更新 `NEXT_PUBLIC_PACKAGE_ID`；旧 Seal 密文无法被新包 `seal_approve` 解密，需用新包重新 Commit。
-
----
-
-## 7. 最短路径速查
-
-| 目标 | 步骤 |
-| --- | --- |
-| 新建市场 | `/markets/create` → 填表 → 创建 |
-| 公开练手预测 | `/prophet` → 选市场 → 解锁价 `0` → Commit |
-| 加密付费预测 | 先达标（≥3 场 audit、Score≥40）→ `/prophet` → 解锁价 `>0` → Seal Commit |
-| 查看预言家排名 | `/leaderboard` |
-| Oracle 结算 | `/oracle` → propose → finalize → 触发 audit |
+4. **After republishing package**  
+   Must update `NEXT_PUBLIC_PACKAGE_ID`; old Seal ciphertext cannot be decrypted by new package `seal_approve`; re-Commit with new package.
 
 ---
 
-## 8. 相关代码与模块
+## 7. Quick Reference
 
-| 能力 | 路径 |
+| Goal | Steps |
 | --- | --- |
-| 创建市场 UI | `app/src/app/markets/create/page.tsx` |
-| 建池 PTB | `app/src/lib/create-market.ts` |
+| Create market | `/markets/create` → fill form → create |
+| Public practice prophecy | `/prophet` → select market → unlock price `0` → Commit |
+| Encrypted paid prophecy | Meet threshold first (≥3 audits, Score≥40) → `/prophet` → unlock price `>0` → Seal Commit |
+| View prophet rankings | `/leaderboard` |
+| Oracle settlement | `/oracle` → propose → finalize → trigger audit |
+
+---
+
+## 8. Related Code and Modules
+
+| Capability | Path |
+| --- | --- |
+| Create market UI | `app/src/app/markets/create/page.tsx` |
+| Create pool PTB | `app/src/lib/create-market.ts` |
 | Prophet UI | `app/src/app/prophet/page.tsx` |
 | Seal / Indexer blob | `app/src/lib/seal-prophet.ts`, `app/src/lib/prophet-blob.ts`, `app/src/lib/prophet-blob-upload.ts` |
-| 预言工作流 | `app/src/lib/prophet.ts` |
-| 市场可选性 | `app/src/lib/prophet-market-eligibility.ts` |
-| 链上 Commit / Audit | `sources/prophet_registry.move` |
-| 付费门槛 | `sources/prophet_leaderboard.move` |
+| Prophecy workflow | `app/src/lib/prophet.ts` |
+| Market eligibility | `app/src/lib/prophet-market-eligibility.ts` |
+| On-chain Commit / Audit | `sources/prophet_registry.move` |
+| Paid unlock threshold | `sources/prophet_leaderboard.move` |

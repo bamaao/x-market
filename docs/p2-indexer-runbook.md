@@ -11,11 +11,13 @@
   automatically becomes available under the Apache License 2.0.
 -->
 
-# P2 Indexer 完整 Runbook
+**English** | [简体中文](./p2-indexer-runbook.zh.md)
 
-> 非 MVP：Postgres 持久化 + 多 Worker + REST API，覆盖 P2.1–2.5（2.6 UMA DVM 评估见文末）。
+# P2 Indexer Full Runbook
 
-## 架构
+> Not MVP: Postgres persistence + multiple workers + REST API, covering P2.1–2.5 (P2.6 UMA DVM evaluation at end).
+
+## Architecture
 
 ```
 Sui RPC ──► Indexer Workers ──► PostgreSQL ──► REST API (:8800) ──► Next.js
@@ -24,22 +26,22 @@ Sui RPC ──► Indexer Workers ──► PostgreSQL ──► REST API (:8800
               └─ stats-worker     prophet_stats, prophet_stats_history, buyer_roi
 ```
 
-## 数据表
+## Tables
 
-| 表 | 用途 | P2 项 |
+| Table | Purpose | P2 Item |
 |----|------|-------|
-| `markets` | 市场发现（替代 per-pool env） | 2.1 / 2.3 |
-| `feeds` | Oracle DataFeed 索引 | 2.3 |
-| `prophecies` | 预言提交索引 | 2.4 |
-| `prophet_stats` | 排行缓存 | 2.4 |
-| `prophet_stats_history` | 排名变化 | 2.4 |
-| `pool_snapshots` | 池状态时间序列 | 2.1 |
-| `iv_history` | Vol Crush 曲线 | 2.2 |
-| `arbitration_cases` | 争议案件 | 2.5 |
-| `buyer_roi` | 订阅者 ROI | 3.1 预置 |
-| `chain_events` | 原始事件审计 | 2.1 |
+| `markets` | Market discovery (replaces per-pool env) | 2.1 / 2.3 |
+| `feeds` | Oracle DataFeed index | 2.3 |
+| `prophecies` | Prophecy commit index | 2.4 |
+| `prophet_stats` | Leaderboard cache | 2.4 |
+| `prophet_stats_history` | Rank changes | 2.4 |
+| `pool_snapshots` | Pool state time series | 2.1 |
+| `iv_history` | Vol Crush curve | 2.2 |
+| `arbitration_cases` | Dispute cases | 2.5 |
+| `buyer_roi` | Subscriber ROI | 3.1 pre-provisioned |
+| `chain_events` | Raw event audit | 2.1 |
 
-## 启动（Testnet）
+## Startup (Testnet)
 
 ```powershell
 docker compose -f docker-compose.indexer.yml up -d postgres
@@ -49,7 +51,7 @@ docker compose -f docker-compose.indexer.yml up -d postgres
 .\scripts\verify-p2-readiness.ps1
 ```
 
-前端 `app/.env.local`：
+Frontend `app/.env.local`:
 
 ```
 NEXT_PUBLIC_INDEXER_URL=http://localhost:8800
@@ -57,40 +59,40 @@ NEXT_PUBLIC_INDEXER_URL=http://localhost:8800
 
 ## REST API
 
-| 端点 | 说明 |
+| Endpoint | Description |
 |------|------|
-| `GET /health` | 服务与最近同步时间 |
-| `GET /v1/markets` | 市场列表（首页发现） |
-| `GET /v1/markets/:poolId` | 单市场 |
-| `GET /v1/feeds` | Feed 列表 |
-| `GET /v1/prophet/leaderboard?limit=50` | 排行 |
-| `GET /v1/prophet/:addr/stats` | 单人战绩 |
-| `GET /v1/prophet/:addr/history` | Score 历史 |
-| `GET /v1/prophecies?pool_id=&prophet=` | 预言索引 |
-| `GET /v1/pools/:poolId/snapshots` | 池快照 |
+| `GET /health` | Service status and last sync time |
+| `GET /v1/markets` | Market list (home discovery) |
+| `GET /v1/markets/:poolId` | Single market |
+| `GET /v1/feeds` | Feed list |
+| `GET /v1/prophet/leaderboard?limit=50` | Leaderboard |
+| `GET /v1/prophet/:addr/stats` | Individual stats |
+| `GET /v1/prophet/:addr/history` | Score history |
+| `GET /v1/prophecies?pool_id=&prophet=` | Prophecy index |
+| `GET /v1/pools/:poolId/snapshots` | Pool snapshots |
 | `GET /v1/pools/:poolId/iv-history` | IV / Vol Crush |
-| `GET /v1/arbitration/cases?status=&pool_id=` | 争议面板 |
-| `GET /v1/buyer-roi?buyer=` | 跟单 ROI |
-| `GET /v1/events?type=` | 链上事件审计 |
+| `GET /v1/arbitration/cases?status=&pool_id=` | Dispute panel |
+| `GET /v1/buyer-roi?buyer=` | Copy-trade ROI |
+| `GET /v1/events?type=` | On-chain event audit |
 
-## 前端集成
+## Frontend Integration
 
-- 首页 `MarketsGrid`：Indexer → env 回退
-- `/leaderboard`：Indexer 排行 → RPC 回退
-- `IvPanel`：Vol Crush 柱状图（`iv_history`）
+- Home `MarketsGrid`: Indexer → env fallback
+- `/leaderboard`: Indexer leaderboard → RPC fallback
+- `IvPanel`: Vol Crush bar chart (`iv_history`)
 
-## 运维
+## Operations
 
-- 日志：`.run/indexer.log`
-- 迁移：自动于启动时执行 `migrations/*.sql`
-- Checkpoint：`indexer_checkpoints` 表（事件游标）
-- RPC：`SUI_RPC_URL` + `SUI_RPC_URL_FALLBACK`
+- Logs: `.run/indexer.log`
+- Migrations: auto-run on startup from `migrations/*.sql`
+- Checkpoint: `indexer_checkpoints` table (event cursor)
+- RPC: `SUI_RPC_URL` + `SUI_RPC_URL_FALLBACK`
 
-## P2.6 UMA DVM 适配器（已实现）
+## P2.6 UMA DVM Adapter (Implemented)
 
-- Move：`create_uma_dvm_arbitrator` · `UmaDvmArbitrationRequested` · `execute_uma_dvm_arbitration`
-- Relayer：`services/uma-dvm-relayer/`（`mock` / `live`）
-- Indexer：`arbitration_cases.arbitration_adapter`（`builtin` | `uma_dvm`），迁移 `004_uma_dvm.sql`
-- 脚本：`scripts/init-uma-dvm-arbitrator.ps1`
+- Move: `create_uma_dvm_arbitrator` · `UmaDvmArbitrationRequested` · `execute_uma_dvm_arbitration`
+- Relayer: `services/uma-dvm-relayer/` (`mock` / `live`)
+- Indexer: `arbitration_cases.arbitration_adapter` (`builtin` | `uma_dvm`), migration `004_uma_dvm.sql`
+- Script: `scripts/init-uma-dvm-arbitrator.ps1`
 
-争议案件 API 不变；前端 `/oracle` 与 `ArbitrationCasesPanel` 按 adapter 展示流程差异。
+Dispute case API unchanged; frontend `/oracle` and `ArbitrationCasesPanel` show flow differences by adapter.

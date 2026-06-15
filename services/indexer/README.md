@@ -11,38 +11,40 @@
   automatically becomes available under the Apache License 2.0.
 -->
 
-# X-Market Indexer（P2 完整版）
+# X-Market Indexer (P2 Full)
 
-PostgreSQL 链上索引 + REST API，覆盖市场发现、Prophet 排行、IV 曲线、争议案件与订阅者 ROI。
+**English** | [简体中文](./README.zh.md)
 
-## 快速启动
+PostgreSQL on-chain indexer + REST API covering market discovery, Prophet leaderboards, IV curves, dispute cases, and subscriber ROI.
+
+## Quick Start
 
 ```powershell
-# 1. Postgres（Docker）
+# 1. Postgres (Docker)
 docker compose -f docker-compose.indexer.yml up -d postgres
 
-# 2. 配置 + 启动
+# 2. Configure + start
 .\scripts\bootstrap-indexer-env.ps1
 .\scripts\start-indexer.ps1
 .\scripts\verify-indexer-health.ps1
 ```
 
-## 环境变量
+## Environment Variables
 
-见 `.env.example`。关键项：
+See `.env.example`. Key settings:
 
-- `INDEXER_DATABASE_URL` — PostgreSQL 连接串
+- `INDEXER_DATABASE_URL` — PostgreSQL connection string
 - `X_MARKET_PACKAGE_ID` / `PROPHET_REGISTRY_ID` / `ORACLE_CONFIG_ID`
-- `SEED_DEPLOY_JSON` — 种子市场 bootstrap
+- `SEED_DEPLOY_JSON` — seed market bootstrap
 
 ## API
 
-默认 `http://localhost:8800` — 完整端点见 [docs/p2-indexer-runbook.md](../../docs/p2-indexer-runbook.md)。
+Default `http://localhost:8800` — full endpoint list in [docs/p2-indexer-runbook.md](../../docs/p2-indexer-runbook.md).
 
 ## Workers
 
-| Worker | 间隔 | 职责 |
+| Worker | Interval | Responsibility |
 |--------|------|------|
-| event | 15s | ProphecyCommitted、ArbitrationCaseOpened |
-| snapshot | 60s | 池状态、feeds、iv_history |
-| stats | 120s | prophet_stats、buyer_roi、案件刷新 |
+| event | 15s | ProphecyCommitted, ArbitrationCaseOpened |
+| snapshot | 60s | Pool state, feeds, iv_history |
+| stats | 120s | prophet_stats, buyer_roi, case refresh |

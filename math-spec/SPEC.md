@@ -11,99 +11,101 @@
   automatically becomes available under the Apache License 2.0.
 -->
 
-# @x-market/math-spec — Tier 1 链上数学引擎规范
+# @x-market/math-spec — Tier 1 On-Chain Math Engine Specification
 
-> **版本：** v1.0  
-> **日期：** 2026-05-25  
-> **适用范围：** Solana (Anchor) · Sui (Move)  
-> **上级文档：** [../PRD.md](../PRD.md) §3
+**English** | [简体中文](./SPEC.zh.md)
 
-两链必须实现**语义等价**的数学行为。链上程序为唯一真相源；链下 Preview Engine 须通过本 spec 的全部测试向量。
+> **Version:** v1.0  
+> **Date:** 2026-05-25  
+> **Scope:** Solana (Anchor) · Sui (Move)  
+> **Parent doc:** [../PRD.md](../PRD.md) §3
 
----
-
-## 1. 设计原则
-
-1. **有界输入：** 所有函数在调用前必须 `require!` 边界检查，越界则 revert。
-2. **定点数唯一：** 禁止链上浮点；统一使用 `Q32.32`（见 §2）。
-3. **确定性：** 相同输入 → 相同输出，跨链 bit-exact（输出允许 ±1 ULP 容差，见 §2.4）。
-4. **O(1) 优先：** 阶乘、低阶幂次查表；泰勒迭代次数固定上限。
-5. **Oracle 禁止参与 Tier 1 定价：** 本 spec 所有函数纯链上调用。
+Both chains must implement **semantically equivalent** math behavior. On-chain programs are the sole source of truth; off-chain Preview Engine must pass all test vectors in this spec.
 
 ---
 
-## 2. 定点数格式 `Q32.32`
+## 1. Design Principles
 
-### 2.1 表示
+1. **Bounded inputs:** All functions must `require!` boundary checks before invocation; out-of-bounds reverts.
+2. **Fixed-point only:** No floating-point on-chain; uniformly use `Q32.32` (see §2).
+3. **Determinism:** Same input → same output, bit-exact across chains (output allows ±1 ULP tolerance, see §2.4).
+4. **O(1) priority:** Factorials and low-order powers via lookup tables; Taylor iterations have fixed upper bounds.
+5. **Oracle must not participate in Tier 1 pricing:** All functions in this spec are pure on-chain calls.
+
+---
+
+## 2. Fixed-Point Format `Q32.32`
+
+### 2.1 Representation
 
 ```
-类型：无符号 U128（符号场景用 I128 补码，范围见各函数）
-缩放：SCALE = 2^32 = 4_294_967_296
-实值 x 的编码：x_fp = round(x * SCALE)
-精度：~9.3 位十进制小数（满足 10^-9 相对误差目标）
+Type: unsigned U128 (signed scenarios use I128 two's complement; ranges per function)
+Scale: SCALE = 2^32 = 4_294_967_296
+Encoding real value x: x_fp = round(x * SCALE)
+Precision: ~9.3 decimal digits (meets 10^-9 relative error target)
 ```
 
-### 2.2 基本运算
+### 2.2 Basic Operations
 
-| 运算 | 公式 | 注意 |
+| Operation | Formula | Notes |
 | --- | --- | --- |
-| 乘法 | `(a * b) >> 32` | 中间用 U256 / u128  widening |
-| 除法 | `(a << 32) / b` | b = 0 → revert |
-| 加法 / 减法 | 直接 ± | 溢出 → revert |
-| 比较 | 整数比较 | — |
+| Multiply | `(a * b) >> 32` | Intermediate uses U256 / u128 widening |
+| Divide | `(a << 32) / b` | b = 0 → revert |
+| Add / Subtract | Direct ± | Overflow → revert |
+| Compare | Integer compare | — |
 
-### 2.3 常数编码
+### 2.3 Constant Encoding
 
 ```rust
-// 示例：e ≈ 2.718281828459045
+// Example: e ≈ 2.718281828459045
 const E_FP: u128 = 11_734_907_089_846_289_754; // round(e * 2^32)
 
-// π, ln(2) 等同理预计算嵌入
+// π, ln(2), etc. precomputed and embedded likewise
 ```
 
-Solana 使用 `u128` + 手动 widening；Sui 使用 `u128` 或 `u256` 扩展库。**常数 bit 值必须与本 spec 一致。**
+Solana uses `u128` + manual widening; Sui uses `u128` or `u256` extension library. **Constant bit values must match this spec.**
 
-### 2.4 容差
+### 2.4 Tolerance
 
-| 场景 | 容差 |
+| Scenario | Tolerance |
 | --- | --- |
-| 概率输出 P ∈ [0, 1] | `\|P_chain - P_ref\| ≤ 1e-9` |
-| 参数 λ, μ, σ | `\|Δ\| ≤ 1e-8`（绝对） |
-| 跨链对比 | 允许 **±1 ULP**（Q32.32 最低位） |
+| Probability output P ∈ [0, 1] | `\|P_chain - P_ref\| ≤ 1e-9` |
+| Parameters λ, μ, σ | `\|Δ\| ≤ 1e-8` (absolute) |
+| Cross-chain comparison | **±1 ULP** allowed (Q32.32 least significant bit) |
 
 ---
 
-## 3. 静态查表
+## 3. Static Lookup Tables
 
-### 3.1 阶乘表 `FACTORIAL_LUT`
+### 3.1 Factorial Table `FACTORIAL_LUT`
 
-`FACTORIAL[n] = n!`，n = 0..14，Q32.32 编码：
+`FACTORIAL[n] = n!`, n = 0..14, Q32.32 encoded:
 
-| n | n! (实值) | 用途 |
+| n | n! (real value) | Use |
 | --- | --- | --- |
-| 0 | 1 | 泊松、泰勒 |
+| 0 | 1 | Poisson, Taylor |
 | 1 | 1 | |
 | … | … | |
-| 14 | 87,178,291,200 | 上限兜底 |
+| 14 | 87,178,291,200 | Upper bound fallback |
 
-**链上：** 只读静态数组，长度 15，编译期嵌入。
+**On-chain:** Read-only static array, length 15, embedded at compile time.
 
-### 3.2 整数幂 LUT `POW_LUT`
+### 3.2 Integer Power LUT `POW_LUT`
 
-预计算 `λ^k / k!` 的泰勒项分母，或按需 `λ^k` 用快速幂（k ≤ 14，最多 4 次平方）。
+Precompute Taylor term denominators `λ^k / k!`, or compute `λ^k` on demand via fast exponentiation (k ≤ 14, at most 4 squarings).
 
-**推荐：** 泰勒展开内联计算 `λ^n / n!`，n = 0..8，用 `FACTORIAL_LUT[n]` 作除数。
+**Recommended:** Inline Taylor expansion computing `λ^n / n!`, n = 0..8, using `FACTORIAL_LUT[n]` as divisor.
 
-### 3.3 指数 `exp_neg(λ)` — 预计算 LUT（推荐）
+### 3.3 Exponential `exp_neg(λ)` — Precomputed LUT (recommended)
 
-Taylor 8 阶在 λ=8 时误差仍 > 1e-3，**不满足**全区间 $10^{-9}$ 要求。生产环境对 $\lambda \in [0, 8]$ 使用**静态 LUT**：
+Taylor 8th order at λ=8 still has error > 1e-3, **not meeting** full-interval $10^{-9}$ requirement. Production uses **static LUT** for $\lambda \in [0, 8]$:
 
-| 属性 | 值 |
+| Property | Value |
 | --- | --- |
-| 步长 | 0.01 |
-| 格点数 | 801（索引 0..800） |
-| 编码 | `EXP_NEG_LUT[i] = round(e^{-i/100} * SCALE)` |
-| 查询 | `i = round(λ * 100)`，可选线性插值 |
+| Step size | 0.01 |
+| Grid points | 801 (index 0..800) |
+| Encoding | `EXP_NEG_LUT[i] = round(e^{-i/100} * SCALE)` |
+| Lookup | `i = round(λ * 100)`, optional linear interpolation |
 
 ```rust
 fn exp_neg(λ_fp: u128) -> u128 {
@@ -112,23 +114,23 @@ fn exp_neg(λ_fp: u128) -> u128 {
 }
 ```
 
-**可选（低 λ 省空间）：** λ ≤ 3 时用 Taylor 14 阶（误差 < 1e-9），λ > 3 走 LUT——两链须择一并在 spec 测试向量中覆盖。
+**Optional (save space at low λ):** Use Taylor 14th order when λ ≤ 3 (error < 1e-9), LUT when λ > 3 — both chains must pick one and cover in spec test vectors.
 
-**禁止：** 仅用 8 阶 Taylor 覆盖全区间 [0, 8]。
+**Forbidden:** Using only 8th-order Taylor across full interval [0, 8].
 
 ---
 
-## 4. Poisson 分布
+## 4. Poisson Distribution
 
-### 4.1 边界
+### 4.1 Bounds
 
-| 参数 | 范围 | 说明 |
+| Parameter | Range | Notes |
 | --- | --- | --- |
-| `λ` | [0, 8] | 预期进球数；Q32.32 |
-| `k` | [0, 14] | 离散结果 |
-| `a, b` | 整数区间 | 区间概率 P(a ≤ X ≤ b) |
+| `λ` | [0, 8] | Expected goals; Q32.32 |
+| `k` | [0, 14] | Discrete outcome |
+| `a, b` | Integer interval | Interval probability P(a ≤ X ≤ b) |
 
-### 4.2 点质量
+### 4.2 Point Mass
 
 $$
 P(X = k) = \frac{\lambda^k e^{-\lambda}}{k!}
@@ -148,7 +150,7 @@ poisson_pmf(λ_fp, k: u8) -> u128:
   return (num << 32) / fact_k
 ```
 
-### 4.3 区间概率
+### 4.3 Interval Probability
 
 ```
 poisson_interval(λ_fp, a: u8, b: u8) -> u128:
@@ -160,23 +162,23 @@ poisson_interval(λ_fp, a: u8, b: u8) -> u128:
   return min(sum, ONE_FP)
 ```
 
-### 4.4 尾部概率
+### 4.4 Tail Probability
 
 ```
 poisson_tail(λ_fp, k_min: u8) -> u128:   // P(X >= k_min)
   return ONE_FP - poisson_interval(λ_fp, 0, k_min - 1)
 ```
 
-### 4.5 参数更新（买入「大球」）
+### 4.5 Parameter Update (buying "over")
 
-用户支付 `amount_usdc`，购买区间 [a, b]。目标：找到新 λ' 使得：
+User pays `amount_usdc`, buying interval [a, b]. Goal: find new λ' such that:
 
 ```
 poisson_interval(λ', a, b) = target_prob
-target_prob = f(amount, pool_state)   // 由 AMM 不变量决定
+target_prob = f(amount, pool_state)   // determined by AMM invariant
 ```
 
-**算法：** 有界二分搜索（max 32 步）或牛顿迭代（max 5 步 + 回退二分）。
+**Algorithm:** Bounded binary search (max 32 steps) or Newton iteration (max 5 steps + fallback to binary).
 
 ```
 update_lambda_buy(λ_fp, a, b, delta_prob_fp) -> λ_new_fp:
@@ -186,45 +188,45 @@ update_lambda_buy(λ_fp, a, b, delta_prob_fp) -> λ_new_fp:
   return λ_new
 ```
 
-**Newton（可选加速，须 fallback 二分）：**
+**Newton (optional acceleration, must fallback to binary):**
 
 ```
 f(λ) = poisson_interval(λ, a, b) - target
-f'(λ) ≈ [f(λ+ε) - f(λ-ε)] / (2ε)   // 数值导数，ε = 1e-6
-λ ← λ - f/f'，clamp [0, 8]，最多 5 步
+f'(λ) ≈ [f(λ+ε) - f(λ-ε)] / (2ε)   // numerical derivative, ε = 1e-6
+λ ← λ - f/f', clamp [0, 8], max 5 steps
 ```
 
 ### 4.6 Max-Loss Bounded Checking
 
-每笔 Poisson 区间买入前，链上计算**单点最坏情景**下总赔付：
+Before each Poisson interval buy, on-chain computes **worst-case single-point** total payout:
 
 ```
-payout_i = stake * 1e9 / entry_prob_ppb   // 数字期权式
+payout_i = stake * 1e9 / entry_prob_ppb   // digital-option style
 liability(k) = Σ payout_i  for all open positions covering outcome k
 require max_k liability(k) ≤ vault + incoming_stake
 ```
 
-- `liability_by_k` 长度 15（k ∈ [0,14]），每笔成交后累加
-- 违反则 revert `MaxLossExceeded`
+- `liability_by_k` length 15 (k ∈ [0,14]), accumulated after each trade
+- Violation reverts `MaxLossExceeded`
 
-### 4.7 追加流动性（全局缩放）
+### 4.7 Additional Liquidity (Global Scaling)
 
-**Dirichlet：** $\alpha'_i = \alpha_i \cdot (V_{\text{after}} / V_{\text{before}})$，$p_i$ 不变。
+**Dirichlet:** $\alpha'_i = \alpha_i \cdot (V_{\text{after}} / V_{\text{before}})$, $p_i$ unchanged.
 
-**Poisson：** MVP 阶段追加 USDC **不改变** $\lambda$（仅增厚 Vault / Max-Loss 容量）；浓度参数缩放公式 Phase 2 定稿。
+**Poisson:** MVP phase adding USDC **does not change** $\lambda$ (only thickens Vault / Max-Loss capacity); concentration scaling formula finalized in Phase 2.
 
 ---
 
-## 5. Dirichlet 分布
+## 5. Dirichlet Distribution
 
-### 5.1 边界
+### 5.1 Bounds
 
-| 参数 | 范围 |
+| Parameter | Range |
 | --- | --- |
-| `α_i` | [α_min, α_max] = [1e-6, 1e12]（Q32.32） |
-| 类别数 `K` | [2, 16] |
+| `α_i` | [α_min, α_max] = [1e-6, 1e12] (Q32.32) |
+| Categories `K` | [2, 16] |
 
-### 5.2 概率
+### 5.2 Probability
 
 $$
 p_i = \frac{\alpha_i}{\sum_j \alpha_j}
@@ -237,106 +239,106 @@ dirichlet_prob(alphas: &[u128], i: usize) -> u128:
   return (alphas[i] << 32) / sum
 ```
 
-### 5.3 浓度参数（「波动率」代理）
+### 5.3 Concentration Parameter ("volatility" proxy)
 
 ```
 concentration = sum(alphas)
 ```
 
-- 浓度越高 → 单笔交易对 p_i 冲击越小
-- 前端 IV 代理：`vol_proxy = 1 / concentration`
+- Higher concentration → smaller per-trade impact on p_i
+- Frontend IV proxy: `vol_proxy = 1 / concentration`
 
-### 5.4 参数更新（买入类别 i）
+### 5.4 Parameter Update (buy category i)
 
 ```
 update_dirichlet_buy(alphas, i, stake_fp) -> alphas':
   alphas'[i] = alphas[i] + stake_fp * CONCENTRATION_SCALE
-  // stake_fp 与 USDC 数量线性映射，系数由池子 fee 模型决定
+  // stake_fp linearly maps to USDC amount; coefficient from pool fee model
   return alphas'
 ```
 
-**无迭代：** Dirichlet 更新为解析加法，O(K)。
+**No iteration:** Dirichlet update is analytic addition, O(K).
 
 ---
 
-## 6. Normal 分布（有界 Tier 1）
+## 6. Normal Distribution (Bounded Tier 1)
 
-### 6.1 边界（创建市场时声明，写入 Pool）
+### 6.1 Bounds (declared at market creation, stored in Pool)
 
-| 参数 | 默认范围 |
+| Parameter | Default range |
 | --- | --- |
-| `μ` | [μ_min, μ_max] 由 market 配置 |
-| `σ` | [σ_min, σ_max]，建议 σ ∈ [0.001, 100] |
+| `μ` | [μ_min, μ_max] per market config |
+| `σ` | [σ_min, σ_max], recommend σ ∈ [0.001, 100] |
 
-### 6.2 CDF — 误差函数泰勒
+### 6.2 CDF — Error Function Taylor
 
 $$
 \Phi(x) = \frac{1}{2}\left(1 + \mathrm{erf}\left(\frac{x-\mu}{\sigma\sqrt{2}}\right)\right)
 $$
 
-**erf 近似（Abramowitz & Stegun 7.1.26，或 9 阶泰勒）：**
+**erf approximation (Abramowitz & Stegun 7.1.26, or 9th-order Taylor):**
 
 ```
 erf(z_fp) -> u128:
-  // |z| <= 6 时有效；超出则 ±1
-  // 使用 Horner 法多项式，系数见 test-vectors.json constants.erf_coeffs
+  // valid when |z| <= 6; beyond that ±1
+  // use Horner polynomial; coefficients in test-vectors.json constants.erf_coeffs
 ```
 
-### 6.3 区间概率
+### 6.3 Interval Probability
 
 ```
 normal_interval(μ_fp, σ_fp, a_fp, b_fp) -> u128:
   za = (a_fp - μ_fp) / σ_fp / SQRT2_FP
   zb = (b_fp - μ_fp) / σ_fp / SQRT2_FP
-  return (erf(zb) - erf(za) + 2*ONE_FP) >> 1   // 归一化到 [0,1]
+  return (erf(zb) - erf(za) + 2*ONE_FP) >> 1   // normalized to [0,1]
 ```
 
-**备选（Gas 更优）：** 预计算 `(μ, σ)` 离散格点 CDF 二维 LUT，创建市场时选定格点密度；Phase 1 先用泰勒，压测后切换。
+**Alternative (better Gas):** Precompute 2D CDF LUT on discrete `(μ, σ)` grid; grid density chosen at market creation; Phase 1 uses Taylor first, switch after benchmark.
 
-### 6.4 参数更新
+### 6.4 Parameter Update
 
-- **方向性（买 [a,b]）：** 增大 μ 向区间中心偏移 + 可选 σ 微调，二分/牛顿同 Poisson。
-- **Straddle（买两极）：** 增大 σ，μ 不变；`σ_new = σ + f(stake)` 解析或 1D 搜索。
+- **Directional (buy [a,b]):** Increase μ toward interval center + optional σ tweak; binary/Newton same as Poisson.
+- **Straddle (buy extremes):** Increase σ, μ unchanged; `σ_new = σ + f(stake)` analytic or 1D search.
 
 ---
 
-## 7. Beta 分布（有限比例，Phase 1 可选）
+## 7. Beta Distribution (Bounded Proportion, Phase 1 Optional)
 
-| 参数 | 范围 |
+| Parameter | Range |
 | --- | --- |
 | `α, β` | [1e-4, 1e6] |
-| 支持 x | [0, 1] |
+| Support x | [0, 1] |
 
-**MVP 简化：** 用 Dirichlet(α, β) 二分类近似，或预计算 `(α, β, x)` 三维 LUT 子集。
+**MVP simplification:** Approximate with Dirichlet(α, β) two-class, or precompute subset of 3D LUT `(α, β, x)`.
 
-完整 Beta CDF 链上实现标记为 **Phase 1.5**，不阻塞 Poisson/Dirichlet/Normal 上线。
+Full Beta CDF on-chain marked **Phase 1.5**, does not block Poisson/Dirichlet/Normal launch.
 
 ---
 
-## 8. 市场类型 → 函数映射
+## 8. Market Type → Function Mapping
 
-| 市场类型 | 分布 | 定价函数 | 更新函数 |
+| Market type | Distribution | Pricing function | Update function |
 | --- | --- | --- | --- |
-| 足球进球 | Poisson | `poisson_interval` / `poisson_tail` | `update_lambda_buy` |
-| 胜平负 | Dirichlet | `dirichlet_prob` | `update_dirichlet_buy` |
+| Football goals | Poisson | `poisson_interval` / `poisson_tail` | `update_lambda_buy` |
+| Win/draw/loss | Dirichlet | `dirichlet_prob` | `update_dirichlet_buy` |
 | CPI / TPS | Normal | `normal_interval` | `update_normal_mu` / `update_normal_sigma` |
-| 得票率 | Beta / Dirichlet | 同上 | 同上 |
+| Vote share | Beta / Dirichlet | Same as above | Same as above |
 
 ---
 
-## 9. 复合事件（MVP）
+## 9. Composite Events (MVP)
 
-**独立池 + 联合展示 API（链下 Indexer）：**
+**Independent pools + joint display API (off-chain Indexer):**
 
 ```
 P(Win AND goals > 2.5) ≈ p_win * poisson_tail(λ, 3)
 ```
 
-链上**不**实现联合 PDF；前端/Indexer 分别读取两个 Pool 状态后乘法合成，标注「独立假设」。
+On-chain **does not** implement joint PDF; frontend/Indexer reads two Pool states separately and multiplies, labeled "independence assumption".
 
 ---
 
-## 10. 链上集成接口
+## 10. On-Chain Integration Interface
 
 ### 10.1 Solana (Rust)
 
@@ -361,14 +363,14 @@ module x_market::normal { public fun interval(...): u128 }
 
 ---
 
-## 11. 测试要求
+## 11. Testing Requirements
 
-1. **单元测试：** 每个公开函数覆盖边界、典型、极端值。
-2. **跨链一致性：** 同一输入，Solana 与 Sui 输出差 ≤ 1 ULP。
-3. **Reference 实现：** `math-spec/reference/` Rust crate，f64 双精度对照。
-4. **CI：** 修改 math 模块须跑全量 `test-vectors.json`。
+1. **Unit tests:** Each public function covers boundary, typical, extreme values.
+2. **Cross-chain consistency:** Same input, Solana vs Sui output diff ≤ 1 ULP.
+3. **Reference implementation:** `math-spec/reference/` Rust crate, f64 double-precision reference.
+4. **CI:** Math module changes must run full `test-vectors.json`.
 
-运行 reference 验证（待实现 crate 后）：
+Run reference verification (after crate implementation):
 
 ```bash
 cd math-spec/reference
@@ -378,30 +380,30 @@ cargo run --bin verify_vectors -- ../test-vectors.json
 
 ---
 
-## 12. 性能预算
+## 12. Performance Budget
 
-| 操作 | Solana CU 目标 | Sui Gas 目标 |
+| Operation | Solana CU target | Sui Gas target |
 | --- | --- | --- |
-| `exp_neg_lut` 单次 | < 500 | 基准后填 |
-| `poisson_pmf` 单次 | < 3,000 | 基准后填 |
-| `poisson_interval` (width≤5) | < 12,000 | 基准后填 |
-| `update_lambda_buy` | < 80,000 | 基准后填 |
-| `dirichlet_prob` (K=3) | < 2,000 | 基准后填 |
-| `normal_interval` | < 25,000 | 基准后填 |
+| `exp_neg_lut` single | < 500 | TBD after benchmark |
+| `poisson_pmf` single | < 3,000 | TBD after benchmark |
+| `poisson_interval` (width≤5) | < 12,000 | TBD after benchmark |
+| `update_lambda_buy` | < 80,000 | TBD after benchmark |
+| `dirichlet_prob` (K=3) | < 2,000 | TBD after benchmark |
+| `normal_interval` | < 25,000 | TBD after benchmark |
 
-超出预算 → 优化 LUT 或减迭代次数（须重新验证精度）。
+Exceeding budget → optimize LUT or reduce iterations (must re-verify precision).
 
 ---
 
-## 13. 文档索引
+## 13. Document Index
 
-| 文件 | 说明 |
+| File | Description |
 | --- | --- |
-| [SPEC.md](./SPEC.md) | 本规范 |
-| [test-vectors.json](./test-vectors.json) | 跨链测试向量 |
-| [../PRD.md](../PRD.md) | 产品总纲 |
-| [../qa.md](../qa.md) | 技术调研 |
+| [SPEC.md](./SPEC.md) | This specification |
+| [test-vectors.json](./test-vectors.json) | Cross-chain test vectors |
+| [../PRD.md](../PRD.md) | Product overview |
+| [../docs/qa.md](../docs/qa.md) | Technical research |
 
 ---
 
-*两链独立部署，数学行为必须等价。*
+*Both chains deploy independently; math behavior must be equivalent.*

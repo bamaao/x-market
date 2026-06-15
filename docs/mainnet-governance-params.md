@@ -11,109 +11,111 @@
   automatically becomes available under the Apache License 2.0.
 -->
 
-# X-Market Sui 主网治理参数基线（签字版）
+**English** | [简体中文](./mainnet-governance-params.zh.md)
 
-> **用途：** P0.6 上线前一次性确认；双人复核后在本表签字。  
-> **机器可读基线：** [governance-params-baseline.json](./governance-params-baseline.json)  
-> **签字记录：** [governance-params-signoff.md](./governance-params-signoff.md)  
-> **自动校验：** `.\scripts\verify-governance-params.ps1`
+# X-Market Sui Mainnet Governance Parameter Baseline (Sign-off Edition)
+
+> **Purpose:** One-time confirmation before P0.6 launch; dual review and sign-off on this table.  
+> **Machine-readable baseline:** [governance-params-baseline.json](./governance-params-baseline.json)  
+> **Sign-off record:** [governance-params-signoff.md](./governance-params-signoff.md)  
+> **Automated verification:** `.\scripts\verify-governance-params.ps1`
 
 ---
 
-## 1. LP Guard（`lp_guard.move` / `pool::set_lp_guard_params`）
+## 1. LP Guard (`lp_guard.move` / `pool::set_lp_guard_params`)
 
-| 参数 | Testnet 实测 | 主网确认值 | 链上/链下字段 |
+| Parameter | Testnet measured | Mainnet confirmed value | On-chain / off-chain field |
 |------|--------------|------------|---------------|
-| 基础费率 | 30 bps（联调） | **200 bps** | `fee_bps`（建池时） |
-| 费率乘数上限 | 30000 | **30000** | `LP_GUARD_MAX_FEE_MULTIPLIER_BPS` |
-| 有效费率上限 | 800 bps | **800 bps** | Keeper 计算封顶 |
-| 虚拟 σ 上限 | 20 | **20** | `sigma_virtual_tenths` |
-| 虚拟浓度上限 | 50 | **50** | `concentration_virtual` |
-| 申购截止 | 0（未设） | **1000 bps** | `deposit_cutoff_bps` |
-| 结算时间锁 | 0（未设） | **86400 s** | `resolution_window_ts` |
-| Keeper 轮询 | 30s | **30s** | `LP_GUARD_POLL_MS` |
-| 衰减系数 | 0.85 | **0.85** | `LP_GUARD_DECAY_FACTOR` |
-| 更新阈值 | 200 bps | **200 bps** | `LP_GUARD_UPDATE_THRESHOLD_BPS` |
+| Base fee rate | 30 bps (integration) | **200 bps** | `fee_bps` (at pool creation) |
+| Fee multiplier cap | 30000 | **30000** | `LP_GUARD_MAX_FEE_MULTIPLIER_BPS` |
+| Effective fee cap | 800 bps | **800 bps** | Keeper computed cap |
+| Virtual σ cap | 20 | **20** | `sigma_virtual_tenths` |
+| Virtual concentration cap | 50 | **50** | `concentration_virtual` |
+| Deposit cutoff | 0 (unset) | **1000 bps** | `deposit_cutoff_bps` |
+| Settlement timelock | 0 (unset) | **86400 s** | `resolution_window_ts` |
+| Keeper poll interval | 30s | **30s** | `LP_GUARD_POLL_MS` |
+| Decay factor | 0.85 | **0.85** | `LP_GUARD_DECAY_FACTOR` |
+| Update threshold | 200 bps | **200 bps** | `LP_GUARD_UPDATE_THRESHOLD_BPS` |
 
-**签字：** _______________ 日期：________  
-**复核：** _______________ 日期：________
+**Sign-off:** _______________ Date:________  
+**Review:** _______________ Date:________
 
 ---
 
-## 2. Slash 治理（`slash.move`）
+## 2. Slash Governance (`slash.move`)
 
-| 参数 | 链上常量 | 主网确认值 |
+| Parameter | On-chain constant | Mainnet confirmed value |
 |------|----------|------------|
 | Timelock | 1800 s | **1800 s** |
-| 单次扣减上限 | 3000 bps (30%) | **30%** |
-| 周期累计上限 | 5000 bps (50%) | **50%** |
-| 提案 TTL | 86400 s | **86400 s** |
-| 多签 `SlashGovernance` | 可选 | **启用** |
+| Single deduction cap | 3000 bps (30%) | **30%** |
+| Period cumulative cap | 5000 bps (50%) | **50%** |
+| Proposal TTL | 86400 s | **86400 s** |
+| Multisig `SlashGovernance` | Optional | **Enabled** |
 
-**签字：** _______________ 日期：________  
-**复核：** _______________ 日期：________
+**Sign-off:** _______________ Date:________  
+**Review:** _______________ Date:________
 
 ---
 
-## 3. ZK Coprocessor（`zk_coprocessor.move`）
+## 3. ZK Coprocessor (`zk_coprocessor.move`)
 
-| 参数 | 链上常量 | 主网确认值 |
+| Parameter | On-chain constant | Mainnet confirmed value |
 |------|----------|------------|
-| Challenge 窗口 | 3600 s | **3600 s** |
-| Finalize 策略 | 窗口结束后触发 | **协议运营 on-call** 负责 `finalize_verification` |
+| Challenge window | 3600 s | **3600 s** |
+| Finalize policy | Trigger after window ends | Protocol ops on-call responsible for `finalize_verification` |
 
-**签字：** _______________ 日期：________  
-**复核：** _______________ 日期：________
+**Sign-off:** _______________ Date:________  
+**Review:** _______________ Date:________
 
 ---
 
-## 4. Macro Data Oracle（`macro_oracle.move`）
+## 4. Macro Data Oracle (`macro_oracle.move`)
 
-| 参数 | Testnet 链上 | 主网确认值 |
+| Parameter | Testnet on-chain | Mainnet confirmed value |
 |------|--------------|------------|
-| 最低押金 | 10_000_000 (10 USDC) | **10 USDC** |
-| 争议窗口 | 86400 s | **86400 s (24h)** |
-| 终裁 | `oracle_arbitrator` 多签 | **主网：内置委员会**；P2 评估 UMA DVM |
+| Minimum bond | 10_000_000 (10 USDC) | **10 USDC** |
+| Dispute window | 86400 s | **86400 s (24h)** |
+| Final arbitration | `oracle_arbitrator` multisig | **Mainnet: built-in committee**; P2 evaluate UMA DVM |
 
-**签字：** _______________ 日期：________  
-**复核：** _______________ 日期：________
+**Sign-off:** _______________ Date:________  
+**Review:** _______________ Date:________
 
 ---
 
-## 5. SuiProphet（`prophet_registry` / `prophet_leaderboard`）
+## 5. SuiProphet (`prophet_registry` / `prophet_leaderboard`)
 
-| 参数 | 链上常量 | 主网确认值 |
+| Parameter | On-chain constant | Mainnet confirmed value |
 |------|----------|------------|
-| 协议费 | 500 bps (5%) | **5%** |
-| 付费开通最少审计 | 3 | **3** |
-| 付费开通最低 Score | 4000 bps | **40/100** |
-| 截止前关闭付费 | 300 s | **lock_time − 5 min** |
-| 作弊上限（付费） | 0 | **0** |
+| Protocol fee | 500 bps (5%) | **5%** |
+| Minimum audits for paid unlock | 3 | **3** |
+| Minimum Score for paid unlock | 4000 bps | **40/100** |
+| Close paid unlock before deadline | 300 s | **lock_time − 5 min** |
+| Cheat cap (paid) | 0 | **0** |
 
-**签字：** _______________ 日期：________  
-**复核：** _______________ 日期：________
+**Sign-off:** _______________ Date:________  
+**Review:** _______________ Date:________
 
 ---
 
-## 6. Gas Station（链下）
+## 6. Gas Station (off-chain)
 
-| 参数 | Testnet 预发 | 主网确认值 |
+| Parameter | Testnet pre-release | Mainnet confirmed value |
 |------|--------------|------------|
-| 赞助限流 / 地址 / 分钟 | 30 | **30** |
-| Gas 余额告警 | 500_000_000 mist | **0.5 SUI** |
-| 生产包 ID 校验 | 已启用 | **必须** |
-| CORS | `http://localhost:3000` | **生产前端域名**（主网填写） |
+| Sponsorship rate limit / address / minute | 30 | **30** |
+| Gas balance alert | 500_000_000 mist | **0.5 SUI** |
+| Production package ID validation | Enabled | **Required** |
+| CORS | `http://localhost:3000` | **Production frontend domain** (fill in for mainnet) |
 
-**签字：** _______________ 日期：________  
-**复核：** _______________ 日期：________
+**Sign-off:** _______________ Date:________  
+**Review:** _______________ Date:________
 
 ---
 
-## 7. 确认清单
+## 7. Confirmation Checklist
 
-- [x] 上表「主网确认值」已填写
-- [x] `governance-params-baseline.json` 已生成
-- [x] `verify-governance-params.ps1` 通过（16/16）
-- [ ] 与 `mainnet-readiness-checklist.md` §3 一致
-- [ ] 双人复核签字（见 [governance-params-signoff.md](./governance-params-signoff.md)）
-- [ ] 扫描件归档至内部存储（非 git）
+- [x] "Mainnet confirmed value" column filled in above
+- [x] `governance-params-baseline.json` generated
+- [x] `verify-governance-params.ps1` passed (16/16)
+- [ ] Consistent with `mainnet-readiness-checklist.md` §3
+- [ ] Dual review sign-off (see [governance-params-signoff.md](./governance-params-signoff.md))
+- [ ] Scanned copies archived to internal storage (not git)

@@ -11,146 +11,148 @@
   automatically becomes available under the Apache License 2.0.
 -->
 
-# X-Market Sui Phase 3 操作手册
+**English** | [简体中文](./phase3-playbook.zh.md)
 
-本文用于在 **Sui Testnet** 上跑通 Phase 3 的新增能力：
+# X-Market Sui Phase 3 Playbook
 
-- Tier-2 ZK 协处理接口（`zk_coprocessor`）
-- Slash 风控处置（`slash`）
-- 结构化票据篮子（Variance / Structured / Range / Barrier）
+This guide walks through Phase 3 capabilities on **Sui Testnet**:
 
----
-
-## 1. 前置条件
-
-- 已完成 Phase 1.5 与 Phase 2 部署流程
-- 当前 `PACKAGE_ID` 为包含 Phase 3 代码的新包
-- 钱包中有 USDC 与足够 SUI Gas
-- 管理员地址持有 `AdminCap`
+- Tier-2 ZK coprocessor interface (`zk_coprocessor`)
+- Slash risk controls (`slash`)
+- Structured note basket (Variance / Structured / Range / Barrier)
 
 ---
 
-## 2. 发布与升级
+## 1. Prerequisites
 
-在仓库根目录执行：
+- Phase 1.5 and Phase 2 deployment complete
+- Current `PACKAGE_ID` is a package containing Phase 3 code
+- Wallet has USDC and enough SUI gas
+- Admin address holds `AdminCap`
+
+---
+
+## 2. Publish and upgrade
+
+From repository root:
 
 ```powershell
 sui move build
 sui client publish --gas-budget 500000000
 ```
 
-记录：
+Record:
 
 - `Package ID`
 - `GlobalConfig`
 - `AdminCap`
 
-并更新前端环境变量：
+Update frontend env:
 
 ```env
-NEXT_PUBLIC_PACKAGE_ID=0x你的Phase3包ID
+NEXT_PUBLIC_PACKAGE_ID=0xYourPhase3PackageId
 NEXT_PUBLIC_SUI_NETWORK=testnet
 NEXT_PUBLIC_SUI_CLOCK=0x6
 ```
 
 ---
 
-## 3. 结构化票据交易（前端）
+## 3. Structured note trading (frontend)
 
-进入任意 Normal 市场页面（例如 `/markets/normal-cpi`），在交易面板「合约类型」可选择：
+On any Normal market (e.g. `/markets/normal-cpi`), **Contract type** in the trade panel:
 
 1. **Variance Swap**
-   - 参数：`K`
-   - 收益：与 `(X-K)^2` 成正比，尾部波动敏感
+   - Param: `K`
+   - Payoff: proportional to `(X-K)^2`, tail-volatility sensitive
 
-2. **Structured Note（封顶看涨）**
-   - 参数：`K`、`C`
-   - 收益：`min(max(X-K, 0), C-K)`
-   - 约束：`C > K`
+2. **Structured Note (capped call)**
+   - Params: `K`, `C`
+   - Payoff: `min(max(X-K, 0), C-K)`
+   - Constraint: `C > K`
 
-3. **Range Note（区间票息）**
-   - 参数：`L`、`U`
-   - 收益：当 `X ∈ [L,U]` 支付固定票息
-   - 约束：`U >= L`
+3. **Range Note (range coupon)**
+   - Params: `L`, `U`
+   - Payoff: fixed coupon when `X ∈ [L,U]`
+   - Constraint: `U >= L`
 
-4. **Barrier Note（障碍票息）**
-   - 参数：`B`
-   - 收益：当 `X >= B` 支付固定票息
+4. **Barrier Note (barrier coupon)**
+   - Param: `B`
+   - Payoff: fixed coupon when `X >= B`
 
 ---
 
-## 4. ZK 协处理接口（链上，Phase 3.1 增强）
+## 4. ZK coprocessor interface (on-chain, Phase 3.1 enhanced)
 
-模块：`x_market::zk_coprocessor`
+Module: `x_market::zk_coprocessor`
 
-> **产品决策：** 主网前不启用 Tier 2 联合 PDF 交易路径；本模块保留为接口占位。详见 [tier2-decision.md](./tier2-decision.md)。
+> **Product decision:** Tier 2 joint PDF trading is not enabled before mainnet; module remains interface placeholder. See [tier2-decision.md](./tier2-decision.md).
 
-> 当前版本为 **Attestation + 挑战约束过渡层**：链上仍不直接执行 Groth16/Plonk 数学验算，
-> 但已支持 `proof_scheme_code`、验证委员会阈值确认、挑战证据哈希与挑战裁决流程。
+> Current version is **Attestation + challenge-constraint transition layer**: on-chain does not run Groth16/Plonk math verification,
+> but supports `proof_scheme_code`, verifier committee threshold attestation, challenge evidence hash, and challenge resolution.
 
-### 4.1 提交证明哈希
+### 4.1 Submit proof hash
 
-- 入口：`submit_proof(pool, proof_hash, clock)`
-- 结果：用户钱包收到 `ZkProofTicket`（owned object）
+- Entry: `submit_proof(pool, proof_hash, clock)`
+- Result: wallet receives `ZkProofTicket` (owned object)
 
-### 4.2 管理员验证证明（兼容路径）
+### 4.2 Admin verify proof (compat path)
 
-- 入口：`verify_proof(config, cap, pool, ticket, status_code, clock)`
-- `status_code`：
+- Entry: `verify_proof(config, cap, pool, ticket, status_code, clock)`
+- `status_code`:
   - `1` = accepted
   - `2` = rejected
   - `3` = challenged
-- 结果：生成共享对象 `ZkVerification`（初始为 `finalized=false`，默认挑战窗口 3600 秒）
+- Result: shared `ZkVerification` (`finalized=false`, default challenge window 3600 s)
 
-### 4.2.1 委员会阈值验证（推荐）
+### 4.2.1 Committee threshold verification (recommended)
 
-- 初始化策略：`init_verifier_policy(config, cap, signers, threshold, ctx)`
-- 更新策略：`update_verifier_policy(config, cap, policy, signers, threshold, ctx)`
-- 首次验证：`verify_proof_with_policy(policy, pool, ticket, status_code, proof_scheme_code, public_inputs_hash, clock, ctx)`
-- 附加见证：`attest_verification(policy, verification, ctx)`
-- 说明：
-  - `proof_scheme_code` 当前约定：`1=Groth16, 2=Plonk, 3=STARK`
-  - 仅当见证数达到 `required_approvals` 才可最终 finalize
+- Init: `init_verifier_policy(config, cap, signers, threshold, ctx)`
+- Update: `update_verifier_policy(config, cap, policy, signers, threshold, ctx)`
+- First verify: `verify_proof_with_policy(policy, pool, ticket, status_code, proof_scheme_code, public_inputs_hash, clock, ctx)`
+- Additional attestation: `attest_verification(policy, verification, ctx)`
+- Notes:
+  - `proof_scheme_code`: `1=Groth16, 2=Plonk, 3=STARK`
+  - Finalize only when attestations reach `required_approvals`
 
-### 4.3 挑战窗口内发起挑战
+### 4.3 Challenge during window
 
-- 入口：`challenge_verification(pool, verification, evidence_hash, clock, ctx)`
-- 约束：仅在挑战窗口内可调用，窗口到期后不可再挑战
-- 结果：
-  - `ZkVerification.status_code` 置为 `3`（challenged）
-  - 记录挑战证据哈希 `challenge_evidence_hash`
-  - 未裁决前禁止 finalize
+- Entry: `challenge_verification(pool, verification, evidence_hash, clock, ctx)`
+- Only within challenge window; not after expiry
+- Result:
+  - `ZkVerification.status_code` → `3` (challenged)
+  - Records `challenge_evidence_hash`
+  - Finalize blocked until resolved
 
-### 4.3.1 管理员挑战裁决
+### 4.3.1 Admin challenge resolution
 
-- 入口：`resolve_challenge(config, cap, verification, resolved_status_code, ctx)`
-- 约束：`resolved_status_code` 仅允许 `accepted/rejected`
-- 结果：挑战状态关闭，可进入后续 finalize 判定
+- Entry: `resolve_challenge(config, cap, verification, resolved_status_code, ctx)`
+- `resolved_status_code` only `accepted` / `rejected`
+- Closes challenge; allows subsequent finalize
 
-### 4.4 挑战窗口后最终确认
+### 4.4 Finalize after challenge window
 
-- 入口：`finalize_verification(config, cap, verification, clock, ctx)`
-- 约束：仅管理员可调用，且必须同时满足：
-  - 挑战窗口到期
-  - 阈值见证已满足
-  - 无未裁决挑战
-- 结果：`ZkVerification.finalized=true`
+- Entry: `finalize_verification(config, cap, verification, clock, ctx)`
+- Admin only; requires:
+  - Challenge window expired
+  - Threshold attestations met
+  - No unresolved challenge
+- Result: `ZkVerification.finalized=true`
 
-### 4.5 Brevis 异步 Prover（链下，真集成）
+### 4.5 Brevis async Prover (off-chain, real integration)
 
-> **不阻塞交易热路径**；池状态变更后由 Keeper 异步提交证明哈希。Brevis 尚无原生 Sui 验算器，证明输出映射为 `proof_hash` / `public_inputs_hash` 登记在链上。
+> **Does not block trading hot path**; Keeper submits proof hash asynchronously after pool checkpoint changes. Brevis has no native Sui verifier; proof maps to on-chain `proof_hash` / `public_inputs_hash`.
 
-**服务：** `services/brevis-zk-prover/`
+**Service:** `services/brevis-zk-prover/`
 
 ```
-池 checkpoint 变更
-  → 链下审计（max-loss / 参数边界）
-  → mock: 本地 SHA-256
-  → live: Brevis RPC（BREVIS_RPC_URL）→ 失败回退本地
+Pool checkpoint change
+  → off-chain audit (max-loss / parameter bounds)
+  → mock: local SHA-256
+  → live: Brevis RPC (BREVIS_RPC_URL) → fallback local on failure
   → submit_proof → verify_proof_with_policy
 ```
 
-**Testnet 初始化：**
+**Testnet init:**
 
 ```powershell
 .\scripts\init-zk-verifier-policy.ps1 -PackageId 0x... -VerifierAddress 0x...
@@ -158,87 +160,85 @@ NEXT_PUBLIC_SUI_CLOCK=0x6
 cd services/brevis-zk-prover && npm install && npm start
 ```
 
-| 变量 | 默认 | 说明 |
+| Variable | Default | Description |
 | --- | --- | --- |
-| `ZK_PROVER_MODE` | `mock` | `live` 时尝试 Brevis RPC |
-| `ZK_PROVER_DRY_RUN` | `true` | `false` 才实际上链 |
-| `ZK_VERIFIER_POLICY_ID` | — | `init_verifier_policy` 共享对象 |
-| `BREVIS_RPC_URL` | 空 | Brevis Prover HTTP 端点 |
+| `ZK_PROVER_MODE` | `mock` | `live` tries Brevis RPC |
+| `ZK_PROVER_DRY_RUN` | `true` | `false` to submit on-chain |
+| `ZK_VERIFIER_POLICY_ID` | — | `init_verifier_policy` shared object |
+| `BREVIS_RPC_URL` | empty | Brevis Prover HTTP endpoint |
 
-健康检查：`GET http://localhost:8794/health`
-
----
-
-## 5. Slash 机制（链上）
-
-模块：`x_market::slash`
-
-### 5.1 执行 Slash
-
-- 入口：`slash_pool(config, cap, pool, amount_usdc, reason_code, recipient, clock)`
-- 行为：
-  - 从 `MarketPool.vault` 扣减 `amount_usdc`
-  - 转账到 `recipient`
-  - 自动将市场 `paused = true`
-  - 设置治理恢复 timelock（当前 1800 秒）
-  - 单次 slash 上限：当前 slash 周期基准抵押的 30%
-  - 周期累计 slash 上限：当前 slash 周期基准抵押的 50%
-  - 生成共享对象 `SlashRecord`
-
-### 5.1.1 多签执行通道（可选）
-
-- 初始化治理对象：`init_slash_governance(config, cap, signers, threshold, ctx)`
-- 提案：`propose_slash_request(gov, pool, amount_usdc, reason_code, recipient, clock, ctx)`
-- 批准：`approve_slash_request(gov, request, clock, ctx)`
-- 达阈值执行：`execute_slash_request(gov, pool, request, clock, ctx)`
-- 说明：
-  - 每个提案带有效期（当前 86400 秒）
-  - 只统计当前 signer 集合中的有效批准
-  - 保留 `slash_pool(...)` 作为管理员应急单签路径
-
-### 5.2 恢复市场
-
-- 入口：`unslash_resume_pool(config, cap, pool, clock)`
-- 行为：
-  - 仅管理员可调用
-  - 必须达到 timelock 截止时间后才可恢复
-  - 恢复后将 `paused = false` 并重置本轮 slash 状态
+Health: `GET http://localhost:8794/health`
 
 ---
 
-## 6. 持仓与风险观测
+## 5. Slash mechanism (on-chain)
 
-- `/positions` 页面已支持新票据类型标签展示：
+Module: `x_market::slash`
+
+### 5.1 Execute slash
+
+- Entry: `slash_pool(config, cap, pool, amount_usdc, reason_code, recipient, clock)`
+- Behavior:
+  - Deduct `amount_usdc` from `MarketPool.vault`
+  - Transfer to `recipient`
+  - Set market `paused = true`
+  - Governance recovery timelock (currently 1800 s)
+  - Single slash cap: 30% of slash-period baseline collateral
+  - Period cumulative cap: 50% of slash-period baseline collateral
+  - Emits shared `SlashRecord`
+
+### 5.1.1 Multisig execution path (optional)
+
+- Init governance: `init_slash_governance(config, cap, signers, threshold, ctx)`
+- Propose: `propose_slash_request(gov, pool, amount_usdc, reason_code, recipient, clock, ctx)`
+- Approve: `approve_slash_request(gov, request, clock, ctx)`
+- Execute at threshold: `execute_slash_request(gov, pool, request, clock, ctx)`
+- Notes:
+  - Each proposal has TTL (currently 86400 s)
+  - Counts only valid approvals from current signer set
+  - `slash_pool(...)` remains admin emergency single-signer path
+
+### 5.2 Resume market
+
+- Entry: `unslash_resume_pool(config, cap, pool, clock)`
+- Admin only; after timelock deadline
+- Sets `paused = false` and resets slash state for the round
+
+---
+
+## 6. Positions and risk observation
+
+- `/positions` shows new note type labels:
   - Variance Swap
   - Structured Note
   - Range Note
   - Barrier Note
-- Cross-Margin VaR 前端估算已覆盖这些新产品。
+- Cross-Margin VaR frontend covers these products.
 
 ---
 
-## 7. 常见排查
+## 7. Troubleshooting
 
 ### 7.1 `Function not found`
 
-说明仍在调用旧 `Package ID`。检查前端 env 与钱包交互目标包。
+Still using old `Package ID`. Check frontend env and wallet package target.
 
-### 7.2 Structured / Range 参数报错
+### 7.2 Structured / Range parameter errors
 
-- Structured Note：需要 `C > K`
-- Range Note：需要 `U >= L`
+- Structured Note: requires `C > K`
+- Range Note: requires `U >= L`
 
-### 7.3 `insufficient_equity`（slash）
+### 7.3 `insufficient_equity` (slash)
 
-Slash 扣减金额超过池子可用 collateral。降低 `amount_usdc` 后重试。
+Slash amount exceeds pool collateral. Lower `amount_usdc` and retry.
 
 ---
 
-## 8. 与后续主网阶段的关系
+## 8. Relation to mainnet
 
-Phase 3 已补齐核心协议能力接口与产品形态；主网前仍建议继续完成：
+Phase 3 delivers core protocol interfaces and product forms; before mainnet still recommended:
 
-- 审计与安全演练
-- 风险参数基线（各票据的默认 K/C/L/U/B）
-- 自动化告警与治理流程（配合 `SlashRecord` 与 `ZkVerification`）
-- 执行主网上线前清单：`docs/mainnet-readiness-checklist.md`
+- Audit and security drills
+- Risk parameter baselines (default K/C/L/U/B per note type)
+- Automated alerts and governance (with `SlashRecord` and `ZkVerification`)
+- Run mainnet readiness checklist: `docs/mainnet-readiness-checklist.md`

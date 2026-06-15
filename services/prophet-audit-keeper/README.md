@@ -13,32 +13,34 @@
 
 # Prophet Audit Keeper
 
-PRD §11.3.4 · P4.1 — Oracle 结算后自动提交 `audit_prophecy`。
+**English** | [简体中文](./README.zh.md)
 
-## 流程
+PRD §11.3.4 · P4.1 — Automatically submits `audit_prophecy` after Oracle settlement.
+
+## Flow
 
 ```
-池已 resolved + now >= lock_time + prophecy.status == OPEN
-  → Indexer/IPFS blob → Seal 解密（或明文缓存）
-  → audit_prophecy（Hash 校验 → 战绩 → 分账）
+Pool resolved + now >= lock_time + prophecy.status == OPEN
+  → Indexer/IPFS blob → Seal decrypt (or plaintext cache)
+  → audit_prophecy (hash check → track record → revenue split)
 ```
 
-## 环境
+## Environment
 
 ```powershell
-.\scripts\bootstrap-services-env.ps1   # 生成 .env.local
-# 或单独：services/prophet-audit-keeper/.env.example
+.\scripts\bootstrap-services-env.ps1   # generates .env.local
+# Or separately: services/prophet-audit-keeper/.env.example
 ```
 
-| 变量 | 说明 |
+| Variable | Description |
 |------|------|
-| `PROPHET_AUDIT_POOL_IDS` | 种子池 ID 列表 |
+| `PROPHET_AUDIT_POOL_IDS` | Seed pool ID list |
 | `PROPHET_REGISTRY_ID` | ProphetRegistry |
-| `PROPHET_AUDIT_DRY_RUN` | 默认 `true` |
-| `INDEXER_URL` | 读 blob + `/v1/prophecies/:id/plaintext` 缓存 |
-| `IPFS_GATEWAY_URL` | `ipfs:` blob 解析 |
+| `PROPHET_AUDIT_DRY_RUN` | Default `true` |
+| `INDEXER_URL` | Read blob + `/v1/prophecies/:id/plaintext` cache |
+| `IPFS_GATEWAY_URL` | Resolve `ipfs:` blobs |
 
-## 运行
+## Run
 
 ```powershell
 cd services/prophet-audit-keeper
@@ -47,4 +49,4 @@ npm run dev
 # GET http://localhost:8792/health
 ```
 
-Gas Station 白名单已包含 `audit_prophecy`；Keeper 也可自付 SUI。
+Gas Station allowlist includes `audit_prophecy`; the keeper may also pay SUI directly.

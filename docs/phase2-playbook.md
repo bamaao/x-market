@@ -11,27 +11,29 @@
   automatically becomes available under the Apache License 2.0.
 -->
 
-# X-Market Sui Phase 2 操作手册
+**English** | [简体中文](./phase2-playbook.zh.md)
 
-本文用于在 **Sui Testnet** 上完整跑通 Phase 2 的各项进阶功能：
+# X-Market Sui Phase 2 Playbook
 
-- **LP Guard (防守机制)**：动态费率、虚拟流动性、T2 禁申购、结算时间锁
-- **LP 赎回**：`withdraw_liquidity` (按 NAV 销毁 LpShare 提取 USDC)
-- **高级衍生品**：线性期权 (Linear Call/Put)、Straddle
-- **资金效率**：Cross-Margin 链上账本与前端组合 VaR 估算
+This guide walks through Phase 2 advanced features end-to-end on **Sui Testnet**:
+
+- **LP Guard (defensive mechanisms)**: dynamic fees, virtual liquidity, T2 deposit cutoff, settlement timelock
+- **LP redemption**: `withdraw_liquidity` (burn LpShare at NAV, withdraw USDC)
+- **Advanced derivatives**: linear options (Linear Call/Put), Straddle
+- **Capital efficiency**: on-chain Cross-Margin ledger and frontend portfolio VaR estimate
 
 ---
 
-## 1. LP Guard (防守机制) 配置
+## 1. LP Guard (defensive mechanisms) configuration
 
-Phase 2 为 `MarketPool` 引入了多重防守参数，保护 LP 免受逆向选择和末期套利。
+Phase 2 adds multiple defensive parameters to `MarketPool` to protect LPs from adverse selection and end-of-life arbitrage.
 
-### 1.1 链上配置脚本
+### 1.1 On-chain configuration script
 
-使用 `scripts/set-lp-guard.ps1` 脚本可以随时更新 Trading 状态池子的防守参数（仅限 Pool 的 Authority/创建者调用）。
+Use `scripts/set-lp-guard.ps1` to update defensive parameters for Trading-state pools anytime (only Pool authority/creator may call).
 
 ```powershell
-.\scripts\set-lp-guard.ps1 -PoolId 0x你的PoolID `
+.\scripts\set-lp-guard.ps1 -PoolId 0xYourPoolId `
   -FeeMultiplierBps 5000 `
   -SigmaVirtualTenths 2 `
   -ConcentrationVirtual 10 `
@@ -39,114 +41,114 @@ Phase 2 为 `MarketPool` 引入了多重防守参数，保护 LP 免受逆向选
   -ResolutionWindowTs 3600
 ```
 
-**参数释义：**
-- `FeeMultiplierBps`: 动态费率乘数。如基础费率 30bps，设为 5000 (50%)，则有效费率 = `30 * (1 + 50%) = 45 bps`。
-- `SigmaVirtualTenths`: (Normal池) 虚拟波动率。如设为 2，则定价时使用的 $\sigma$ 会比实际大 0.2，使报价更平缓。
-- `ConcentrationVirtual`: (Dirichlet池) 虚拟浓度。如设为 10，则每个 outcome 的 $\alpha$ 均增加 10，使概率向均值回归。
-- `DepositCutoffBps`: T2 禁申购窗口。设为 1000 (10%) 表示在距离到期前 10% 的时间段内，禁止 `deposit_liquidity`。
-- `ResolutionWindowTs`: 结算时间锁。设为 3600 (秒) 表示在到期前 1 小时内禁止任何 `buy_*` 操作。
+**Parameter meanings:**
 
-### 1.2 前端观测
+- `FeeMultiplierBps`: dynamic fee multiplier. E.g. base fee 30 bps, set to 5000 (50%) → effective fee = `30 * (1 + 50%) = 45 bps`.
+- `SigmaVirtualTenths`: (Normal pool) virtual volatility. E.g. 2 means pricing uses σ 0.2 higher than actual, flattening quotes.
+- `ConcentrationVirtual`: (Dirichlet pool) virtual concentration. E.g. 10 adds 10 to each outcome α, pulling probabilities toward the mean.
+- `DepositCutoffBps`: T2 deposit cutoff window. 1000 (10%) means `deposit_liquidity` is blocked in the last 10% of time before maturity.
+- `ResolutionWindowTs`: settlement timelock. 3600 (seconds) blocks all `buy_*` in the last hour before maturity.
 
-在前端市场页 `/markets/[id]`，现在包含一个 **"IV / LP Guard 面板"**。
-输入 Pool ID 即可实时观测当前池子的基础费率、有效费率、虚拟 $\sigma$ 等状态。
+### 1.2 Frontend observation
 
-### 1.3 自动动态费率（LP Guard Keeper）
+On `/markets/[id]`, an **IV / LP Guard panel** shows live base fee, effective fee, virtual σ, etc. Enter Pool ID to observe.
 
-链上 `set_lp_guard_params` 已就绪；**自动检测单边砸盘并抬费**由链下 Keeper 完成：
+### 1.3 Automatic dynamic fees (LP Guard Keeper)
+
+On-chain `set_lp_guard_params` is ready; **automatic one-sided dump detection and fee hikes** are handled off-chain by the Keeper:
 
 ```bash
 cd services/lp-guard-keeper
 cp .env.example .env.local
-# 填写 LP_GUARD_POOL_IDS、LP_GUARD_KEEPER_SECRET_KEY（须为池 authority）
+# Set LP_GUARD_POOL_IDS, LP_GUARD_KEEPER_SECRET_KEY (must be pool authority)
 npm install
 npm test
-npm run dev    # LP_GUARD_DRY_RUN=true 默认只观测
+npm run dev    # LP_GUARD_DRY_RUN=true observes only by default
 ```
 
-**行为摘要：**
+**Signal summary:**
 
-| 信号 | 权重 | 含义 |
+| Signal | Weight | Meaning |
 | --- | --- | --- |
-| 参数漂移 | 40% | 窗口内 μ / λ / α 变化幅度 |
-| 单边偏度 | 35% | 连续同向参数更新或 Dirichlet 集中度 |
-| 成交量冲击 | 25% | `collateral_usdc` 增量相对 EMA |
+| Parameter drift | 40% | μ / λ / α change magnitude in window |
+| One-sided skew | 35% | consecutive same-direction parameter updates or Dirichlet concentration |
+| Volume shock | 25% | `collateral_usdc` delta vs EMA |
 
-风险升高 → `fee_multiplier_bps` 拉高（例：基础 200 bps → 有效 800 bps）；风险消退 → 乘数每 tick × `0.85` 衰减。详见 [services/lp-guard-keeper/README.md](../services/lp-guard-keeper/README.md)。
+Risk up → `fee_multiplier_bps` rises (e.g. base 200 bps → effective 800 bps); risk down → multiplier decays × `0.85` each tick. See [services/lp-guard-keeper/README.md](../services/lp-guard-keeper/README.md).
 
 ---
 
-## 2. LP 赎回 (Withdraw Liquidity)
+## 2. LP redemption (Withdraw Liquidity)
 
-Phase 1.5 实现了按 NAV 申购，Phase 2 补齐了按 NAV 赎回。
+Phase 1.5 added NAV subscription; Phase 2 adds NAV redemption.
 
-### 2.1 前端操作
+### 2.1 Frontend
 
-1. 导航至 `/lp` (LP 份额页面)。
-2. 页面会列出你拥有的所有 `LpShare` 对象。
-3. 在对应的卡片中，填入该市场对应的 `Pool ID`。
-4. 点击 **"赎回 LP"**。
-5. 链上会销毁该 `LpShare`，按当前 NAV 计算应得的 USDC，并转入你的钱包。
+1. Go to `/lp` (LP shares page)
+2. Lists all your `LpShare` objects
+3. On each card, enter the market's `Pool ID`
+4. Click **Redeem LP**
+5. On-chain: burns `LpShare`, computes USDC at current NAV, transfers to wallet
 
-### 2.2 脚本操作
+### 2.2 Script
 
 ```powershell
-.\scripts\withdraw-liquidity.ps1 -PoolId 0x你的PoolID -LpShareObjectId 0x你的LpShareID
+.\scripts\withdraw-liquidity.ps1 -PoolId 0xYourPoolId -LpShareObjectId 0xYourLpShareId
 ```
 
 ---
 
-## 3. 高级衍生品交易
+## 3. Advanced derivative trading
 
-Phase 2 在 Normal 市场（如 CPI、BTC 价格）引入了线性期权和跨式期权。
+Phase 2 adds linear and straddle options on Normal markets (e.g. CPI, BTC price).
 
-### 3.1 前端操作
+### 3.1 Frontend
 
-1. 导航至 `/markets/normal-cpi` (或你创建的 Normal 市场)。
-2. 在 **"交易面板"** 的 "合约类型" 下拉菜单中，现在可以选择：
-   - **线性 Call**：看涨，结算收益为 $\max(X - K, 0)$
-   - **线性 Put**：看跌，结算收益为 $\max(K - X, 0)$
-   - **Straddle**：跨式，结算收益为 $|X - K|$
-3. 输入 **"执行价 K (tenths)"**（例如 25）。
-4. 输入 Stake (USDC)，点击 **"用 USDC 买入"**。
+1. Go to `/markets/normal-cpi` (or your Normal market)
+2. In **Trade panel** contract type dropdown:
+   - **Linear Call**: payoff $\max(X - K, 0)$
+   - **Linear Put**: payoff $\max(K - X, 0)$
+   - **Straddle**: payoff $|X - K|$
+3. Enter **Strike K (tenths)** (e.g. 25)
+4. Enter Stake (USDC), click **Buy with USDC**
 
-*注：线性产品的买入不仅会生成对应类型的 Position，还会动态推高池子的 $\sigma$（波动率），反映市场对极端行情的预期。*
-
----
-
-## 4. Cross-Margin (全仓保证金)
-
-Phase 2 实现了链上 `MarginAccount` 账本，允许用户将同一市场的多个 Position 绑定在一起，统一计算最大负债 (Max Liability)。
-
-### 4.1 前端操作
-
-1. 导航至 `/margin` (保证金页面)。
-2. **新建账户**：填入 `Pool ID`，点击 "新建保证金账户"，钱包会收到一个 `MarginAccount` 对象。
-3. **登记持仓**：填入 `Pool ID`、`MarginAccount ID` 和你的 `Position ID`，点击 "登记持仓"。
-   - 链上会自动计算该 Position 在各离散槽位 (Slot) 的盈亏，并叠加到 `MarginAccount` 的总账本中。
-4. **观测组合 VaR**：
-   - 在 `/margin` 页面下方会显示你的 `MarginAccount`，包含 **Gross Stake** (总本金) 和 **Worst Liability** (最坏情况负债)。
-   - 在 `/positions` (持仓页面) 顶部，也会通过前端聚合估算你所有持仓的 **Cross-Margin VaR**。
-
-### 4.2 意义
-
-通过 Cross-Margin，如果用户同时持有对冲的仓位（如同时持有 Call 和 Put，或者不同区间的 Interval），组合的最坏负债会显著低于各仓位独立计算时的负债之和。这为后续 Phase 3 引入杠杆交易奠定了底层基础。
+*Note: buying linear products creates the position and dynamically pushes pool σ (volatility), reflecting tail-risk expectations.*
 
 ---
 
-## 5. 当前边界（Phase 2 vs Phase 3）
+## 4. Cross-Margin
 
-Phase 2 已实现：
+Phase 2 adds on-chain `MarginAccount` ledger: bind multiple Positions in one market and compute max liability jointly.
 
-- LP Guard（动态费率、虚拟流动性、时间窗口防守）
-- NAV 赎回与 `T2` 末期禁申购
-- 线性期权 / Straddle
-- Cross-Margin 链上账本与前端 VaR 估算
+### 4.1 Frontend
 
-Phase 3 已落地核心扩展：
+1. Go to `/margin`
+2. **New account**: enter `Pool ID`, click create — wallet receives `MarginAccount`
+3. **Register position**: enter `Pool ID`, `MarginAccount ID`, and `Position ID`, click register
+   - On-chain computes P&L per slot and accumulates on `MarginAccount`
+4. **Portfolio VaR**:
+   - `/margin` shows `MarginAccount` with **Gross Stake** and **Worst Liability**
+   - `/positions` aggregates **Cross-Margin VaR** across positions
 
-- Tier-2 ZK 协处理接口：`submit_proof` / `verify_proof`
-- Slash 风控处置：`slash_pool` / `unslash_resume_pool`
-- 结构化票据篮子：Variance / Structured / Range / Barrier
+### 4.2 Rationale
 
-请参考：[Phase 3 操作手册](./phase3-playbook.md)。
+Cross-Margin reduces worst-case liability when hedged (Call + Put or different intervals), vs summing independent liabilities — foundation for Phase 3 leverage.
+
+---
+
+## 5. Current scope (Phase 2 vs Phase 3)
+
+Phase 2 implements:
+
+- LP Guard (dynamic fees, virtual liquidity, time windows)
+- NAV redemption and `T2` end-of-life deposit cutoff
+- Linear options / Straddle
+- Cross-Margin ledger and frontend VaR
+
+Phase 3 core extensions are live:
+
+- Tier-2 ZK coprocessor: `submit_proof` / `verify_proof`
+- Slash: `slash_pool` / `unslash_resume_pool`
+- Structured note basket: Variance / Structured / Range / Barrier
+
+See: [Phase 3 Playbook](./phase3-playbook.md).

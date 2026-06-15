@@ -11,122 +11,124 @@
   automatically becomes available under the Apache License 2.0.
 -->
 
+**English** | [简体中文](./prophet-playbook.zh.md)
+
 # SuiProphet Playbook
 
-知识付费预言模块（PRD §11）。共用 L0 Oracle 结算，不另建 Feed。
+Paid knowledge prophecy module (PRD §11). Shares L0 Oracle settlement; no separate Feed.
 
-> **操作指南：** 创建市场 + 公开/加密预测全流程见 [prophet-market-and-encryption-guide.md](./prophet-market-and-encryption-guide.md)。
+> **How-to:** Full flow for market creation + public/encrypted prophecies in [prophet-market-and-encryption-guide.md](./prophet-market-and-encryption-guide.md).
 
-## 架构
+## Architecture
 
 ```
-JSON 明文 → Seal.encrypt(seal_id) → POST Indexer /v1/prophecies/blob → Commit(chain)
+JSON plaintext → Seal.encrypt(seal_id) → POST Indexer /v1/prophecies/blob → Commit(chain)
                     ↓
          seal_approve_prophecy (OR: paid | lock_time | public)
                     ↓
-         Seal.decrypt ← GET idx:/ipfs: blob ← SessionKey 钱包签名
+         Seal.decrypt ← GET idx:/ipfs: blob ← SessionKey wallet signature
 ```
 
-链上 `blob_id` 格式：
+On-chain `blob_id` format:
 
-| 前缀 | 存储 |
+| Prefix | Storage |
 | --- | --- |
-| `idx:` | Indexer 本地磁盘（`INDEXER_PROPHET_STORAGE=local`） |
-| `ipfs:` | IPFS Pin（`INDEXER_PROPHET_STORAGE=ipfs`） |
+| `idx:` | Indexer local disk (`INDEXER_PROPHET_STORAGE=local`) |
+| `ipfs:` | IPFS Pin (`INDEXER_PROPHET_STORAGE=ipfs`) |
 
-## 部署
+## Deployment
 
-### 1. 创建 ProphetRegistry
+### 1. Create ProphetRegistry
 
 ```bash
 sui client call --package $PKG --module prophet_registry --function create_prophet_registry \
   --args $GLOBAL_CONFIG $ADMIN_CAP 500
 ```
 
-### 2. 环境变量（`app/.env`）
+### 2. Environment variables (`app/.env`)
 
 ```
 NEXT_PUBLIC_PROPHET_REGISTRY_ID=0x...
 NEXT_PUBLIC_INDEXER_URL=http://localhost:8800
 NEXT_PUBLIC_SEAL_THRESHOLD=1
-# INDEXER_PROPHET_STORAGE=ipfs 时：
+# When INDEXER_PROPHET_STORAGE=ipfs:
 # NEXT_PUBLIC_IPFS_GATEWAY_URL=https://w3s.link
 ```
 
-Indexer（`services/indexer/.env`）：
+Indexer (`services/indexer/.env`):
 
 ```
 INDEXER_PROPHET_STORAGE=local
 # INDEXER_PROPHET_BLOBS_DIR=data/prophecy-blobs
-# IPFS_PINATA_JWT=...   # ipfs 模式
+# IPFS_PINATA_JWT=...   # ipfs mode
 ```
 
-Seal Testnet 密钥服务器（配置于 `app/src/lib/seal-prophet.ts` → `SEAL_KEY_SERVERS`）：
+Seal Testnet key servers (configured in `app/src/lib/seal-prophet.ts` → `SEAL_KEY_SERVERS`):
 
-| 名称 | Object ID |
+| Name | Object ID |
 | --- | --- |
 | mysten-testnet-1 | `0x73d05d62c18d9374e3ea529e8e0ed6161da1a141a94d3f76ae3fe4e99356db75` |
 | mysten-testnet-2 | `0xf5d14a81a982144ae441cd7d64b09027f116a468bd36e7eca494f750591623c8` |
 
-**注意：** 重新部署 Move 包后须用新 `PACKAGE_ID` 加密；旧密文无法被新 `seal_approve` 策略解密。
+**Note:** After redeploying Move package, encrypt with new `PACKAGE_ID`; old ciphertext cannot be decrypted by new `seal_approve` policy.
 
-## 预言家 Commit
+## Prophet Commit
 
-1. 生成 `seal_id`（32 字节随机）
+1. Generate `seal_id` (32 random bytes)
 2. `SealClient.encrypt({ packageId, id: hex(seal_id), data: canonical JSON })`
-3. `POST $INDEXER/v1/prophecies/blob?pool_id=...` 上传密文（或明文）
-4. 响应 `blob_id`（`idx:…` 或 `ipfs:…`）写入 `commit_private_prophecy`
+3. `POST $INDEXER/v1/prophecies/blob?pool_id=...` upload ciphertext (or plaintext)
+4. Write response `blob_id` (`idx:…` or `ipfs:…`) to `commit_private_prophecy`
 
-链上：`lock_time` = Pool `maturity_ts`；`plaintext_hash` = blake2b256(canonical JSON)。
+On-chain: `lock_time` = Pool `maturity_ts`; `plaintext_hash` = blake2b256(canonical JSON).
 
-## 订阅者解锁 + 解密
+## Subscriber unlock + decrypt
 
-1. `unlock_prophecy` 支付 USDC → `paid_buyers`（Seal **条件 A**）
-2. 钱包签署 `SessionKey`（30 分钟 TTL）
-3. PTB 仅调用 `seal_approve_prophecy(seal_id, prophecy, clock)`（dry-run 验证）
-4. `SealClient.decrypt` + `GET $INDEXER/v1/prophecies/blobs/{filename}` 或 IPFS gateway
+1. `unlock_prophecy` pay USDC → `paid_buyers` (Seal **condition A**)
+2. Wallet signs `SessionKey` (30 min TTL)
+3. PTB calls only `seal_approve_prophecy(seal_id, prophecy, clock)` (dry-run validation)
+4. `SealClient.decrypt` + `GET $INDEXER/v1/prophecies/blobs/{filename}` or IPFS gateway
 
-## Web 全流程（`/prophet`）
+## Web full flow (`/prophet`)
 
-| 步骤 | 操作 | 说明 |
+| Step | Action | Notes |
 | --- | --- | --- |
-| 1. Commit | 预言家填写预测 + 分析 | Seal 加密 → Indexer 上传 → `commit_private_prophecy`；本地保存明文供审计 |
-| 2. 解锁 | 订阅者支付 USDC | `unlock_prophecy`；成功后页面自动尝试 Seal 解密 |
-| 3. 解密 | Indexer/IPFS GET + Seal | 须满足 `paid_buyers` ∥ `lock_time` 后 ∥ `is_public` |
-| 4. 审计 | Oracle 结算后 | `audit_prophecy` 校验 blake2b256 明文 hash → 战绩 → `is_public` |
+| 1. Commit | Prophet fills prediction + analysis | Seal encrypt → Indexer upload → `commit_private_prophecy`; save plaintext locally for audit |
+| 2. Unlock | Subscriber pays USDC | `unlock_prophecy`; page auto-attempts Seal decrypt on success |
+| 3. Decrypt | Indexer/IPFS GET + Seal | Requires `paid_buyers` ∥ after `lock_time` ∥ `is_public` |
+| 4. Audit | After Oracle settlement | `audit_prophecy` validates blake2b256 plaintext hash → track record → `is_public` |
 
-关键前端模块：
+Key frontend modules:
 
-- `app/src/lib/prophet.ts` — 工作流推导、`decryptProphecyContent`
+- `app/src/lib/prophet.ts` — workflow derivation, `decryptProphecyContent`
 - `app/src/lib/seal-prophet.ts` — Seal 1.x + SessionKey
-- `app/src/lib/prophet-blob.ts` / `prophet-blob-upload.ts` — Indexer/IPFS 读写
+- `app/src/lib/prophet-blob.ts` / `prophet-blob-upload.ts` — Indexer/IPFS read/write
 
-双钱包 Testnet 验收：钱包 A Commit → 钱包 B Unlock（自动解密）→ Oracle 结算后 Audit。
+Dual-wallet Testnet acceptance: wallet A Commit → wallet B Unlock (auto decrypt) → Oracle settlement → Audit.
 
-## Seal OR 策略（`seal_approve_prophecy`）
+## Seal OR policy (`seal_approve_prophecy`)
 
-| 条件 | 链上判定 |
+| Condition | On-chain check |
 | --- | --- |
-| A 付费 | `sender ∈ paid_buyers` |
-| B 公开 | `now > lock_time` 或 `is_public` |
+| A Paid | `sender ∈ paid_buyers` |
+| B Public | `now > lock_time` or `is_public` |
 
-## Oracle 审计 → 战绩 → 分账
+## Oracle audit → track record → revenue split
 
-前置：Pool 已 `resolved` 且 `now >= lock_time`（与 Oracle 页结算对齐，见 [oracle-playbook.md](./oracle-playbook.md)）。
+Prerequisite: Pool `resolved` and `now >= lock_time` (aligned with Oracle settlement page; see [oracle-playbook.md](./oracle-playbook.md)).
 
-`prophet-audit-keeper` 从 Indexer/IPFS 拉 blob → Seal 解密 → 提交 `audit_prophecy`。
+`prophet-audit-keeper` pulls blob from Indexer/IPFS → Seal decrypt → submits `audit_prophecy`.
 
-## 模块
+## Modules
 
-| 模块 | 说明 |
+| Module | Description |
 | --- | --- |
-| `prophet_registry` | Commit / unlock / audit、`seal_approve_prophecy` |
+| `prophet_registry` | Commit / unlock / audit, `seal_approve_prophecy` |
 | `prophet_leaderboard` | Prophet Score |
 | `services/indexer` | `POST/GET /v1/prophecies/blob` |
-| `app/src/lib/seal-prophet.ts` | Seal 加解密 |
-| `app/src/lib/prophet-blob*.ts` | Indexer/IPFS blob 读写 |
+| `app/src/lib/seal-prophet.ts` | Seal encrypt/decrypt |
+| `app/src/lib/prophet-blob*.ts` | Indexer/IPFS blob I/O |
 
-## 待办
+## Done
 
-- [x] Gas Station 赞助交易（`services/gas-station/`）
-- [x] Prophet Audit Keeper（`services/prophet-audit-keeper/`）
+- [x] Gas Station sponsored txs (`services/gas-station/`)
+- [x] Prophet Audit Keeper (`services/prophet-audit-keeper/`)

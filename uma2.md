@@ -11,54 +11,56 @@
   automatically becomes available under the Apache License 2.0.
 -->
 
-根据宏观数据源预言机（Macro Data Oracle）的纯正定位，我们需要将原来带有预测市场（Prediction Market）色彩的词汇（如 `marketId`、`proposeOutcome`）修正为更加精准的预言机元组。
+**English** | [简体中文](./uma2.zh.md)
 
-以下是重新梳理并标准化后的 PRD 核心技术章节：
+Based on the pure positioning of the Macro Data Oracle, we need to replace prediction-market vocabulary (such as `marketId`, `proposeOutcome`) with more precise oracle terminology.
 
----
-
-### 3.3 提议与争议机制（The Optimistic Engine）
-
-该模块是宏观预言机的核心经济学引擎，通过“质押博弈”机制确保链下真实的宏观数据能够无误地暂存至链上。
-
-#### 3.3.1 数据提议功能 (Data Proposal)
-
-* **功能描述：** 允许任何链下节点（提议者）在现实世界宏观事件发生后，将官方数据明文搬运上链。
-* **方法签名：** `proposeData(bytes32 dataIdentifier, string memory proposedResult) external returns (bytes32 assertionId)`
-* **核心逻辑与调用前提：**
-* **前提条件：** 调用者（Proposer）的账户必须向合约转入数量等于 `Proposer_Bond_Size` 的系统本位币（如 USDC）作为诚信押金。
-* **状态校验：** 该宏观指标标识符（`dataIdentifier`）当前必须处于 `Null` 状态，且链下官方事件已到发布时间点。
-* **执行结果：** 合约生成唯一的提议哈希 `assertionId`，将数据状态由 `Null` 变更为 `Proposed`，并启动 `Dispute_Window` 争议期倒计时。
-
-
-
-#### 3.3.2 争议与挑战功能 (Data Dispute)
-
-* **功能描述：** 允许任何链下观察者（挑战者）在争议期内，对作假或有误的提议数据进行链上驳回。
-* **方法签名：** `disputeData(bytes32 assertionId) external`
-* **核心逻辑与调用前提：**
-* **前提条件：** 调用者（Disputer）必须向合约转入数量等于 `Diser_Bond_Size` 的本位币作为挑战押金。
-* **时效校验：** 必须在该提议的 `Dispute_Window` 倒计时结束之前触发。
-* **状态变更：** 一旦该函数被成功触发，该提议的链上状态**立即由 `Proposed` 变更为 `In_Arbitration`（仲裁中）**，同时原有的倒计时强行暂停并失效。系统自动锁定该数据流，拒绝一切外部 DeFi 业务合约的消费调用。
-
-
+Below is the restructured and standardized PRD technical chapter:
 
 ---
 
-### 3.4 仲裁层对接模块（Arbitration Interface）
+### 3.3 Proposal & Dispute Mechanism (The Optimistic Engine)
 
-#### 3.4.1 需求描述
+This module is the core economic engine of the macro oracle, ensuring off-chain real macro data is stored on-chain correctly through a "bond game" mechanism.
 
-当数据状态变为 `In_Arbitration` 时，意味着提议者与挑战者双方各执一词，系统自身的乐观倒计时已无法解决冲突。预言机合约必须通过标准化接口，将冲突事件的数据上下文桥接至最高仲裁法庭（可插拔的外部裁判层），请求终审裁决。
+#### 3.3.1 Data Proposal
 
-#### 3.4.2 技术对接规范
+* **Description:** Allows any off-chain node (proposer) to carry official data in plaintext onto chain after a real-world macro event occurs.
+* **Method signature:** `proposeData(bytes32 dataIdentifier, string memory proposedResult) external returns (bytes32 assertionId)`
+* **Core logic & prerequisites:**
+* **Prerequisites:** The caller (Proposer) must transfer to the contract an amount equal to `Proposer_Bond_Size` of the system native token (e.g. USDC) as an honesty bond.
+* **State check:** The macro indicator identifier (`dataIdentifier`) must currently be in `Null` state, and the off-chain official event must have reached its publication time.
+* **Result:** The contract generates a unique proposal hash `assertionId`, changes data state from `Null` to `Proposed`, and starts the `Dispute_Window` countdown.
 
-##### 1. 外部仲裁请求（Outbound Call）
 
-* **触发时机：** 在 `disputeData` 函数执行成功的同一个区块事务（Transaction）中自动触发。
-* **调用逻辑：** 预言机合约向指定的去中心化仲裁网络（如 UMA 的 DVM 协议、或自定义的验证者委员会合约）发起裁判请求，传入核心上下文：
+
+#### 3.3.2 Data Dispute
+
+* **Description:** Allows any off-chain observer (disputer) to on-chain reject a fraudulent or incorrect proposal during the dispute window.
+* **Method signature:** `disputeData(bytes32 assertionId) external`
+* **Core logic & prerequisites:**
+* **Prerequisites:** The caller (Disputer) must transfer to the contract an amount equal to `Disputer_Bond_Size` of the native token as a challenge bond.
+* **Timing check:** Must be triggered before the proposal's `Dispute_Window` countdown ends.
+* **State change:** Once successfully triggered, the proposal's on-chain state **immediately changes from `Proposed` to `In_Arbitration`**, the original countdown is forcibly paused and invalidated. The system automatically locks the data stream and rejects all external DeFi business contract consumption calls.
+
+
+
+---
+
+### 3.4 Arbitration Layer Integration (Arbitration Interface)
+
+#### 3.4.1 Requirements
+
+When data state becomes `In_Arbitration`, the proposer and disputer disagree and the system's own optimistic countdown cannot resolve the conflict. The oracle contract must bridge the conflict's data context to the supreme arbitration court (pluggable external adjudication layer) via a standardized interface and request a final ruling.
+
+#### 3.4.2 Technical Integration Specification
+
+##### 1. Outbound Arbitration Request
+
+* **Trigger timing:** Automatically triggered within the same block transaction as a successful `disputeData` execution.
+* **Call logic:** The oracle contract sends a ruling request to the designated decentralized arbitration network (e.g. UMA's DVM protocol, or a custom validator committee contract), passing core context:
 ```solidity
-// 向外部仲裁法庭申诉
+// Appeal to external arbitration court
 IArbitrator(arbitratorAddress).requestArbitration(
     assertionId, 
     dataIdentifier, 
@@ -71,13 +73,13 @@ IArbitrator(arbitratorAddress).requestArbitration(
 
 ```
 
-##### 2. 仲裁结果回调（Inbound Callback）
-*   **触发时机：** 链下仲裁网络完成投票共识或多签裁决后，由仲裁法庭合约单向异步调用本合约。
-*   **方法签名：** `callbackSettlement(bytes32 assertionId, string memory finalResult) external`
-*   **权限控制：** 必须强制带有 `onlyArbitrator` 修饰器，拒绝任何非授权地址的恶意调用。
-*   **后续执行逻辑：**
-    *   合约接收到由最高法院裁定的 `finalResult`（真实的宏观数据）。
-    *   根据 `finalResult` 判定胜负手，在同一个区块内自动执行 3.4.4 章节定义的**押金清算与奖励瓜分**。
-    *   将该宏观数据的状态正式修改为 `Finalized`（已固化），并永久开放给全网其他智能合约进行只读调用。
+##### 2. Inbound Arbitration Callback
+*   **Trigger timing:** After the off-chain arbitration network completes voting consensus or multisig ruling, the arbitration court contract asynchronously calls this contract one-way.
+*   **Method signature:** `callbackSettlement(bytes32 assertionId, string memory finalResult) external`
+*   **Access control:** Must enforce `onlyArbitrator` modifier; reject malicious calls from any unauthorized address.
+*   **Follow-up execution:**
+    *   Contract receives `finalResult` (true macro data) ruled by the supreme court.
+    *   Based on `finalResult`, determine winner/loser and automatically execute **bond settlement and reward distribution** defined in section 3.4.4 within the same block.
+    *   Change the macro data state to `Finalized` and permanently open read-only access to all other smart contracts on the network.
 
 ```

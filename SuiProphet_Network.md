@@ -11,146 +11,147 @@
   automatically becomes available under the Apache License 2.0.
 -->
 
-# 产品需求文档 (PRD) —— SuiProphet Network
+# PRD — SuiProphet Network
 
-## 1. 项目概述与愿景
+**English** | [简体中文](./SuiProphet_Network.zh.md)
 
-**SuiProphet Network** 是一个基于 Sui 区块链构建的、去中心化且兼具知识付费生态的预测市场平台。
-传统的预测市场仅停留在“押注输赢”的博弈层面，缺乏对专业信息生产者（KOL/预言家）的无篡改战绩沉淀。
+## 1. Project Overview & Vision
 
-SuiProphet 通过纯全链数据（Sui）、Indexer/IPFS 持久化 blob 与原生隐私密钥管理（Seal），打造了一个“事前付费即时可见、事后强制公开审计、全链沉淀真实战绩”的闭环生态。平台旨在过滤虚假带单，筛选出真正的“圣杯预言家”，并通过高效的免 Gas 稳定币支付，实现 Web3 知识资产的商业化变现。
+**SuiProphet Network** is a decentralized prediction market platform with a paid-knowledge ecosystem, built on the Sui blockchain.
+Traditional prediction markets stop at "betting on outcomes" and lack tamper-proof track records for professional information producers (KOLs/prophets).
+
+SuiProphet uses fully on-chain data (Sui), Indexer/IPFS persistent blobs, and native privacy key management (Seal) to build a closed loop of "pay-before to see instantly, mandatory public audit after, fully on-chain true track record". The platform filters fake signal providers, surfaces genuine "oracle prophets", and monetizes Web3 knowledge assets via efficient gas-free stablecoin payments.
 
 ---
 
-## 2. 用户角色与核心价值
+## 2. User Roles & Core Value
 
-| 用户角色 | 核心行为 | 核心价值 / 利益驱动 |
+| User role | Core behavior | Core value / incentive |
 | --- | --- | --- |
-| **预言家 (Prophet)** | 创建公开/私密预测，设置解锁价格，撰写独家深度分析。 | 获得无篡改的权威全链胜率背书；赚取高额的私密预测付费解锁收入。 |
-| **订阅者 (Buyer)** | 浏览全链排行榜，支付稳定币即时解锁高胜率预言家的私密预测。 | 获得高质量的 Alpha 投资决策参考，跟随高胜率大佬提高收益。 |
-| **平台方 (Protocol)** | 维护预测市场基础设施，集成预言机，通过 Crank 机制驱动全自动结算。 | 抽取每笔私密预测解锁费用的固定百分比（服务费）作为国库收入。 |
+| **Prophet** | Create public/private predictions, set unlock price, write exclusive deep analysis. | Tamper-proof authoritative on-chain win-rate backing; earn high unlock revenue from private predictions. |
+| **Subscriber (Buyer)** | Browse on-chain leaderboard, pay stablecoin to instantly unlock high-win-rate prophet predictions. | High-quality Alpha investment reference; follow top prophets for better returns. |
+| **Protocol** | Maintain prediction market infrastructure, integrate oracle, drive fully automated settlement via Crank. | Fixed percentage of each private prediction unlock fee as treasury revenue. |
 
 ---
 
-## 3. 核心技术架构与数据流
+## 3. Core Technical Architecture & Data Flow
 
-本项目抛弃了传统的跨链隐私方案，选择构建 **Sui + Indexer/IPFS + Seal** 技术栈，以保障极致的并行性能与无缝的链上状态验证。
+This project abandons traditional cross-chain privacy schemes in favor of **Sui + Indexer/IPFS + Seal**, ensuring extreme parallel performance and seamless on-chain state verification.
 
-### 3.1 Seal 双重“或(OR)”访问控制策略
+### 3.1 Seal Dual OR Access Control Strategy
 
-这是实现“事前付费立看，事后全网公开”的核心。预言家发布的密文数据托管于 Indexer（`idx:`）或 IPFS（`ipfs:`），其解密密钥由 Seal 节点群管理，Seal 节点根据 Sui 链上状态执行以下**双重或门（OR）策略**：
+This is the core of "pay-before to see, public after for all". Prophet-published ciphertext is hosted on Indexer (`idx:`) or IPFS (`ipfs:`); decryption keys are managed by Seal node clusters. Seal nodes execute the following **dual OR policy** based on Sui on-chain state:
 
-* **条件 A（事前付费流）**：发出解密请求的钱包地址已存在于该预测对象的 `paid_buyers` 列表中。
-* **或者（OR）**
-* **条件 B（事后公开流）**：Sui 链上当前时间已超过事件截止时间（$\text{Current Time} > \text{Lock Time}$），或该事件状态 `is_ended == true`。
+* **Condition A (pre-event paid flow):** The wallet requesting decryption exists in the prediction object's `paid_buyers` list.
+* **OR**
+* **Condition B (post-event public flow):** Current Sui on-chain time exceeds event deadline ($\text{Current Time} > \text{Lock Time}$), or event state `is_ended == true`.
 
 ---
 
-## 4. 功能模块需求
+## 4. Functional Module Requirements
 
-### 4.1 预测市场与事件创建
+### 4.1 Prediction Market & Event Creation
 
-* **基础框架**：任何用户均可发起一个标准的结构化预测市场（例如：选项 A = 涨，选项 B = 跌）。
-* **核心参数**：每个预测市场在 Sui 链上表现为一个独立的 `Object`，包含：市场 ID、截止锁定时间（`lock_time`）、预言机数据源（如 Pyth/Stork）、当前状态。
+* **Base framework:** Any user can launch a standard structured prediction market (e.g. Option A = up, Option B = down).
+* **Core parameters:** Each prediction market appears on Sui as an independent `Object` containing: market ID, lock deadline (`lock_time`), oracle data source (e.g. Pyth/Stork), current status.
 
-### 4.2 预言家等级与付费开通（PRD §11.3.7）
+### 4.2 Prophet Tier & Paid Unlock Eligibility (PRD §11.3.7)
 
-新预言家须先以 **`unlock_price = 0` 免费练手预测** 积累全链战绩，经 Oracle 审计后方可开通付费：
+New prophets must first accumulate on-chain track record via **`unlock_price = 0` free practice predictions**, then may enable paid unlock after Oracle audit:
 
-| 条件 | 阈值 |
+| Condition | Threshold |
 | --- | --- |
-| 已审计场次 | ≥ 3 |
+| Audited rounds | ≥ 3 |
 | Prophet Score | ≥ 40 / 100 |
-| 作弊记录 | 0 |
+| Cheat record | 0 |
 
-链上 `commit_private_prophecy` 在 `unlock_price > 0` 时强制校验，前端无法绕过。
+On-chain `commit_private_prophecy` enforces gate when `unlock_price > 0`; frontend cannot bypass.
 
-### 4.3 私密预测发布（预言家端）
+### 4.3 Private Prediction Publishing (Prophet side)
 
-* **结构化输入**：预言家发布预测时，前端强制将其包装为标准 JSON 格式：
+* **Structured input:** When publishing, frontend wraps into standard JSON:
 ```json
 {
   "market_id": "0x6a83...sui_object",
   "predicted_option": "A", 
-  "analysis_content": "根据链上大户筹码密集区分析..." 
+  "analysis_content": "Based on on-chain whale chip concentration analysis..." 
 }
 
 ```
 
 
 
-```
-*   **加密与上传**：前端通过 Seal 主公钥对该 JSON 进行门限加密，生成密文并上传至 **Indexer**（`POST /v1/prophecies/blob`），获得 `blob_id`（`idx:…` 或 `ipfs:…`）。
-*   **链上承诺 (Commit)**：预言家调用 Move 合约，创建“私密预测”子对象，提交 `blob_id`、**`Hash(JSON_Plaintext)`**、解锁单价（如 10 USDC）及 `lock_time`。
-
-### 4.4 即时付费解锁（订阅者端）
-*   **付费即看**：订阅者在前端浏览预言家主页，点击“解锁”。
-*   **链上交互**：调用 Move 合约，将对应数量的稳定币（USDC/AUSD）转入合约托管池。合约成功将该用户钱包地址写入该预测对象的 `paid_buyers` 向量中。
-*   **条件解密**：前端携带用户的签名请求 Seal 节点。Seal 验证该地址在 `paid_buyers` 中（满足**条件 A**），释放密钥。前端从 Indexer/IPFS 下载密文并在本地解密，**用户瞬间获取预测选项与分析报告**。
-
-### 4.5 事后自动审计与结算
-当现实世界结果发生（如时间到达 `lock_time`），进入全自动审计流程，无需预言家人工干预：
-
 
 ```
+*   **Encrypt & upload:** Frontend threshold-encrypts JSON via Seal master public key, uploads ciphertext to **Indexer** (`POST /v1/prophecies/blob`), obtains `blob_id` (`idx:…` or `ipfs:…`).
+*   **On-chain commit:** Prophet calls Move contract, creates "private prediction" child object, submits `blob_id`, **`Hash(JSON_Plaintext)`**, unlock unit price (e.g. 10 USDC), and `lock_time`.
 
-[事件到期] ──> [Oracle 录入真实结果]
-│
-▼
-[平台 Keeper / 任何人发起结算调用]
-│
-▼
-[Seal 检测到当前时间 > Lock Time (条件 B 触发)] ──> [公开解密密钥]
-│
-▼
-[合约验证：Hash(解密明文) == 链上预留 Hash]
-│
-├─> [匹配成功] ──> 智能比对结果 ──> 写入真实战绩 (胜/负)
-└─> [匹配失败/数据污染] ──> 判定为作弊 ──> 扣除积分
-│
-▼
-[资金解冻] ──> 平台抽成 X% ──> 剩余资金结算给预言家 ──> 预测对全网转为 Public
+### 4.4 Instant Paid Unlock (Subscriber side)
+*   **Pay to see:** Subscriber browses prophet profile on frontend, clicks "Unlock".
+*   **On-chain interaction:** Call Move contract, transfer corresponding stablecoin (USDC/AUSD) to contract escrow. Contract writes user wallet address into prediction object's `paid_buyers` vector.
+*   **Conditional decrypt:** Frontend signs request to Seal nodes. Seal verifies address in `paid_buyers` (**Condition A**), releases key. Frontend downloads ciphertext from Indexer/IPFS and decrypts locally — **user instantly gets prediction option and analysis**.
+
+### 4.5 Post-Event Automatic Audit & Settlement
+When real-world result occurs (e.g. time reaches `lock_time`), fully automated audit runs without prophet manual intervention:
+
 
 ```
 
-### 4.6 预言家全链战绩统计体系 (Leaderboard)
-平台智能合约基于每一笔自动审计的“胜/负”结果，实时动态维护全局预言家排行榜。
-*   **统计指标**：总预测次数、综合胜率、当前连红场数（Current Streak）、历史最高连红、购买者累计 ROI。
-*   **防刷单算法**：采用多维度加权积分算法，通过对数函数衰减单纯靠刷次数获取的权重：
+[Event expires] ──> [Oracle records true result]
+│
+▼
+[Platform Keeper / anyone triggers settlement call]
+│
+▼
+[Seal detects Current Time > Lock Time (Condition B)] ──> [Public decryption key]
+│
+▼
+[Contract verifies: Hash(decrypted plaintext) == on-chain reserved Hash]
+│
+├─> [Match success] ──> Smart compare result ──> Write true record (win/loss)
+└─> [Match fail/data tampered] ──> Mark cheat ──> Deduct score
+│
+▼
+[Funds unfreeze] ──> Protocol fee X% ──> Remainder to prophet ──> Prediction becomes Public for all
+
+```
+
+### 4.6 Prophet On-Chain Leaderboard System
+Platform smart contract dynamically maintains global prophet leaderboard based on each auto-audited win/loss.
+*   **Metrics:** Total predictions, composite win rate, current streak, historical max streak, cumulative subscriber ROI.
+*   **Anti-spam algorithm:** Multi-dimensional weighted score; log function dampens weight from pure volume farming:
 
 $$\text{Prophet Score} = w_1 \cdot \text{Accuracy Rate} + w_2 \cdot \log(N) + w_3 \cdot \text{ROI}$$
 
-> *其中，$\text{Accuracy Rate}$ 为胜率，$N$ 为参与的有效预测总场数，$w_1, w_2, w_3$ 为系统全局权重参数。*
+> *Where $\text{Accuracy Rate}$ is win rate, $N$ is total valid prediction rounds, $w_1, w_2, w_3$ are global system weights.*
 
-排行数据以链上 `ProphetStats` 为唯一真相源；MVP 无需本地统计服务，生产可选 Indexer 做缓存加速。
+Leaderboard data uses on-chain `ProphetStats` as sole source of truth; MVP needs no local stats service; production may optionally use Indexer for cache acceleration.
 
-### 4.7 极致用户体验（Gas Station 赞助交易）
-*   为了实现纯稳定币的丝滑交互，平台全面接入 Sui 的 **赞助交易（Sponsored Transactions）**。
-*   用户端无论是进行“发布预测”还是“付费解锁”，钱包弹窗**仅显示扣除/转移稳定币**。
-*   平台 Gas 站节点（Gas Payer）在后端自动为所有合规交互垫付极其微小的 SUI 链上 Gas 费，降低 Web2 用户的准入门槛。
-
----
-
-## 5. 关键操作画布（UX Flow）
-
-
-```
-
-【预言家发布流】
-输入预测与独家分析 ──> 前端 Seal 加密 ──> 上传 Indexer blob ──> 钱包签名(免Gas) ──> 链上 Commit 成功
-
-【买方事前解锁流】
-浏览胜率榜 ──> 点击解锁 ──> 钱包签名支付稳定币(免Gas) ──> Seal 条件验证通过 ──> 前端即刻解密阅读
-
-【事后全自动审计流】
-Oracle 录入结果 ──> 链上触发结算 ──> 提取预测明文 ──> 合约内 Hash 校验 ──> 更新排行榜 ──> 全网免费公开
-
-```
+### 4.7 Premium UX (Gas Station Sponsored Transactions)
+*   For pure stablecoin smooth interaction, platform fully integrates Sui **Sponsored Transactions**.
+*   Whether "publish prediction" or "paid unlock", wallet popup **only shows stablecoin debit/transfer**.
+*   Platform Gas Station node (Gas Payer) automatically covers tiny SUI gas for all compliant interactions backend, lowering Web2 user onboarding barrier.
 
 ---
 
-## 6. 非功能性需求与安全保障
-*   **绝对的内容防篡改**：由于事前在链上锁死了 `Hash(JSON_Plaintext)`，预言家或平台节点在事后均无法通过修改解密明文来伪造“神预测”，彻底杜绝古典互联网中带单老师“删帖改单”的流氓行为。
-*   **时间窗口溢出保护**：一旦链上时间距离 `lock_time` 不足 5 分钟，合约将永久关闭该预测对象的付费通道（`paid_buyers` 停止写入），防止有人在现实结果已经明朗时恶意购买或套利。
+## 5. Key UX Flows
+
 
 ```
+
+【Prophet publish flow】
+Enter prediction & exclusive analysis ──> Frontend Seal encrypt ──> Upload Indexer blob ──> Wallet sign (gas-free) ──> On-chain Commit success
+
+【Buyer pre-event unlock flow】
+Browse win-rate board ──> Click unlock ──> Wallet sign pay stablecoin (gas-free) ──> Seal condition pass ──> Frontend decrypt & read instantly
+
+【Post-event auto audit flow】
+Oracle records result ──> On-chain triggers settlement ──> Extract prediction plaintext ──> In-contract Hash verify ──> Update leaderboard ──> Free public for all
+
+```
+
+---
+
+## 6. Non-Functional Requirements & Security
+*   **Absolute content tamper-proofing:** Since `Hash(JSON_Plaintext)` is locked on-chain beforehand, prophet or platform nodes cannot modify decrypted plaintext post-hoc to fake "oracle predictions", eliminating classic internet signal-provider "delete post / change record" abuse.
+*   **Time window overflow protection:** Once on-chain time is within 5 minutes of `lock_time`, contract permanently closes paid channel for that prediction (`paid_buyers` writes stop), preventing malicious purchase or arbitrage when real-world result is already clear.

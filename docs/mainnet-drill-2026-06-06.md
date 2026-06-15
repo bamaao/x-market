@@ -11,53 +11,55 @@
   automatically becomes available under the Apache License 2.0.
 -->
 
-# X-Market Sui 主网前演练记录
+**English** | [简体中文](./mainnet-drill-2026-06-06.zh.md)
 
-## 0. 基本信息
+# X-Market Sui Pre-Mainnet Drill Record
 
-- **演练名称：** P0.7 Testnet 应急演练
-- **演练日期：** 2026-06-06
-- **环境：** Sui Testnet
-- **Package ID：** `0x2e368e00532771eedd2df288bd61b0cb2324471b9fc6e14160a7f3079310ae6e`
-- **执行钱包：** `0x87e487cd6b1c7a53f91999eb3a5372ced201b614b26924ba4cc1d282a2240c07`
-- **自动化脚本：** `app/scripts/p0-drills.ts`
+## 0. Basic Information
 
-## 1. 演练范围
+- **Drill name:** P0.7 Testnet Emergency Drill
+- **Drill date:** 2026-06-06
+- **Environment:** Sui Testnet
+- **Package ID:** `0x2e368e00532771eedd2df288bd61b0cb2324471b9fc6e14160a7f3079310ae6e`
+- **Execution wallet:** `0x87e487cd6b1c7a53f91999eb3a5372ced201b614b26924ba4cc1d282a2240c07`
+- **Automation script:** `app/scripts/p0-drills.ts`
 
-- [x] A. 买入头寸（结算/claim 待 maturity）
-- [x] B. Slash 触发 + paused 验证（resume 待 timelock）
-- [x] C. SlashGovernance 多签 propose → execute
-- [x] D. ZK submit/verify（challenge 需独立钱包；finalize 待窗口）
-- [ ] E. 前端页面手工回归
-- [ ] F. 告警链路与值班响应
+## 1. Drill Scope
 
-## 3. 执行记录
+- [x] A. Buy position (settlement/claim pending maturity)
+- [x] B. Slash trigger + paused verification (resume pending timelock)
+- [x] C. SlashGovernance multisig propose → execute
+- [x] D. ZK submit/verify (challenge requires separate wallet; finalize pending window)
+- [ ] E. Frontend page manual regression
+- [ ] F. Alert pipeline and on-call response
 
-| 演练 | 步骤 | 结果 | Digest | 备注 |
+## 3. Execution Record
+
+| Drill | Step | Result | Digest | Notes |
 |------|------|------|--------|------|
 | SETUP | merge USDC coins | success | njp6bH3QqX6qv5tEShQH3XGLqbuqJh6M7uMm7umKRvu |  |
-| A | deposit_liquidity 50 USDC (buy 准备) | success | D6T3GrTQaScRSYzDkAFqy1dygyUbaavQ1cpF8NMK2kgh |  |
+| A | deposit_liquidity 50 USDC (buy prep) | success | D6T3GrTQaScRSYzDkAFqy1dygyUbaavQ1cpF8NMK2kgh |  |
 | A | buy_poisson_digital k=7 0.01 USDC | success | GzYo8Shz5Sc7JU212TLsubR7Ydx6TQ3EUWp4LrMrN8yN |  |
-| A | report_resolution + claim_position | skipped |  | 池 maturity 在未来；到期后用 settlement_oracle::report_resolution 再 claim |
-| B | deposit_liquidity 10 USDC (slash 准备) | success | H79aq96MNkrrEXxALKa1JCUnBy9kFB2NhbnP7KfFU3q |  |
+| A | report_resolution + claim_position | skipped |  | Pool maturity is in the future; use settlement_oracle::report_resolution after expiry, then claim |
+| B | deposit_liquidity 10 USDC (slash prep) | success | H79aq96MNkrrEXxALKa1JCUnBy9kFB2NhbnP7KfFU3q |  |
 | B | slash_pool 1 USDC | success | 9xLZfHSrG1qbrTeUsDSrAKWqkKSCyvUG28eFGiNnW8mj |  |
 | B | verify pool.paused | success | 9xLZfHSrG1qbrTeUsDSrAKWqkKSCyvUG28eFGiNnW8mj | paused=true |
-| B | unslash_resume_pool | manual |  | 需等待 slash timelock 1800s 后由 Admin 调用 unslash_resume_pool |
+| B | unslash_resume_pool | manual |  | Wait for slash timelock 1800s, then Admin calls unslash_resume_pool |
 | SETUP | merge USDC coins | success | 2yHUfJzS11DedcVnx52hN3chma7BDaU8feGb5TrxVyzx |  |
-| C | deposit_liquidity 5 USDC (gov 准备) | success | Ervev8J7rbXZBWZL9BZYk898dAfKyDL49zr41uSCqfbb |  |
+| C | deposit_liquidity 5 USDC (gov prep) | success | Ervev8J7rbXZBWZL9BZYk898dAfKyDL49zr41uSCqfbb |  |
 | C | init_slash_governance threshold=1 | success | HKki2pB9ScBdawhVuFW1ASxEQJ7JJ7Y3RVLcaNFJwSmL |  |
 | C | propose_slash_request 0.5 USDC | success | CcXVAQxf9yox2FUjawY7QuwFyKPZCvMZgFfK5t8M8Vav |  |
 | C | execute_slash_request (threshold=1) | success | 9zbRnu669BW5WQf3ScTfxLJtpNsjty9TVskmdxRLyg4i |  |
 | D | submit_proof | success | FwjL1XQnfY8MVfyKLgSX81mvAPePwbHMMPG9VS5JDVkA |  |
 | D | verify_proof accepted | success | 322hKSKstbsbrmHNQTG4TLHw7Ns1F31aS77o1LJcGmzV |  |
-| D | challenge_verification | skipped |  | verifier 与 challenger 不可为同一地址（链上约束）；主网需独立挑战者钱包 |
-| D | finalize_verification | manual |  | 需 challenge 窗口 3600s 结束后 Admin finalize |
+| D | challenge_verification | skipped |  | Verifier and challenger cannot be the same address (on-chain constraint); mainnet requires separate challenger wallet |
+| D | finalize_verification | manual |  | Admin finalize after challenge window 3600s ends |
 
-## 5. 演练结论
+## 5. Drill Conclusion
 
-- **总体结论：** 通过（含 manual 项待补完）
-- **Manual 待办：** B resume (1800s) · D finalize (3600s) · A claim (maturity 后)
+- **Overall conclusion:** Passed (manual items pending completion)
+- **Manual follow-ups:** B resume (1800s) · D finalize (3600s) · A claim (after maturity)
 
-## 7. 复核与签字
+## 7. Review and Sign-off
 
-协议 / 风控 / 运维 / 产品负责人签字：待完成
+Protocol / Risk / Ops / Product lead sign-off: Pending

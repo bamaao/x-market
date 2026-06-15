@@ -11,4 +11,6 @@
   automatically becomes available under the Apache License 2.0.
 -->
 
+**English** | [简体中文](./README.zh.md)
+
 Please ignore this folder, which is just glue to build Rust with Flutter.

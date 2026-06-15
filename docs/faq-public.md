@@ -11,94 +11,96 @@
   automatically becomes available under the Apache License 2.0.
 -->
 
-# X-Market 对外 FAQ（精简版）
+# X-Market Public FAQ (Short Version)
 
-> 面向官网、社媒、路演的短版问答。  
-> 如需工程细节，请查看 `PRD.md`、`docs/qa.md` 与各阶段 playbook。
+**English** | [简体中文](./faq-public.zh.md)
 
----
-
-## 1) 你们和传统 Yes/No 预测市场有什么区别？
-
-我们不是把每个结果拆成大量碎片盘口，而是用参数化 AMM 直接对概率分布做市。  
-简单说：交易员在交易“概率曲线”，不是在抢单一二元代币。
+> Short Q&A for website, social media, and demos.  
+> For engineering details, see `PRD.md`, `docs/qa.md`, and phase playbooks.
 
 ---
 
-## 2) 足球总进球这种离散事件，怎么定价？
+## 1) How are you different from traditional Yes/No prediction markets?
 
-用 Poisson 模型（核心参数 `lambda`）。  
-例如买区间 `[2,6]`，系统会计算 `P(2<=X<=6)` 作为理论价格，再叠加滑点得到实际成交价。
-
----
-
-## 3) 买了 `[2,6]`，最终进球是 5，收益怎么算？
-
-结算规则很直接：
-
-- 命中区间：每份头寸兑付 1 USDC
-- 未命中区间：头寸归零
-
-举例：
-
-- 投入 1000 USDC
-- 含滑点平均成本 0.70
-- 持仓 = `1000 / 0.70 = 1428.57` 份
-- 若赛果 `X=5`（命中），总兑付 `1428.57 USDC`
-- 净利润 `+428.57 USDC`，ROI 约 `42.86%`
+We don't split every outcome into many fragmented order books. A parametric AMM makes markets directly on probability distributions.  
+In short: traders trade the **probability curve**, not a race for binary tokens.
 
 ---
 
-## 4) 那买超宽区间（比如 `[1,7]`）不是几乎稳赢吗？
+## 2) How is a discrete event like total football goals priced?
 
-宽区间通常“更容易中”，但也“更贵”。  
-所以常见结构不是暴利，而是：
-
-- 高胜率
-- 低赔率
-- 尾部一次性大回撤
-
-典型表现：平时小赚，偶发一次直接回吐甚至血亏。
+With a Poisson model (core parameter `lambda`).  
+For example, buying interval `[2,6]`, the system computes `P(2<=X<=6)` as the theoretical price, then adds slippage for the actual fill.
 
 ---
 
-## 5) 这样 LP 会不会长期亏？
+## 3) I bought `[2,6]` and the final score is 5 goals — how is payout calculated?
 
-LP 的收益结构是交易者的镜像：
+Settlement is straightforward:
 
-- 高频小赔（命中时兑付）
-- 低频大赚（尾部未命中时留存本金）
+- Hit the interval: each position pays 1 USDC
+- Miss the interval: position goes to zero
 
-长期是否为正，取决于四件事：
+Example:
 
-1. 交易换手率是否足够高  
-2. 滑点/费率溢价是否覆盖尾部赔付  
-3. 尾部事件出现频率  
-4. 风控参数是否有效（动态费率、虚拟流动性、时间锁）
-
----
-
-## 6) 你们做了哪些风险防守？
-
-- Max-Loss 边界检查（避免资不抵债）
-- LP Guard（动态费率、虚拟流动性、时间窗口约束）
-- Cross-Margin 风险聚合
-- Phase 3 新增：ZK 协处理接口与 Slash 风控处置
+- Invest 1000 USDC
+- Average cost with slippage: 0.70
+- Position size = `1000 / 0.70 = 1428.57` units
+- If result `X=5` (hit), total payout `1428.57 USDC`
+- Net profit `+428.57 USDC`, ROI ~`42.86%`
 
 ---
 
-## 7) Phase 3 现在有哪些新产品？
+## 4) Isn't a very wide interval like `[1,7]` almost guaranteed to win?
 
-Normal 市场已支持：
+Wide intervals are usually "easier to hit" but also **more expensive**.  
+So the typical structure is not huge upside, but:
+
+- High win rate
+- Low odds
+- Tail risk: one miss can wipe prior gains
+
+Typical pattern: small wins often, occasional large drawdown or loss.
+
+---
+
+## 5) Will LPs lose money long term?
+
+LP returns mirror traders:
+
+- Frequent small losses (when positions hit)
+- Infrequent large gains (when tail events miss, vault keeps principal)
+
+Whether long-term expectancy is positive depends on four things:
+
+1. Whether turnover is high enough  
+2. Whether slippage/fees cover tail payouts  
+3. Tail event frequency  
+4. Whether risk controls work (dynamic fees, virtual liquidity, time locks)
+
+---
+
+## 6) What risk defenses do you have?
+
+- Max-Loss boundary checks (prevent insolvency)
+- LP Guard (dynamic fees, virtual liquidity, time-window constraints)
+- Cross-Margin risk aggregation
+- Phase 3: ZK coprocessor interface and Slash risk controls
+
+---
+
+## 7) What new products does Phase 3 add?
+
+Normal markets now support:
 
 - Variance Swap
-- Structured Note（封顶看涨）
-- Range Note（区间票息）
-- Barrier Note（障碍票息）
+- Structured Note (capped call)
+- Range Note (range coupon)
+- Barrier Note (barrier coupon)
 
 ---
 
-## 8) 一句话总结 X-Market
+## 8) X-Market in one sentence
 
-X-Market 是一个把“预测市场”升级为“概率分布衍生品市场”的协议：  
-交易的不只是方向，还有区间、波动率与结构化风险。
+X-Market upgrades "prediction markets" into **probability-distribution derivative markets**:  
+you trade not just direction, but intervals, volatility, and structured risk.

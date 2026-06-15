@@ -13,123 +13,285 @@
 
 # X-Market on Sui
 
-**独立 Sui 项目** — Move 链上模块 + `Coin<USDC>` Vault + Parametric AMM。
+**English** | [简体中文](./README.zh.md)
 
-与 [X-Market on Solana](../x-market-solana) 无共用合约、流动性或部署；仅产品理念与数学规范同源。
+**Sui prediction market product suite** — Move on-chain modules + Circle native `USDC` Vault + parametric AMM + SuiProphet paid knowledge ecosystem.
 
-## 目录
+No shared contracts, liquidity, or deployments with [X-Market on Solana](../x-market-solana); only product vision and math spec are shared.
+
+## Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Application: Next.js Web · Flutter Mobile · Gas Station · Indexer │
+├─────────────────────────────────────────────────────────────────┤
+│  Business Modules                                                │
+│  ┌──────────────────────┐    ┌────────────────────────────┐    │
+│  │ X-Market (Trading)    │    │ SuiProphet (Paid Insights)  │    │
+│  │ MarketPool · Position │    │ PrivateProphecy · Leaderboard│   │
+│  └──────────┬───────────┘    └─────────────┬──────────────┘    │
+│             └──────────────┬─────────────────┘                    │
+│                            ▼                                    │
+│              EventRoot / MarketPool (market root · shared)       │
+├─────────────────────────────────────────────────────────────────┤
+│  Unified On-Chain Event Engine (Oracle)                          │
+│  macro_oracle · oracle_arbitrator · DataFeed · committee finality│
+└─────────────────────────────────────────────────────────────────┘
+```
+
+| Layer | Directory | Description |
+| --- | --- | --- |
+| On-chain contracts | `sources/` | Move modules: AMM, Oracle, Prophet, LP, margin, etc. |
+| Web frontend | `app/` | Next.js 15 + `@mysten/dapp-kit` |
+| Mobile | `mobile/x_market_flutter/` | Flutter + Rust pricing bridge |
+| Off-chain services | `services/` | Gas Station, Indexer, LP Guard, Oracle Relayer, etc. |
+| Pricing engine | `pricing-engine/` | Off-chain preview (aligned with `math-spec`) |
+| Math spec | `math-spec/` | Q32.32 fixed-point spec and test vectors |
+| Deployment | `scripts/`、`deploy/` | Testnet seed markets, service bootstrap |
+
+## Repository Structure
 
 ```
 x-market-sui/
-├── PRD.md
-├── docs/qa.md
-├── math-spec/
-├── sources/           # Move 模块
-├── app/               # Next.js 前端 (Phase 1)
-├── scripts/           # Testnet 种子市场
+├── sources/                  # Move on-chain modules
+├── math-spec/                # Math spec and LUT generation scripts
+├── app/                      # Next.js web frontend
+├── mobile/x_market_flutter/  # Flutter mobile client
+├── services/
+│   ├── indexer/              # PostgreSQL on-chain indexer + REST API
+│   ├── gas-station/          # Gas sponsorship (Prophet whitelist PTBs)
+│   ├── lp-guard-keeper/      # LP dynamic fee adjustment
+│   ├── chain-monitor/        # Service health aggregation
+│   ├── oracle-relayer/       # Oracle proposal relay
+│   ├── walrus-relay/         # Walrus storage relay
+│   ├── prophet-audit-keeper/ # Prophet audit keeper
+│   ├── uma-dvm-relayer/      # UMA DVM relay
+│   └── brevis-zk-prover/     # ZK coprocessor proofs
+├── pricing-engine/           # Off-chain pricing preview
+├── faucet/                   # Testnet USDC faucet (optional)
+├── deploy/                   # Testnet / Mainnet deployment records
+├── scripts/                  # PowerShell / Bash ops scripts
+├── docs/                     # Runbooks, playbooks, FAQ
+├── docker-compose.services.yml
+├── docker-compose.indexer.yml
 ├── Move.toml
-└── Move.lock
+└── PRD.md
 ```
 
-## 快速开始
+## Prerequisites
+
+| Component | Version / Tools |
+| --- | --- |
+| On-chain dev | [Sui CLI](https://docs.sui.io/guides/developer/getting-started) (Move 2024.beta) |
+| Web frontend | Node.js 20+, npm |
+| Off-chain services | Node.js 20+, Docker (PostgreSQL) |
+| Mobile | Flutter 3.x, Rust toolchain (`flutter_rust_bridge`) |
+| Math LUT | Python 3.10+ |
+
+## Quick Start
+
+### 1. On-Chain Contracts
 
 ```powershell
-# 数学 LUT
+# Generate exp lookup table (first run or after math-spec changes)
 python math-spec/scripts/gen_exp_neg_lut.py
 
-# 链上测试
+# Unit tests and build
 sui move test
 sui move build
 
-# 发布 Testnet
+# Publish to Testnet (requires configured sui client)
 sui client publish --gas-budget 500000000
-# 详见 deploy/testnet.json
-
-.\scripts\seed-testnet.ps1   # 创建 3 个种子池
-
-# 前端
-cd app
-cp .env.example .env.local   # 或已写入 Testnet 配置
-npm install
-npm run dev
+# Full record: deploy/testnet-v2.json
 ```
 
-## Testnet 部署（已发布）
+### 2. Web Frontend
 
-| 资源 | ID |
+```powershell
+cd app
+cp .env.example .env.local   # Fill in Testnet package / service URLs
+npm install
+npm run dev                  # http://localhost:3000
+```
+
+Key routes: `/markets` market list · `/lp` LP panel · `/positions` positions · `/prophet` prophets · `/leaderboard` leaderboard
+
+### 3. Off-Chain Services (P0 / P1)
+
+```powershell
+# Generate .env.local from deploy/testnet-v2.json
+.\scripts\bootstrap-services-env.ps1
+
+# Start local processes
+.\scripts\start-services-testnet.ps1
+.\scripts\verify-services-health.ps1
+
+# Or use Docker
+docker compose -f docker-compose.services.yml up -d --build
+```
+
+| Service | Port | Description |
+| --- | --- | --- |
+| Gas Station | 8787 | Gas sponsorship for free Prophet commits |
+| LP Guard Keeper | 8788 | Dynamic fee tuning for seed pools |
+| Chain Monitor | 8789 | Service health aggregation |
+| Oracle Relayer | 8790 | Oracle proposal relay |
+| Walrus Relay | 8791 | Walrus storage relay |
+
+See [docs/services-testnet-runbook.md](./docs/services-testnet-runbook.md) and each service README for details.
+
+### 4. Indexer (P2)
+
+```powershell
+# Start PostgreSQL
+docker compose -f docker-compose.indexer.yml up -d postgres
+
+# Configure and start Indexer
+.\scripts\bootstrap-indexer-env.ps1
+.\scripts\start-indexer.ps1
+.\scripts\verify-indexer-health.ps1
+# API default: http://localhost:8800
+```
+
+See [services/indexer/README.md](./services/indexer/README.md) and [docs/p2-indexer-runbook.md](./docs/p2-indexer-runbook.md).
+
+### 5. Pricing Engine
+
+```powershell
+cd pricing-engine
+npm install
+npm start                    # http://localhost:8801
+```
+
+### 6. Mobile (Flutter)
+
+```powershell
+cd mobile/x_market_flutter
+.\scripts\bootstrap-mobile-env.ps1   # Run from repo root
+flutter pub get
+flutter run
+```
+
+See [mobile/x_market_flutter/README.md](./mobile/x_market_flutter/README.md).
+
+### 7. Testnet Seed Markets
+
+```powershell
+.\scripts\seed-testnet.ps1           # Create Poisson / Dirichlet / Normal seed pools
+.\scripts\start-auction-pool.ps1 -Kind poisson   # Create a new auction pool
+```
+
+## Testnet Deployment (v2, current)
+
+Full record: [deploy/testnet-v2.json](./deploy/testnet-v2.json).
+
+| Resource | ID |
 | --- | --- |
-| Package | `0xe6be1520c8f4753928b8daf5e45ca485b3c67cd0ab136874b5705bcf24eac8c1` |
-| GlobalConfig | `0x6f5590350079a39c2ee8639d02c297835c2f07ce343c8baf5e8138271b6162ff` |
-| AdminCap | `0xfba8d4081f560322175ea3a4fdc3250c690da29ae588586dbe379363178f01c3` |
-| TreasuryCap (USDC) | `0x665f9aa32bbb18a65749b7fee38be8499d87fe0ddcdb8e8bbf738f4129975eaf` |
-| Poisson 池 | `0x858f4b3c22aa5add2053895e6d5246ded7aa7361356313eca3a8a30c060d9c71` |
-| Dirichlet 池 | `0xf5d1283915bc14e54b016cd1df263cb6f0775b84b40f2aff3262005300446dae` |
-| Normal 池 | `0x694b31b28219505e1c92f628132eec7b63694f688da8ede7d3a2d136941931cf` |
+| Package | `0x083d470a44ce73a290368ec18a8ee96c49cc3491e29117737e62c9f57dbec57d` |
+| GlobalConfig | `0x55d3205160a04f43eabcc3ee1dadd8cc39a071e0791cda00af3dd96258fe1111` |
+| AdminCap | `0x5560450916bf31807ab5b3a389d9895c92d18de68e770ebe598ca3aa3f3ed528` |
+| OracleConfig | `0x4d3e154b88aae952099c91bbb28c50c49140a3954d223f9c84570722b7a39f8a` |
+| ProphetRegistry | `0x1f654bad17271115bebd91e92639a0f80157539779192022ffb1d959a5f115c3` |
+| Poisson pool | `0x075799eb6efda59c1834d8e70338cb11c9dc56c567c5ddb113a742ff419cc0d5` |
+| Dirichlet pool | `0x296c749d8257d68a31a1da3b715ccb01acfabb85112e5cc9885755818b3dcd5e` |
+| Normal pool | `0x407cbfcbab839d1fd192bf694d582c7cc1686b3ec7aed1b4e6f19335bb98cf91` |
 
-完整记录见 [deploy/testnet.json](./deploy/testnet.json)。浏览器：[Suivision Package](https://testnet.suivision.xyz/package/0xe6be1520c8f4753928b8daf5e45ca485b3c67cd0ab136874b5705bcf24eac8c1)
+Explorer: [Suivision Package](https://testnet.suivision.xyz/package/0x083d470a44ce73a290368ec18a8ee96c49cc3491e29117737e62c9f57dbec57d)
 
-### USDC 交易（Testnet）
+> Legacy deployment: `deploy/testnet.json` (superseded).
 
-协议使用 **Circle 原生 USDC**（非自铸测试币）：
+### USDC (Circle Native)
 
-| 网络 | Coin Type |
+The protocol uses **Circle native USDC** (not a custom test token):
+
+| Network | Coin Type |
 | --- | --- |
 | Testnet | `0xa1ec7fc00a6f40db9693ad1415d0c193ad3906494428cf252621037bd7117e29::usdc::USDC` |
 | Mainnet | `0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC` |
 
-1. **获取测试网 USDC**：从 [Circle 测试网文档 / 水龙头](https://developers.circle.com/stablecoins/quickstart-setup-transfer-usdc-sui) 领取，或请部署者 `.\scripts\transfer-test-usdc.ps1 -Recipient 0x…` 转账
-2. **买入**：`cd app && npm run dev` → 连接钱包 → 选择区间/数字期权参数 →「用 USDC 买入」（自动合并多枚 USDC；Gas 仍为 SUI）
-3. **持仓**：`/positions` 查看 Position，市场结算后可填写 Pool ID 领取赔付
+1. **Get Testnet USDC**: [Circle Testnet docs](https://developers.circle.com/stablecoins/quickstart-setup-transfer-usdc-sui), or `.\scripts\transfer-test-usdc.ps1 -Recipient 0x…`
+2. **Buy**: Connect wallet → pick interval/digital option → "Buy with USDC" (gas paid in SUI)
+3. **Positions**: View on `/positions`; claim payout after settlement
 
-> 已部署的旧池若仍绑定 `x_market::usdc::USDC`，需重新发布合约并创建新种子市场后方可使用 Circle USDC。
+## Core Capabilities
 
-## Phase 1.5 能力（链上 + 前端）
+### X-Market Trading Module
 
-| 能力 | 状态 |
+| Capability | Status |
 | --- | --- |
-| Opening Auction（Poisson + Dirichlet + Normal） | ✅ `start_*_auction` / `auction_bid` / `finalize_*` |
-| 状态机 Auction → Trading → Settled | ✅ `market_status` |
-| NAV 申购 `deposit_liquidity` | ✅ `nav.move` + 全局缩放 Dirichlet α |
-| LP Token `LpShare` | ✅ `lp_token.move`（赎回 Phase 2） |
-| 前端竞价 / LP 面板 | ✅ `AuctionPanel` / `LpDepositPanel` / `/lp` |
-
-```powershell
-.\scripts\start-auction-pool.ps1 -Kind poisson   # 新建竞价池
-.\scripts\start-auction-pool.ps1 -Kind dirichlet
-.\scripts\start-auction-pool.ps1 -Kind normal    # CPI 等宏观 μ/σ 竞价定标
-```
-
-## Phase 1 能力（链上）
-
-| 能力 | 状态 |
-| --- | --- |
-| Tier 1：Poisson / Dirichlet / Normal | ✅ |
-| 区间 + 数字期权入口 | ✅ `buy_*_interval` / `buy_*_digital` |
+| Tier 1: Poisson / Dirichlet / Normal | ✅ |
+| Interval + digital options | ✅ `buy_*_interval` / `buy_*_digital` |
 | USDC Vault + Max-Loss | ✅ |
-| 结算 Oracle（乐观提议 + 争议期 + finalize） | ✅ `macro_oracle` + `settlement`；Admin 快路径 `settlement_oracle` |
-| Next.js 前端 + 3 种子市场配置 | ✅ `app/` + `scripts/seed-testnet.ps1` |
+| Opening Auction → Trading → Settled | ✅ |
+| NAV deposit / LP Token | ✅ `deposit_liquidity` + `LpShare` |
+| Oracle settlement (optimistic + dispute + finality) | ✅ `macro_oracle` + `settlement` |
+| Cross margin | ✅ `cross_margin` |
+| LP Guard dynamic fees | ✅ `lp_guard` + Keeper |
+
+### SuiProphet Paid Module
+
+| Capability | Status |
+| --- | --- |
+| Private prophecy commit (Seal encryption) | ✅ `prophet_registry` |
+| Track record / Prophet Score | ✅ `prophet_leaderboard` |
+| Leaderboard (on-chain + Indexer) | ✅ `/leaderboard` |
+| Gas Station free commit sponsorship | ✅ |
+| EventRoot market root abstraction | ✅ `event_root` (migration in progress) |
 
 ## Vault
 
-USDC 托管在共享对象 `MarketPool.vault: Balance<USDC>` 内。
+USDC is held in the shared object `MarketPool.vault: Balance<USDC>`. Settlement and payouts flow through the Vault, constrained by Max-Loss.
 
-Dev 币种：Circle 原生 `usdc::usdc::USDC`（按网络选择 testnet/mainnet 地址）。
+## Documentation Index
 
-## 文档
+### Product & Spec
 
-- [PRD.md](./PRD.md)
-- [docs/qa.md](./docs/qa.md)
-- [docs/faq-public.md](./docs/faq-public.md)
+- [PRD.md](./PRD.md) — Product requirements
+- [math-spec/SPEC.md](./math-spec/SPEC.md) — Tier 1 on-chain math spec
+- [docs/business-spec.md](./docs/business-spec.md) — Business specification
+- [docs/qa.md](./docs/qa.md) — Q&A
+- [docs/faq-public.md](./docs/faq-public.md) — Public FAQ
+
+### Phase Playbooks
+
 - [docs/phase1.5-playbook.md](./docs/phase1.5-playbook.md)
 - [docs/phase2-playbook.md](./docs/phase2-playbook.md)
 - [docs/phase3-playbook.md](./docs/phase3-playbook.md)
-- [docs/tier2-decision.md](./docs/tier2-decision.md)
-- [docs/slash-and-attestation.md](./docs/slash-and-attestation.md)
-- [docs/deferred-features.md](./docs/deferred-features.md)
+- [docs/phase4-services.md](./docs/phase4-services.md)
+
+### Operations Runbooks
+
+- [docs/services-testnet-runbook.md](./docs/services-testnet-runbook.md) — P0/P1 off-chain services
+- [docs/p1-services-runbook.md](./docs/p1-services-runbook.md)
+- [docs/p2-indexer-runbook.md](./docs/p2-indexer-runbook.md) — Indexer
+- [docs/p3-growth-runbook.md](./docs/p3-growth-runbook.md)
+- [docs/p4-scale-runbook.md](./docs/p4-scale-runbook.md)
+- [docs/testnet-deployment.md](./docs/testnet-deployment.md)
+- [docs/testnet-deployment-ubuntu.md](./docs/testnet-deployment-ubuntu.md)
+
+### Oracle & Prophet
+
+- [docs/oracle-playbook.md](./docs/oracle-playbook.md)
+- [docs/prophet-playbook.md](./docs/prophet-playbook.md)
+- [docs/prophet-market-and-encryption-guide.md](./docs/prophet-market-and-encryption-guide.md)
+- [Macro_Data_Oracle.md](./Macro_Data_Oracle.md)
+- [SuiProphet_Network.md](./SuiProphet_Network.md)
+
+### Mainnet Readiness
+
 - [docs/mainnet-readiness-checklist.md](./docs/mainnet-readiness-checklist.md)
 - [docs/mainnet-infra-priority.md](./docs/mainnet-infra-priority.md)
 - [docs/mainnet-governance-params.md](./docs/mainnet-governance-params.md)
-- [docs/mainnet-drill-record-template.md](./docs/mainnet-drill-record-template.md)
-- [docs/oracle-playbook.md](./docs/oracle-playbook.md)
-- [docs/prophet-playbook.md](./docs/prophet-playbook.md)
-- [Macro_Data_Oracle.md](./Macro_Data_Oracle.md)
+- [docs/governance-params-signoff.md](./docs/governance-params-signoff.md)
+
+### Other
+
+- [docs/tier2-decision.md](./docs/tier2-decision.md)
+- [docs/slash-and-attestation.md](./docs/slash-and-attestation.md)
+- [docs/deferred-features.md](./docs/deferred-features.md)
+- [docs/gas-station-implementation.md](./docs/gas-station-implementation.md)
+- [docs/demo-walkthrough.md](./docs/demo-walkthrough.md)
+
+## License
+
+This project is licensed under the [Business Source License 1.1 (BSL 1.1)](./LICENSE). Change Date: **2031-01-01** — after which it automatically converts to Apache License 2.0.

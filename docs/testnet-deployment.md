@@ -11,117 +11,119 @@
   automatically becomes available under the Apache License 2.0.
 -->
 
-# X-Market Sui — Testnet 测试环境部署指南
+**English** | [简体中文](./testnet-deployment.zh.md)
 
-> **适用环境：** Sui Testnet · **链上配置：** [deploy/testnet-v2.json](../deploy/testnet-v2.json)  
-> **Package v3：** `0x2e368e…ae6e`（`unlock_price=0` 免费 Commit 已修复）  
-> **Ubuntu 24 部署：** 见 [testnet-deployment-ubuntu.md](./testnet-deployment-ubuntu.md)
+# X-Market Sui — Testnet Deployment Guide
 
-本文档覆盖**本地/测试机**完整部署流程：前端、链下服务（P0–P1）、Indexer（P2）、Pricing Engine（P3）、Prophet Audit Keeper（P4 可选）。
+> **Environment:** Sui Testnet · **On-chain config:** [deploy/testnet-v2.json](../deploy/testnet-v2.json)  
+> **Package v3:** `0x2e368e…ae6e` (`unlock_price=0` free Commit fixed)  
+> **Ubuntu 24 deployment:** see [testnet-deployment-ubuntu.md](./testnet-deployment-ubuntu.md)
+
+This document covers the full **local/test machine** deployment: frontend, off-chain services (P0–P1), Indexer (P2), Pricing Engine (P3), Prophet Audit Keeper (P4 optional).
 
 ---
 
-## 1. 架构概览
+## 1. Architecture Overview
 
 ```
-浏览器 (localhost:3000)
+Browser (localhost:3000)
     │
-    ├── Sui RPC (Testnet) ──────────────► 链上合约 v3
-    ├── Gas Station (:8787) ────────────► 赞助 Prophet PTB
+    ├── Sui RPC (Testnet) ──────────────► On-chain contracts v3
+    ├── Gas Station (:8787) ────────────► Sponsor Prophet PTB
     ├── Walrus Relay (:8791) ─────────► PUT /v1/blobs → Walrus Publisher
     ├── Indexer API (:8800) ──────────► PostgreSQL (:5432)
-    └── Pricing Engine (:8801) ───────► 交易预览报价
+    └── Pricing Engine (:8801) ───────► Trade preview quotes
 
-后台 Keeper / Monitor
+Background Keeper / Monitor
     ├── LP Guard Keeper (:8788)
     ├── Chain Monitor (:8789)
     ├── Oracle Relayer (:8790)
-    └── Prophet Audit Keeper (:8792, 可选)
+    └── Prophet Audit Keeper (:8792, optional)
 ```
 
 ---
 
-## 2. 前置条件
+## 2. Prerequisites
 
-| 工具 | 版本建议 | 用途 |
+| Tool | Recommended Version | Purpose |
 |------|----------|------|
-| **Node.js** | ≥ 20 | 前端 + 链下服务 |
-| **npm** | ≥ 10 | 依赖安装 |
-| **Sui CLI** | 最新 testnet | 导出 deployer 密钥、领水、链上操作 |
-| **Docker Desktop** | 可选 | P2 Indexer 用 Postgres（推荐） |
-| **Git** | — | 拉取代码 |
+| **Node.js** | ≥ 20 | Frontend + off-chain services |
+| **npm** | ≥ 10 | Dependency install |
+| **Sui CLI** | Latest testnet | Export deployer keys, faucet, on-chain ops |
+| **Docker Desktop** | Optional | Postgres for P2 Indexer (recommended) |
+| **Git** | — | Clone repo |
 
-### 2.1 Sui 钱包
+### 2.1 Sui Wallet
 
-链下服务（Gas Station、LP Guard Keeper 等）需使用 **deployer 地址** 的私钥，且该地址须为种子池 `authority`：
+Off-chain services (Gas Station, LP Guard Keeper, etc.) require the **deployer address** private key, and that address must be the seed pool `authority`:
 
 ```
 Deployer: 0x87e487cd6b1c7a53f91999eb3a5372ced201b614b26924ba4cc1d282a2240c07
 ```
 
 ```powershell
-# 切换到 testnet 并导入/激活 deployer
+# Switch to testnet and import/activate deployer
 sui client switch --env testnet
-sui client active-address   # 应等于 deploy/testnet-v2.json 中的 deployer
+sui client active-address   # should match deployer in deploy/testnet-v2.json
 
-# 若 Gas 不足
+# If Gas is insufficient
 .\scripts\fund-gas-payer-testnet.ps1
 .\scripts\check-gas-balances.ps1
 ```
 
-> **注意：** 若你使用非 deployer 钱包，Gas Station 仍可赞助部分交易，但 LP Guard Keeper **无法**更新池参数（authority 不匹配）。
+> **Note:** If you use a non-deployer wallet, Gas Station can still sponsor some transactions, but LP Guard Keeper **cannot** update pool parameters (authority mismatch).
 
-### 2.2 端口占用
+### 2.2 Port Usage
 
-| 端口 | 服务 |
+| Port | Service |
 |------|------|
-| 3000 | Next.js 前端 |
+| 3000 | Next.js frontend |
 | 5432 | PostgreSQL |
-| 8787–8792 | 链下服务 |
+| 8787–8792 | Off-chain services |
 | 8800 | Indexer API |
 | 8801 | Pricing Engine |
 
 ---
 
-## 3. 部署档位（Profile）
+## 3. Deployment Profiles
 
-| Profile | 包含组件 | 典型用途 |
+| Profile | Components | Typical Use |
 |---------|----------|----------|
-| `frontend` | 仅前端 env + npm | 只看 UI、直连 RPC |
-| `p0` | Gas Station + LP Guard | Prophet 免费 Commit、LP 防守 |
-| `p1` | P0 + Monitor + Oracle Relayer + Walrus Relay | **推荐默认** |
-| `p2` | P1 + Postgres + Indexer | 首页发现、排行榜、IV 曲线 |
-| `full` | P2 + Pricing Engine + Prophet Audit Keeper | 完整测试栈 |
+| `frontend` | Frontend env + npm only | UI only, direct RPC |
+| `p0` | Gas Station + LP Guard | Prophet free Commit, LP defense |
+| `p1` | P0 + Monitor + Oracle Relayer + Walrus Relay | **Recommended default** |
+| `p2` | P1 + Postgres + Indexer | Home discovery, leaderboard, IV curve |
+| `full` | P2 + Pricing Engine + Prophet Audit Keeper | Full test stack |
 
 ---
 
-## 4. 一键部署（推荐）
+## 4. One-click Deployment (Recommended)
 
-在仓库根目录执行：
+Run from repo root:
 
 ```powershell
-# 默认：P1 档位（Gas Station + Keeper + Monitor + Relayer + Walrus Relay）
+# Default: P1 profile (Gas Station + Keeper + Monitor + Relayer + Walrus Relay)
 .\scripts\deploy-testnet.ps1
 
-# 仅前端
+# Frontend only
 .\scripts\deploy-testnet.ps1 -Profile frontend
 
-# 含 Indexer（自动启动 Docker Postgres）
+# With Indexer (auto-starts Docker Postgres)
 .\scripts\deploy-testnet.ps1 -Profile p2
 
-# 完整栈
+# Full stack
 .\scripts\deploy-testnet.ps1 -Profile full
 
-# 首次观察 Keeper 日志、不发链上 tx
+# First run: observe Keeper logs, no on-chain tx
 .\scripts\deploy-testnet.ps1 -DryRunKeeper
 
-# 跳过 env 生成（已 bootstrap 过）
+# Skip env generation (already bootstrapped)
 .\scripts\deploy-testnet.ps1 -SkipBootstrap
 ```
 
-### 4.1 启动前端
+### 4.1 Start Frontend
 
-部署脚本**不会**阻塞启动 Next.js，需另开终端：
+The deploy script **does not** block on Next.js; open another terminal:
 
 ```powershell
 cd app
@@ -130,67 +132,67 @@ npm run dev
 # → http://localhost:3000
 ```
 
-浏览器连接 **Testnet 钱包**（须持有测试 USDC；可用市场页「铸造」或 `.\scripts\mint-test-usdc.ps1`）。
+Connect a **Testnet wallet** in the browser (must hold test USDC; mint on market page or `.\scripts\mint-test-usdc.ps1`).
 
-### 4.2 验证
+### 4.2 Verification
 
 ```powershell
 .\scripts\verify-testnet-deployment.ps1 -Profile p1
 .\scripts\verify-testnet-deployment.ps1 -Profile p2
 ```
 
-### 4.3 停止
+### 4.3 Stop
 
 ```powershell
-.\scripts\stop-testnet.ps1              # 停止全部
-.\scripts\stop-testnet.ps1 -Profile p1  # 仅停 P1 及以下服务
+.\scripts\stop-testnet.ps1              # stop all
+.\scripts\stop-testnet.ps1 -Profile p1  # stop P1 and below only
 ```
 
 ---
 
-## 5. 分步手动部署
+## 5. Step-by-step Manual Deployment
 
-若需逐步排查，可按以下顺序执行。
+For troubleshooting, follow this order.
 
-### 5.1 生成环境变量
+### 5.1 Generate Environment Variables
 
 ```powershell
-# 链下服务 + app/.env.local（含 Gas Station / Walrus Relay URL）
+# Off-chain services + app/.env.local (includes Gas Station / Walrus Relay URL)
 .\scripts\bootstrap-services-env.ps1
 
-# 可选：Keeper 仅打日志、不发链上 tx
+# Optional: Keeper logs only, no on-chain tx
 .\scripts\bootstrap-services-env.ps1 -DryRunKeeper
 
-# Indexer（P2+）
+# Indexer (P2+)
 .\scripts\bootstrap-indexer-env.ps1
 ```
 
-生成的 `.env.local` 文件（**勿提交 git**）：
+Generated `.env.local` files (**do not commit to git**):
 
-| 路径 | 说明 |
+| Path | Description |
 |------|------|
-| `services/gas-station/.env.local` | Gas Payer 私钥、Package ID |
-| `services/lp-guard-keeper/.env.local` | Keeper 私钥、池 ID 列表 |
-| `services/chain-monitor/.env.local` | 监控 + 告警 webhook |
-| `services/oracle-relayer/.env.local` | Oracle 到期扫描 |
-| `services/walrus-relay/.env.local` | Walrus 上传代理 |
-| `services/prophet-audit-keeper/.env.local` | 审计 Keeper（默认 DRY_RUN） |
-| `services/indexer/.env.local` | Postgres 连接串 |
-| `app/.env.local` | 前端链上 ID + 本地服务 URL |
+| `services/gas-station/.env.local` | Gas Payer key, Package ID |
+| `services/lp-guard-keeper/.env.local` | Keeper key, pool ID list |
+| `services/chain-monitor/.env.local` | Monitoring + alert webhook |
+| `services/oracle-relayer/.env.local` | Oracle expiry scan |
+| `services/walrus-relay/.env.local` | Walrus upload proxy |
+| `services/prophet-audit-keeper/.env.local` | Audit Keeper (default DRY_RUN) |
+| `services/indexer/.env.local` | Postgres connection string |
+| `app/.env.local` | Frontend on-chain IDs + local service URLs |
 
-### 5.2 链下服务（P0 / P1）
+### 5.2 Off-chain Services (P0 / P1)
 
 ```powershell
 .\scripts\start-services-testnet.ps1           # P0 + P1
-.\scripts\start-services-testnet.ps1 -P0Only   # 仅 Gas Station + Keeper
-.\scripts\start-services-testnet.ps1 -IncludeP4  # 含 Prophet Audit Keeper
+.\scripts\start-services-testnet.ps1 -P0Only   # Gas Station + Keeper only
+.\scripts\start-services-testnet.ps1 -IncludeP4  # includes Prophet Audit Keeper
 
 .\scripts\verify-services-health.ps1 -IncludeP1
 ```
 
-### 5.3 Indexer + PostgreSQL（P2）
+### 5.3 Indexer + PostgreSQL (P2)
 
-**方式 A — Docker（推荐）**
+**Option A — Docker (recommended)**
 
 ```powershell
 docker compose -f docker-compose.indexer.yml up -d postgres
@@ -199,21 +201,21 @@ docker compose -f docker-compose.indexer.yml up -d postgres
 .\scripts\verify-indexer-health.ps1
 ```
 
-**方式 B — 本机 PostgreSQL**
+**Option B — Local PostgreSQL**
 
 ```powershell
-.\scripts\bootstrap-local-postgres.ps1   # 需 psql + postgres 超级用户
+.\scripts\bootstrap-local-postgres.ps1   # requires psql + postgres superuser
 .\scripts\start-indexer.ps1
 ```
 
-### 5.4 Pricing Engine（P3）
+### 5.4 Pricing Engine (P3)
 
 ```powershell
 .\scripts\start-pricing-engine.ps1
 # GET http://localhost:8801/health
 ```
 
-### 5.5 Docker Compose 全服务（可选）
+### 5.5 Docker Compose All Services (Optional)
 
 ```powershell
 .\scripts\bootstrap-services-env.ps1
@@ -221,7 +223,7 @@ docker compose -f docker-compose.services.yml up -d --build
 .\scripts\verify-services-health.ps1 -IncludeP1
 ```
 
-Indexer 全容器：
+Indexer full container:
 
 ```powershell
 docker compose -f docker-compose.indexer.yml --profile full up -d --build
@@ -229,121 +231,121 @@ docker compose -f docker-compose.indexer.yml --profile full up -d --build
 
 ---
 
-## 6. 链上资源（Testnet v3）
+## 6. On-chain Resources (Testnet v3)
 
-完整 ID 见 [deploy/testnet-v2.json](../deploy/testnet-v2.json)。
+Full IDs in [deploy/testnet-v2.json](../deploy/testnet-v2.json).
 
-| 资源 | ID |
+| Resource | ID |
 |------|-----|
 | Package v3 | `0x2e368e00532771eedd2df288bd61b0cb2324471b9fc6e14160a7f3079310ae6e` |
 | GlobalConfig | `0x9ce278547f0590cc04a79f76cf97d103940557e7a3ff5bfecf5a99f198012b08` |
 | Prophet Registry | `0xfa8359d6e1693542ef315eeda6a5c6c659dc819683a7bf86ac3391d1c4f63f38` |
 | Oracle Config | `0x1ad185d06bcbb53a98c5a834516da7a28c748f32079faa8ff310a35d04f663d8` |
-| Poisson 池 | `0xb5d1a85213d6757d1cb386e8b719b524162a117018e6f5b8f0101f4dcc532b5f` |
-| Dirichlet 池 | `0x89fb5ff5754fe5b2d32d071ce98ad778b62a48f738e0d7dd27a86b390eddaac5` |
-| Normal 池 | `0xa43716a746c01d6039cd7b9e6a77562f17a8730dc72c9363ddfde06859e4f834` |
+| Poisson pool | `0xb5d1a85213d6757d1cb386e8b719b524162a117018e6f5b8f0101f4dcc532b5f` |
+| Dirichlet pool | `0x89fb5ff5754fe5b2d32d071ce98ad778b62a48f738e0d7dd27a86b390eddaac5` |
+| Normal pool | `0xa43716a746c01d6039cd7b9e6a77562f17a8730dc72c9363ddfde06859e4f834` |
 
-**重新发布链上合约**（一般不需要，仅 fork 新环境时）：
+**Republish on-chain contracts** (usually not needed; only when forking a new environment):
 
 ```powershell
-.\scripts\deploy-oracle-prophet-testnet.ps1   # 全新 publish
-.\scripts\upgrade-testnet.ps1                 # 在现有包上 upgrade
+.\scripts\deploy-oracle-prophet-testnet.ps1   # fresh publish
+.\scripts\upgrade-testnet.ps1                 # upgrade existing package
 ```
 
 ---
 
-## 7. 功能验收清单
+## 7. Acceptance Checklist
 
 ### P0 / P1
 
 - [ ] `GET http://localhost:8787/health` → `ok: true`
 - [ ] `GET http://localhost:8788/health` → `ok: true`
 - [ ] `GET http://localhost:8791/health` → `ok: true`
-- [ ] Gas Payer SUI 余额充足（`check-gas-balances.ps1`）
-- [ ] `/prophet` 页 `unlock_price=0` 免费 Commit 可走 Gas Station
-- [ ] `.run/lp-guard-keeper.log` 出现 `lp_guard_tick`（`LP_GUARD_DRY_RUN=false` 时）
+- [ ] Gas Payer SUI balance sufficient (`check-gas-balances.ps1`)
+- [ ] `/prophet` page `unlock_price=0` free Commit works via Gas Station
+- [ ] `.run/lp-guard-keeper.log` shows `lp_guard_tick` (when `LP_GUARD_DRY_RUN=false`)
 
 ### P2
 
 - [ ] `GET http://localhost:8800/health` → `ok: true`
-- [ ] `GET http://localhost:8800/v1/markets` 返回种子市场
-- [ ] 首页 MarketsGrid、排行榜、IV 面板有 Indexer 数据
+- [ ] `GET http://localhost:8800/v1/markets` returns seed markets
+- [ ] Home MarketsGrid, leaderboard, IV panel have Indexer data
 
 ### P3
 
 - [ ] `GET http://localhost:8801/health` → `ok: true`
-- [ ] 市场页 TradePanel 显示定价预览
+- [ ] Market page TradePanel shows pricing preview
 
-### 端到端演练
+### End-to-end Drill
 
 ```powershell
 .\scripts\run-p0-drills-testnet.ps1
-# 手动 E/F 项见 docs/p0-drill-ef-checklist.md
+# Manual E/F items: docs/p0-drill-ef-checklist.md
 ```
 
 ---
 
-## 8. 日志与排错
+## 8. Logs & Troubleshooting
 
-| 日志 | 路径 |
+| Log | Path |
 |------|------|
-| 各链下服务 | `.run/<service-name>.log` |
+| Off-chain services | `.run/<service-name>.log` |
 | Indexer | `.run/indexer.log` |
 | Pricing Engine | `.run/pricing-engine.log` |
-| PID 文件 | `.run/*.pid` |
+| PID files | `.run/*.pid` |
 
-### 常见问题
+### Common Issues
 
-**`bootstrap-services-env.ps1` 报密钥导出失败**  
-→ 确认 `sui client active-address` 与 deployer 一致，且 keystore 可访问。
+**`bootstrap-services-env.ps1` key export fails**  
+→ Confirm `sui client active-address` matches deployer and keystore is accessible.
 
-**Gas Station `/health` 报余额不足**  
+**Gas Station `/health` reports low balance**  
 → `.\scripts\fund-gas-payer-testnet.ps1`
 
-**Prophet blob 上传失败**  
-→ 确认 Indexer 已启动（`:8800/health`）；`NEXT_PUBLIC_INDEXER_URL=http://localhost:8800`；Prophet 使用 `POST /v1/prophecies/blob`
+**Prophet blob upload fails**  
+→ Confirm Indexer is running (`:8800/health`); `NEXT_PUBLIC_INDEXER_URL=http://localhost:8800`; Prophet uses `POST /v1/prophecies/blob`
 
-**Indexer 连接 Postgres 失败**  
-→ `docker compose -f docker-compose.indexer.yml ps` 检查 postgres 是否 healthy；或改用 `bootstrap-local-postgres.ps1`
+**Indexer Postgres connection fails**  
+→ `docker compose -f docker-compose.indexer.yml ps` check postgres healthy; or use `bootstrap-local-postgres.ps1`
 
-**Keeper authority 不匹配**  
-→ 必须使用 deployer 钱包；或更新 `deploy/testnet-v2.json` 后重新 bootstrap
+**Keeper authority mismatch**  
+→ Must use deployer wallet; or update `deploy/testnet-v2.json` and re-bootstrap
 
-**端口被占用**  
-→ `.\scripts\stop-testnet.ps1` 后重试
+**Port in use**  
+→ `.\scripts\stop-testnet.ps1` then retry
 
 ---
 
-## 9. 相关文档
+## 9. Related Docs
 
-| 文档 | 内容 |
+| Doc | Content |
 |------|------|
-| [services-testnet-runbook.md](./services-testnet-runbook.md) | P0 服务细节 |
+| [services-testnet-runbook.md](./services-testnet-runbook.md) | P0 service details |
 | [p1-services-runbook.md](./p1-services-runbook.md) | Monitor / Relayer / Walrus Relay |
-| [p2-indexer-runbook.md](./p2-indexer-runbook.md) | Indexer API 与表结构 |
+| [p2-indexer-runbook.md](./p2-indexer-runbook.md) | Indexer API and tables |
 | [p3-growth-runbook.md](./p3-growth-runbook.md) | Pricing Engine |
-| [prophet-playbook.md](./prophet-playbook.md) | Prophet / Seal / Indexer blob 流程 |
-| [p0-drill-ef-checklist.md](./p0-drill-ef-checklist.md) | 前端 E2E 验收 |
+| [prophet-playbook.md](./prophet-playbook.md) | Prophet / Seal / Indexer blob flow |
+| [p0-drill-ef-checklist.md](./p0-drill-ef-checklist.md) | Frontend E2E acceptance |
 
 ---
 
-## 10. 脚本索引
+## 10. Script Index
 
-| 脚本 | 说明 |
+| Script | Description |
 |------|------|
-| `deploy-testnet.ps1` | **一键部署**（Windows，按 Profile） |
-| `deploy-testnet.sh` | **一键部署**（Ubuntu/Linux） |
-| `stop-testnet.ps1` / `stop-testnet.sh` | **一键停止** |
-| `verify-testnet-deployment.ps1` / `.sh` | **部署后验证** |
-| `install-ubuntu-prerequisites.sh` | Ubuntu 24 依赖安装 |
-| `bootstrap-services-env.ps1` / `.sh` | 生成链下服务 env |
-| `bootstrap-indexer-env.ps1` / `.sh` | 生成 Indexer env |
-| `start-services-testnet.ps1` / `.sh` | 启动 P0/P1 服务 |
-| `start-indexer.ps1` / `.sh` | 启动 Indexer |
-| `start-pricing-engine.ps1` / `.sh` | 启动 Pricing Engine |
-| `verify-services-health.ps1` / `.sh` | 链下服务健康检查 |
-| `verify-indexer-health.ps1` / `.sh` | Indexer 健康检查 |
-| `fund-gas-payer-testnet.ps1` / `.sh` | Testnet 领水 |
-| `check-gas-balances.ps1` | Gas 余额检查 |
+| `deploy-testnet.ps1` | **One-click deploy** (Windows, by profile) |
+| `deploy-testnet.sh` | **One-click deploy** (Ubuntu/Linux) |
+| `stop-testnet.ps1` / `stop-testnet.sh` | **One-click stop** |
+| `verify-testnet-deployment.ps1` / `.sh` | **Post-deploy verification** |
+| `install-ubuntu-prerequisites.sh` | Ubuntu 24 dependency install |
+| `bootstrap-services-env.ps1` / `.sh` | Generate off-chain service env |
+| `bootstrap-indexer-env.ps1` / `.sh` | Generate Indexer env |
+| `start-services-testnet.ps1` / `.sh` | Start P0/P1 services |
+| `start-indexer.ps1` / `.sh` | Start Indexer |
+| `start-pricing-engine.ps1` / `.sh` | Start Pricing Engine |
+| `verify-services-health.ps1` / `.sh` | Off-chain service health check |
+| `verify-indexer-health.ps1` / `.sh` | Indexer health check |
+| `fund-gas-payer-testnet.ps1` / `.sh` | Testnet faucet |
+| `check-gas-balances.ps1` | Gas balance check |
 
-Linux 完整说明见 [testnet-deployment-ubuntu.md](./testnet-deployment-ubuntu.md)。
+Full Linux guide: [testnet-deployment-ubuntu.md](./testnet-deployment-ubuntu.md).

@@ -11,59 +11,61 @@
   automatically becomes available under the Apache License 2.0.
 -->
 
-# 如何把期权、区间定价和波动率模型引入预测市场？
+**English** | [简体中文](./qa.zh.md)
 
-要将期权、区间定价和波动率模型真正引入预测市场，必须彻底颠覆现有的“二元对立（Yes/No）”设计架构。核心的转变逻辑是：**停止对“事件结果”进行代币化，转而对“标的资产/事件变量的概率分布函数（PDF）”进行参数化做市。**
+# How to Introduce Options, Interval Pricing, and Volatility Models into Prediction Markets?
 
-这需要从底层资产定义、非线性做市商算法（AMM）以及量化波动率建模三个维度进行重构。以下是具体的实现路径：
+To truly introduce options, interval pricing, and volatility models into prediction markets, you must fundamentally overturn the existing "binary (Yes/No)" design architecture. The core shift in logic is: **stop tokenizing "event outcomes" and instead parameterize market-making on the "probability distribution function (PDF) of the underlying asset/event variable."**
 
----
-
-## 1. 资产层：从“二元代币”到“连续标的与标杆行权价”
-
-现有的预测市场把“BTC年底能否到10万”做成一个Yes/No代币。要引入期权，必须将事件变量本身（如CPI数据、GDP增速、大选得票率）视为连续的底层标的（Underlying $X$）。
-
-* **构建连续区间定价（Interval Pricing）：** 不再分裂成独立的池子，而是建立一个统一的行权价阶梯（Strike Ladder）。例如针对“美联储降息幅度”，设立 $K_1 = 25\text{bps}$, $K_2 = 50\text{bps}$, $K_3 = 75\text{bps}$。
-* **收益函数（Payoff Structures）的多元化：**
-* **数字期权（Digital Options）：** 传统的Yes/No，结算时满足条件得 1 美元，否则得 0。
-* **线性期权（Linear Options）：** 结算收益与实际结果线性相关。例如一个标的为“新片票房”的 Call Option，行权价 $K = 5\text{亿}$，最终票房 $X = 7\text{亿}$，则结算收益为 $\max(X - K, 0) = 2\text{亿}$ 单位的资金。
-
-
+This requires reconstruction across three dimensions: underlying asset definition, nonlinear automated market maker (AMM) algorithms, and quantitative volatility modeling. Below is the concrete implementation path:
 
 ---
 
-## 2. 交易层：引入参数化 AMM（Parametric AMM）
+## 1. Asset Layer: From "Binary Tokens" to "Continuous Underlyings and Benchmark Strikes"
 
-传统的 Uni-v2 ($x \cdot y = k$) 或集中流动性（Uni-v3）无法有效表达概率空间的演变。引入期权和波动率的最佳方案是开发**参数化做市商（Parametric AMM）**。
+Existing prediction markets turn questions like "Will BTC reach 100k by year-end?" into Yes/No tokens. To introduce options, the event variable itself (e.g., CPI data, GDP growth rate, election vote share) must be treated as a continuous underlying ($X$).
 
-### 核心机制
+* **Build Continuous Interval Pricing:** Instead of splitting into independent pools, establish a unified strike ladder. For example, for "Fed rate cut magnitude," set $K_1 = 25\text{bps}$, $K_2 = 50\text{bps}$, $K_3 = 75\text{bps}$.
+* **Diversified Payoff Structures:**
+* **Digital Options:** Traditional Yes/No — receive $1 at settlement if the condition is met, otherwise $0.
+* **Linear Options:** Settlement payoff is linearly related to the actual outcome. For example, a Call Option on "new film box office" with strike $K = 5\text{亿}$, final box office $X = 7\text{亿}$, settlement payoff is $\max(X - K, 0) = 2\text{亿}$ units of capital.
 
-AMM 内部不再记录代币数量，而是维护一个描述事件预测结果的**概率密度函数（PDF）**，例如贝塔分布（Beta Distribution）或高斯分布（Gaussian Distribution）：
+
+
+---
+
+## 2. Trading Layer: Introducing Parametric AMM
+
+Traditional Uni-v2 ($x \cdot y = k$) or concentrated liquidity (Uni-v3) cannot effectively express evolution in probability space. The best approach for introducing options and volatility is to develop a **Parametric AMM**.
+
+### Core Mechanism
+
+The AMM no longer records token quantities internally; instead it maintains a **probability density function (PDF)** describing predicted event outcomes, such as a Beta Distribution or Gaussian Distribution:
 
 $$f(x \mid \mu, \sigma^2)$$
 
-其中，$\mu$ 代表市场当前的**预期均值（Pricing）**，$\sigma^2$ 代表市场的**不确定性/方差（Volatility）**。
+Here, $\mu$ represents the market's current **expected mean (Pricing)**, and $\sigma^2$ represents the market's **uncertainty/variance (Volatility)**.
 
-* **交易即修改参数：** * 当 directional 交易者看多事件结果时，他们注入资金买入高区间的敞口，推动 $\mu$ 向右移动。
-* 当交易者认为“目前市场分歧巨大”或“有重大内幕即将公布”，他们可以买入跨式组合（Straddle，同时买入高 Strike 的 Call 和低 Strike 的 Put），这在算法上会直接推高 $\sigma$（即隐形波动率 IV 抬升）。
+* **Trading as Parameter Modification:** * When directional traders are bullish on the event outcome, they inject capital to buy exposure in higher intervals, pushing $\mu$ to the right.
+* When traders believe "the market is deeply divided" or "major insider information is about to be released," they can buy straddle combinations (simultaneously buying high-strike Calls and low-strike Puts), which algorithmically directly pushes up $\sigma$ (i.e., implied volatility IV rises).
 
 
-* **自动生成的区间定价：** 任何一个区间的定价 $[a, b]$，直接通过对底层 PDF 进行积分自动获得： $P(a \le X \le b) = \int_{a}^{b} f(x) dx$。这意味着**流动性在所有行权价和区间上是全局共享且数学自洽的**，彻底解决了流动性碎片化的问题。
-
----
-
-## 3. 波动率层：构建事件驱动的波动率曲面（Volatility Surface）
-
-传统金融的波动率来源于时间序列的资产价格变动，而预测市场的波动率来源于**信息流的到达速度（Information Arrival Process）**。
-
-* **时间衰减与方差归零（Vol Crush）：** 预测市场有一个硬性终点（到期结算日 $T$）。随着时间接近 $T$，不确定性应该收敛。定量模型需要将到期时间（Time to Maturity, $\tau = T - t$）引入定价。在参数化 AMM 中，随着 $\tau \to 0$，若无重大新信息，$\sigma$ 会加速归零。
-* **提取隐性波动率（Implied Volatility）：** 利用 **Breeden-Litzenberger 结果**，我们可以通过全量行权价的期权价格（或不同区间的预测价格），反推出市场隐含的风险价值函数。通过跨期（不同到期日）和跨行权价的定价，在链上实时拟合出一条**预测市场的波动率微笑曲线（Vol Smile）**。
+* **Auto-Generated Interval Pricing:** The price of any interval $[a, b]$ is obtained automatically by integrating the underlying PDF: $P(a \le X \le b) = \int_{a}^{b} f(x) dx$. This means **liquidity is globally shared and mathematically self-consistent across all strikes and intervals**, completely solving the liquidity fragmentation problem.
 
 ---
 
-## 4. 架构实现：高性能链上衍生品引擎
+## 3. Volatility Layer: Building Event-Driven Volatility Surfaces
 
-要支撑这套结构化产品的运转，底层架构需要满足高频数学计算与原子化清算：
+In traditional finance, volatility comes from time-series price movements of assets; in prediction markets, volatility comes from the **Information Arrival Process**.
+
+* **Time Decay and Variance Collapse (Vol Crush):** Prediction markets have a hard endpoint (settlement date $T$). As time approaches $T$, uncertainty should converge. Quantitative models must incorporate time to maturity (Time to Maturity, $\tau = T - t$) into pricing. In a parametric AMM, as $\tau \to 0$, if no major new information arrives, $\sigma$ accelerates toward zero.
+* **Extracting Implied Volatility:** Using the **Breeden-Litzenberger result**, we can reverse-engineer the market's implied risk-neutral density from option prices (or prediction prices across different intervals) at all strikes. Through cross-maturity (different expiry dates) and cross-strike pricing, a **prediction market volatility smile curve (Vol Smile)** can be fitted in real time on-chain.
+
+---
+
+## 4. Architectural Implementation: High-Performance On-Chain Derivatives Engine
+
+To support the operation of this structured product suite, the underlying architecture must satisfy high-frequency mathematical computation and atomic settlement:
 
 ```
 +-------------------------------------------------------------------+
@@ -85,239 +87,239 @@ $$f(x \mid \mu, \sigma^2)$$
 
 ```
 
-1. **统一保证金结算（Cross-Margining）：** 交易者可以用一个保证金账户同时动态对冲多个行权价的仓位。由于所有区间基于同一个 PDF 运作，账户的整体风险可以被精准计算（VaR 模型），从而释放极高的资金效率。
-2. **动态预言机与 ZK 结算：** 引入能够连续喂送标的数值的高频预言机。对于复杂的长尾事件，利用 ZK-Oracle 证明现实世界的数据状态，确保连续变量在结算时不会产生仲裁分歧。
+1. **Cross-Margining:** Traders can use a single margin account to dynamically hedge positions across multiple strikes simultaneously. Since all intervals operate on the same PDF, overall account risk can be precisely calculated (VaR model), releasing extremely high capital efficiency.
+2. **Dynamic Oracles and ZK Settlement:** Introduce high-frequency oracles capable of continuously feeding underlying numerical values. For complex long-tail events, use ZK-Oracle to prove real-world data states, ensuring continuous variables do not produce arbitration disputes at settlement.
 
 ---
 
-### 带来的改变
+### The Transformation It Brings
 
-一旦这种架构落地，预测市场将完成蜕变：
-量化基金可以利用 **方差互换（Variance Swaps）** 纯粹去赌大选辩论当晚的市场恐慌度，而地缘政治风险巨大的跨国企业，则可以通过定制化的**结构化票据（Structured Notes）**，为自身定制精准的风险对冲方案。
+Once this architecture is deployed, prediction markets will complete their metamorphosis:
+Quantitative funds can use **Variance Swaps** to purely bet on market panic during election debate nights, while multinational enterprises facing massive geopolitical risk can customize precise risk hedging through tailored **Structured Notes**.
 
-在这种参数化做市和连续全行权价的架构中，你认为最难攻克的工程或经济学瓶颈，是高频链上积分计算的性能开销，还是极极端事件下（如黑天鹅流动性枯竭）参数模型的失真风险？
+In this parametric market-making and continuous full-strike architecture, which engineering or economics bottleneck do you think is hardest to overcome — the performance overhead of high-frequency on-chain integral computation, or the model distortion risk under extremely extreme events (such as black swan liquidity drought)?
 
-# 概率分布函数和参数化做市商细化，更方便理解
+# Probability Distribution Functions and Parametric AMM — A Deeper Dive for Easier Understanding
 
-我们可以把这两个概念看作是现代预测市场的“数字引擎”。要理解它们，我们需要把思维从传统的“非黑即白（赌硬币正反面）”切换到“连续光谱（预测降雨量是多少毫米）”。
+We can think of these two concepts as the "digital engine" of modern prediction markets. To understand them, we need to shift our thinking from traditional "black or white (betting on coin flips)" to "continuous spectrum (predicting rainfall in millimeters)."
 
-我们可以把它们拆得更透彻、更直观一些：
+Let's break them down more thoroughly and intuitively:
 
 ---
 
-## 一、 概率分布函数 (PDF)：用“一条曲线”给万事万物定价
+## I. Probability Density Function (PDF): Pricing Everything with "One Curve"
 
-在传统的 Polymarket 里，如果想预测“下个月的 CPI（通胀率）”，平台得开几十个不同的盘口：
+In traditional Polymarket, to predict "next month's CPI (inflation rate)," the platform has to open dozens of different markets:
 
-* 盘口 A：CPI 会是 2.5% 吗？（Yes/No）
-* 盘口 B：CPI 会是 2.6% 吗？（Yes/No）
+* Market A: Will CPI be 2.5%? (Yes/No)
+* Market B: Will CPI be 2.6%? (Yes/No)
 
-这导致资金被严重撕裂。而概率分布函数（Probability Density Function, PDF）的做法是：**只开一个池子，用一条数学曲线把所有可能的结果全部包容进去。**
+This causes capital to be severely fragmented. The Probability Density Function (PDF) approach is: **open just one pool, using one mathematical curve to encompass all possible outcomes.**
 
-最常用的模型是高斯分布（正态分布）曲线：
+The most commonly used model is the Gaussian (normal distribution) curve:
 
 $$f(x) = \frac{1}{\sigma \sqrt{2\pi}} e^{-\frac{1}{2}\left(\frac{x-\mu}{\sigma}\right)^2}$$
 
-别被公式吓退，在预测市场里，交易员和做市商其实只需要拨动两个“旋钮”：
+Don't be intimidated by the formula — in prediction markets, traders and market makers really only need to turn two "knobs":
 
-1. **旋钮 $\mu$（均值/期望值）：** 代表市场目前认为**最可能发生的结果**。也就是曲线最高峰对应的横坐标。
-2. **旋钮 $\sigma$（标准差/波动率）：** 代表市场对这个预测的**迷茫程度（不确定性）**。$\sigma$ 越大，曲线越矮胖（大家吵得不可开交，什么可能都有）；$\sigma$ 越小，曲线越瘦高（大家看法高度一致）。
+1. **Knob $\mu$ (mean/expected value):** Represents the outcome the market currently believes is **most likely to occur** — i.e., the x-coordinate of the curve's peak.
+2. **Knob $\sigma$ (standard deviation/volatility):** Represents the market's **degree of uncertainty** about this prediction. The larger $\sigma$, the shorter and wider the curve (everyone disagrees, anything is possible); the smaller $\sigma$, the taller and narrower the curve (everyone is highly aligned).
 
-### 它是如何实现“区间定价”的？
+### How Does It Achieve "Interval Pricing"?
 
-在这套系统里，任何一个“区间预测”的概率，就是曲线下对应区域的**面积**。因为整条曲线下方的总面积永远等于 $1$（即 $100\%$ 的概率）。
+In this system, the probability of any "interval prediction" is the **area** under the curve in the corresponding region. The total area under the entire curve always equals $1$ (i.e., $100\%$ probability).
 
-* **买入“2.5% 到 2.7%”：** 系统会自动计算曲线在这个区间内的积分（面积）。如果面积是 0.3，那么这个区间的合理定价就是 0.3 美元。
-* **买入“大于 3.0%”：** 系统就去计算 3.0 往右延伸到正无穷的面积。
+* **Buy "2.5% to 2.7%":** The system automatically computes the integral (area) of the curve over this interval. If the area is 0.3, the fair price for this interval is 0.3 dollars.
+* **Buy "greater than 3.0%":** The system computes the area from 3.0 extending right to positive infinity.
 
 ---
 
-## 二、 参数化做市商 (Parametric AMM)：没有代币的“调音台”
+## II. Parametric AMM: A "Mixing Console" Without Tokens
 
-传统的自动化做市商（如 Uniswap v2）的核心是 $x \cdot y = k$，池子里必须实打实地存着 $x$ 和 $y$ 两种代币。
+The core of traditional automated market makers (like Uniswap v2) is $x \cdot y = k$ — the pool must physically hold $x$ and $y$ tokens.
 
-而参数化做市商（Parametric AMM）颠覆了这一点：**池子里不需要存任何事件代币（如 Yes-Token），它唯一的库存，就是由 $\mu$ 和 $\sigma$ 构成的数学模型。用户存入的是稳定币（如 USDC），买走的是某种“赔付承诺”。**
+Parametric AMM overturns this: **the pool doesn't need to hold any event tokens (like Yes-Token); its only inventory is the mathematical model composed of $\mu$ and $\sigma$. Users deposit stablecoins (like USDC) and take away a "payout promise."**
 
-我们可以把参数化 AMM 想象成一个智能调音台，它的工作流程如下：
+We can imagine a parametric AMM as an intelligent mixing console. Its workflow is as follows:
 
-| 维度 | 传统恒定乘积 AMM ($x \cdot y = k$) | 参数化 AMM (Parametric AMM) |
+| Dimension | Traditional Constant Product AMM ($x \cdot y = k$) | Parametric AMM |
 | --- | --- | --- |
-| **池子里的状态** | 代币 $X$ 有 100 个，代币 $Y$ 有 200 个 | $\mu = 2.5\%$, $\sigma = 0.4$, 资金池 = $10,000 |
-| **用户的交易行为** | “我用 $X$ 换 $Y$” | “我出 100 刀，赌结果比 $\mu$ 更高（买多）” |
-| **池子的价格响应** | 减少 $Y$ 的数量，增加 $X$ 的数量，导致 $Y$ 变贵 | **不改变代币数量，直接修改参数。** 将 $\mu$ 从 2.5% 调大到 2.6% |
+| **Pool State** | Token $X$ has 100 units, Token $Y$ has 200 units | $\mu = 2.5\%$, $\sigma = 0.4$, capital pool = $10,000 |
+| **User Trading Behavior** | "I exchange $X$ for $Y$" | "I put in $100, betting the outcome is higher than $\mu$ (going long)" |
+| **Pool Price Response** | Reduce $Y$ quantity, increase $X$ quantity, making $Y$ more expensive | **No token quantity changes — directly modify parameters.** Adjust $\mu$ from 2.5% up to 2.6% |
 
-### 交易是如何改变曲线形状的？
+### How Do Trades Change the Curve Shape?
 
-* **方向性交易（Directional Trade） $\to$ 改变 $\mu$：**
-如果有一笔大资金买入“CPI 将高于 2.5%”，Parametric AMM 的定价公式会立刻做出反应：**把曲线的峰值 $\mu$ 向右移动**（例如变成 2.6%）。这时候，所有高于 2.6% 的区间自动涨价，低于 2.6% 的区间自动降价。
-* **波动率交易（Volatility Trade） $\to$ 改变 $\sigma$：**
-如果市场上突然传出小道消息，说美联储内部发生了巨大分歧。交易员开始疯狂买入“两极化”的区间（既买极高，又买极低，也就是期权里的跨式套利 Straddle）。
-Parametric AMM 感知到这种双向买压后，会**调大 $\sigma$（波动率）**。整张曲线会瞬间被“压扁”、“拉宽”。这意味着两端极端事件的概率（面积）变大、价格上涨，而中间稳健事件的价格下跌。
-
----
-
-## 三、 丝滑的交易全景示例
-
-假设我们要预测“某新公链上线首日的真实 TPS”：
-
-1. **初始状态：** 参数化 AMM 设定初始参数 $\mu = 5000$, $\sigma = 1000$。此时系统算出“TPS 在 4000 到 6000 之间”的概率是 $68\%$。你想买这个区间，成本就是 0.68 刀。
-2. **重磅推特流出：** 核心开发者发推暗示性能测试远超预期。
-3. **聪明钱入场：** 巨鲸 A 进场，砸入 5 万 USDC 申购“TPS 大于 7000”的头寸。
-4. **AMM 参数瞬移：** 参数化 AMM 并没有像传统机制那样去高频撮合几百个订单，而是直接在底层通过算法**重塑曲线**：将 $\mu$ 修正为 $6500$，同时因为不确定性增加，将 $\sigma$ 修正为 $1500$。
-5. **全局定价刷新：** 曲线一变，链上所有其他行权价（如 3000、8000）以及任意区间（如 5500-6000）的期权价格**在一笔交易内完成了原子化的自动重定价**。
+* **Directional Trade $\to$ changes $\mu$:**
+If a large sum buys "CPI will be above 2.5%," the Parametric AMM pricing formula immediately responds: **shift the curve peak $\mu$ to the right** (e.g., to 2.6%). At this point, all intervals above 2.6% automatically rise in price, while intervals below 2.6% automatically fall.
+* **Volatility Trade $\to$ changes $\sigma$:**
+If rumors suddenly spread that the Fed is deeply divided internally, traders start frantically buying "polarized" intervals (buying both extremely high and extremely low — a straddle in options).
+After sensing this two-sided buying pressure, the Parametric AMM **increases $\sigma$ (volatility)**. The entire curve is instantly "flattened" and "widened." This means the probability (area) of extreme events at both ends grows larger and prices rise, while prices for moderate middle outcomes fall.
 
 ---
 
-### 总结
+## III. A Smooth Trading Panorama Example
 
-* **概率分布函数 (PDF)** 解决了“标的物怎么表达”的问题 —— 它把零散的事件变成了连续的、可微积分的数学曲线。
-* **参数化做市商 (Parametric AMM)** 解决了“流动性怎么聚合”的问题 —— 交易员不再是和另一个交易员换代币，而是通过买卖行为，合力去“捏”这条曲线的形状。
+Suppose we want to predict "the real TPS on day one of a new public chain launch":
 
-这种架构下，资金效率呈现几何级数提升。如果你想在这样的生态里设计一个“保本型结构化理财”产品（比如：散户存入 100 刀，80 刀拿去吃 PoS 稳定收益，20 刀用来在这个参数化 AMM 里买入‘降息幅度超预期’的尾部高倍率期权），你认为在技术实现上，最需要优先解决的是如何设计动态的保证金清算机制，还是如何防止链下预言机作恶导致曲线被瞬间“恶意捏变形”？
-
-# 像足球比赛进球数这种不太符合正态分布啊
-
-你的观察非常敏锐。确实，**足球比赛进球数（0, 1, 2, 3...）是典型的“离散非负整数”，它不仅不符合正态分布，甚至连连续函数都算不上。** 使用正态分布（高斯分布）来描述进球数，在数学上是“降维打击”导致的模型失真。
-
-对于这类事件，参数化做市商（AMM）需要切换到**概率统计学中的“离散分布模型”**。以下是针对足球进球数的优化思路：
+1. **Initial State:** The parametric AMM sets initial parameters $\mu = 5000$, $\sigma = 1000$. The system calculates that the probability of "TPS between 4000 and 6000" is $68\%$. If you want to buy this interval, the cost is 0.68 dollars.
+2. **Bombshell Tweet:** The core developer tweets hinting that performance tests far exceeded expectations.
+3. **Smart Money Enters:** Whale A enters, pouring 50,000 USDC to subscribe to a "TPS greater than 7000" position.
+4. **AMM Parameter Shift:** The parametric AMM doesn't high-frequency match hundreds of orders like traditional mechanisms — it directly **reshapes the curve** at the underlying layer through algorithms: correcting $\mu$ to $6500$, and because uncertainty increased, correcting $\sigma$ to $1500$.
+5. **Global Pricing Refresh:** Once the curve changes, option prices for all other strikes on-chain (e.g., 3000, 8000) and any interval (e.g., 5500-6000) **complete atomic automatic repricing within a single transaction**.
 
 ---
 
-### 1. 替换底层模型：从高斯分布到泊松分布
+### Summary
 
-在金融工程中，描述“在固定时间内发生某种事件次数”的标准工具是**泊松分布 (Poisson Distribution)**，而不是正态分布。
+* **Probability Density Function (PDF)** solves "how to express the underlying" — it turns scattered events into a continuous, integrable mathematical curve.
+* **Parametric AMM** solves "how to aggregate liquidity" — traders are no longer exchanging tokens with each other, but collectively "shaping" this curve through their trading behavior.
 
-* **为什么是泊松分布？** 进球数只有 $0, 1, 2, 3, \dots$ 这些非负整数，且具有“稀疏性”（大多数比赛进球数在 1-3 个，进 10 个的概率极低）。
-* **参数化调整：** 泊松分布只需要一个参数 $\lambda$（Lambda）。
-* $\lambda$ 代表该场比赛的**预期进球数**。
-* 如果我们把 $\lambda$ 设定为 $2.5$，公式会自动计算出：进 0 球的概率是多少、进 1 球的概率是多少、进 3 球以上的概率又是多少。
+Under this architecture, capital efficiency improves geometrically. If you want to design a "capital-protected structured wealth management" product in such an ecosystem (e.g., retail deposits $100, 80 goes to PoS stable yield, 20 is used in this parametric AMM to buy tail high-multiplier options on "rate cut magnitude exceeding expectations"), do you think the top technical priority is designing dynamic margin settlement mechanisms, or preventing off-chain oracle manipulation from instantly "maliciously reshaping" the curve?
+
+# What About Events Like Football Match Goal Counts That Don't Fit a Normal Distribution?
+
+Your observation is very sharp. Indeed, **football match goal counts (0, 1, 2, 3...) are typical "discrete non-negative integers" — they don't fit a normal distribution, and aren't even continuous functions.** Using a normal (Gaussian) distribution to describe goal counts is model distortion caused by "dimensional reduction."
+
+For such events, the parametric AMM needs to switch to **"discrete distribution models" in probability statistics.** Below is the optimization approach for football goal counts:
+
+---
+
+### 1. Replace the Underlying Model: From Gaussian to Poisson
+
+In financial engineering, the standard tool for describing "the number of times an event occurs within a fixed time period" is the **Poisson Distribution**, not the normal distribution.
+
+* **Why Poisson?** Goal counts are only non-negative integers $0, 1, 2, 3, \dots$, and exhibit "sparsity" (most matches have 1-3 goals; scoring 10 is extremely unlikely).
+* **Parametric Adjustment:** The Poisson distribution needs only one parameter $\lambda$ (Lambda).
+* $\lambda$ represents the **expected goal count** for that match.
+* If we set $\lambda$ to $2.5$, the formula automatically calculates: the probability of 0 goals, 1 goal, 3+ goals, and so on.
 
 
 
-### 2. 离散事件的“参数化”逻辑
+### 2. "Parametric" Logic for Discrete Events
 
-在参数化 AMM 中，我们不再去“弯曲”正态分布的曲线，而是**动态调整泊松分布的 $\lambda$ 参数**：
+In a parametric AMM, we no longer "bend" a normal distribution curve — instead we **dynamically adjust the Poisson distribution's $\lambda$ parameter**:
 
-* **交易行为：** 当大量资金买入“总进球数大于 3.5 个”时，AMM 不会像买卖 Token 那样去撮合订单，而是会**向上修正 $\lambda$**。
-* **自动定价：** 一旦 $\lambda$ 从 $2.5$ 调高到 $3.0$，系统会自动通过泊松公式更新每一个具体比分（0-0, 1-0, 1-1...）的赔率。
-* 你会发现：原本 3.5 球以上的“大球”赔率会自动变低，而 0-0 的“比分”赔率会自动变高。
+* **Trading Behavior:** When large capital buys "total goals greater than 3.5," the AMM doesn't match orders like token trading — it **adjusts $\lambda$ upward**.
+* **Automatic Pricing:** Once $\lambda$ is raised from $2.5$ to $3.0$, the system automatically updates the odds for every specific scoreline (0-0, 1-0, 1-1...) via the Poisson formula.
+* You'll find: the "over" odds for 3.5+ goals automatically drop, while the "0-0 scoreline" odds automatically rise.
 
 
 
-### 3. 如何处理“结构化”与“波动率”？
+### 3. How to Handle "Structure" and "Volatility"?
 
-对于足球这种离散事件，量化交易的介入方式会发生变化：
+For discrete events like football, quantitative trading approaches change:
 
-* **波动率的概念重构：** 在泊松分布里，波动率不是 $\sigma$（标准差），而是“离散度”**或**“不确定性参数”。如果比赛双方实力接近但球风狂野（如利物浦 vs 曼城），市场预期的“不确定性”更高，模型可以引入“过度离散参数”（Over-dispersion parameter），让概率曲线的尾部（比如单场进 5 球以上）变得更肥，以容纳极端行情。
-* **区间定价的演变：** 既然是离散的，我们可以对 $N$ 个进球数设定“桶（Buckets）”：
-* 桶 A：[0, 1] 球
-* 桶 B：[2, 3] 球
-* 桶 C：[4+] 球
-* 通过调整泊松分布的形状，AMM 能够自动保证这三个桶的概率和永远为 1，且交易者可以在任意桶之间进行套利。
+* **Volatility Concept Reframed:** In the Poisson distribution, volatility isn't $\sigma$ (standard deviation) but "dispersion" **or** an "uncertainty parameter." If both teams are evenly matched but play aggressively (e.g., Liverpool vs. Manchester City), the market expects higher "uncertainty" — the model can introduce an "over-dispersion parameter" to fatten the tail of the probability curve (e.g., 5+ goals in a single match) to accommodate extreme scenarios.
+* **Interval Pricing Evolution:** Since outcomes are discrete, we can set "buckets" for $N$ goal counts:
+* Bucket A: [0, 1] goals
+* Bucket B: [2, 3] goals
+* Bucket C: [4+] goals
+* By adjusting the Poisson distribution shape, the AMM automatically ensures the sum of probabilities across all three buckets always equals 1, and traders can arbitrage between any buckets.
 
 
 
 ---
 
-### 4. 为什么这样做能让“严肃资金”进场？
+### 4. Why Does This Bring "Serious Capital" On-Chain?
 
-现在的体育博彩平台（如 Bet365）本质上是**庄家（Bookmaker）对垒散户**，庄家通过吃掉“水钱（Margin）”盈利。这种模式下，大资金想要大规模套利，会被庄家“限额”甚至封号。
+Current sports betting platforms (like Bet365) are essentially **bookmakers vs. retail** — bookmakers profit by taking the "margin (vig)." In this model, large capital wanting to arbitrage at scale gets "limited" or even banned.
 
-**而“基于泊松参数的 AMM”提供的是一个真正的流动性池：**
+**A "Poisson-parameter-based AMM" provides a true liquidity pool:**
 
-1. **套利机会明确：** 如果当前模型设定的 $\lambda$ 是 $2.5$，但量化模型通过球员伤病和天气分析，认为真实的预期应该在 $3.0$，那么量化基金就可以直接在这个 AMM 池中通过买入“大球”来修正参数，赚取定价偏离的钱。
-2. **风险对冲：** 机构可以将这种基于进球数的“泊松衍生品”打包。例如：构建一个“对冲套件”，在预测市场买入“高进球数”，同时在传统的链上衍生品市场做空对应的波动率。
-
----
-
-### 总结：架构的升维
-
-如果把预测市场比作一个“概率赌场”，那么：
-
-* **低阶写法：** 把每一个结果（进 0 球、进 1 球……）做成 Token，让大家去赌，这叫“博彩”。
-* **高阶写法：** 把足球比赛抽象为**泊松随机变量 $X \sim \text{Poisson}(\lambda)$**，让市场参与者共同决定 $\lambda$ 的取值。这叫“金融衍生品”。
-
-**此时，最核心的工程挑战在于：** 如何在链上高效实现泊松分布的计算（因为它涉及阶乘和指数计算，Gas 费较高）。为了实现这一点，你认为应该使用 **ZK-Rollup 的预计算表（Look-up Tables）** 来减小链上算力消耗，还是通过 **预言机在链下计算 $\lambda$ 并通过签名锚定到链上** 更好？
-
-# 预测事件pdf怎么得到？
-
-在预测市场中，“得到”概率分布函数（PDF）的过程，本质上就是**通过市场竞价，把“交易员的共识”转化为“数学曲线”**。
-
-这并不是由系统“拍脑袋”出来的，而是通过参数化做市算法（Parametric AMM）在每一笔交易中实时计算更新的。以下是获取 PDF 的三个核心步骤：
+1. **Clear Arbitrage Opportunities:** If the current model sets $\lambda$ at $2.5$, but a quantitative model based on player injuries and weather analysis believes the true expectation should be $3.0$, quant funds can directly buy "over" in this AMM pool to correct parameters and earn from pricing deviation.
+2. **Risk Hedging:** Institutions can package these Poisson-based "goal count derivatives." For example: build a "hedging kit" — buy "high goal count" in the prediction market while simultaneously shorting corresponding volatility in traditional on-chain derivatives markets.
 
 ---
 
-### 第一步：定义底层数学模型（选定概率模型）
+### Summary: Architectural Ascension
 
-系统首先会根据事件的特征，预设一个“形状模板”。正如我们之前讨论的：
+If we compare prediction markets to a "probability casino":
 
-* **连续变量（如通胀率、气温）：** 系统采用**高斯分布 (Normal Distribution)**。
-* **离散计数（如足球比分、罚单数量）：** 系统采用**泊松分布 (Poisson Distribution)**。
-* **有限区间（如考试胜率 0%-100%）：** 系统采用 **Beta 分布**。
+* **Low-tier approach:** Make every outcome (0 goals, 1 goal...) a Token for people to bet on — that's "gambling."
+* **High-tier approach:** Abstract a football match as a **Poisson random variable $X \sim \text{Poisson}(\lambda)$**, letting market participants collectively determine $\lambda$'s value. That's "financial derivatives."
 
-这些模型都有对应的数学公式，公式中含有 1 到 2 个核心参数（例如高斯的 $\mu, \sigma$ 或泊松的 $\lambda$）。**我们的目标就是找到这组参数。**
+**At this point, the core engineering challenge is:** How to efficiently implement Poisson distribution computation on-chain (since it involves factorial and exponential calculations, Gas costs are high). To achieve this, do you think **ZK-Rollup precomputed tables (Look-up Tables)** to reduce on-chain compute, or **oracles computing $\lambda$ off-chain and anchoring it on-chain via signatures** is better?
 
----
+# How Is the PDF for a Prediction Event Obtained?
 
-### 第二步：由市场交易触发“参数重定价”
+In prediction markets, "obtaining" a probability density function (PDF) is essentially **converting "trader consensus" into a "mathematical curve" through market bidding.**
 
-在参数化 AMM 中，系统不再是简单的 $x \cdot y = k$，而是维护一个“状态向量”（即那些参数）。
-
-1. **用户买入：** 假设用户认为“今晚进球会很多”，他买入“总进球数 $> 3$”的合约。
-2. **定价引擎（Pricing Engine）计算：** 系统不需要去改变具体的合约价格，而是利用梯度下降算法（Gradient Descent）**或**最大似然估计（MLE）的逻辑，计算出“如果要满足这个买单，当前的 $\lambda$ 参数需要调整到多少”。
-3. **更新状态：** 系统将 $\lambda$ 从 2.5 更新为 2.8。
-
-此时，PDF 曲线会立即发生形状改变（向右平移或变宽），系统会根据新的参数 $\lambda=2.8$，自动重算该市场上所有合约（0球、1球、2球……）的当前市场价值。
+This isn't something the system "pulls out of thin air" — it's computed and updated in real time by the parametric market-making algorithm (Parametric AMM) with every trade. Below are the three core steps for obtaining a PDF:
 
 ---
 
-### 第三步：利用市场价格反推（Breeden-Litzenberger 逻辑）
+### Step One: Define the Underlying Mathematical Model (Select a Probability Model)
 
-这是最硬核的一步。当市场上有足够多的行权价（Strike Prices）被交易时，我们不需要假设它服从什么分布，可以直接“反向推导”出 PDF。
+The system first presets a "shape template" based on event characteristics. As we discussed earlier:
 
-根据金融学中的 **Breeden-Litzenberger 定理**，期权价格的二阶导数就是风险中性概率密度函数：
+* **Continuous variables (e.g., inflation rate, temperature):** The system uses a **Gaussian Distribution (Normal Distribution)**.
+* **Discrete counts (e.g., football scores, ticket counts):** The system uses a **Poisson Distribution**.
+* **Bounded intervals (e.g., exam pass rate 0%-100%):** The system uses a **Beta Distribution**.
+
+These models all have corresponding mathematical formulas containing 1 to 2 core parameters (e.g., Gaussian $\mu, \sigma$ or Poisson $\lambda$). **Our goal is to find this set of parameters.**
+
+---
+
+### Step Two: Market Trading Triggers "Parameter Repricing"
+
+In a parametric AMM, the system is no longer simply $x \cdot y = k$ — it maintains a "state vector" (those parameters).
+
+1. **User Buys:** Suppose a user believes "there will be many goals tonight" and buys a contract on "total goals $> 3$."
+2. **Pricing Engine Calculation:** The system doesn't need to change specific contract prices — it uses gradient descent **or** maximum likelihood estimation (MLE) logic to calculate "what $\lambda$ parameter adjustment is needed to satisfy this buy order."
+3. **State Update:** The system updates $\lambda$ from 2.5 to 2.8.
+
+At this point, the PDF curve immediately changes shape (shifts right or widens), and the system automatically recalculates the current market value of all contracts in that market (0 goals, 1 goal, 2 goals...) based on the new parameter $\lambda=2.8$.
+
+---
+
+### Step Three: Reverse-Engineer from Market Prices (Breeden-Litzenberger Logic)
+
+This is the most hardcore step. When enough strike prices are traded in the market, we don't need to assume any distribution — we can directly "reverse-derive" the PDF.
+
+According to the **Breeden-Litzenberger theorem** in finance, the second derivative of option prices is the risk-neutral probability density function:
 
 $$f(x) = e^{rT} \cdot \frac{\partial^2 C}{\partial K^2}$$
 
-* **$C$ (Call Price)：** 不同行权价的看涨期权价格。
-* **$K$ (Strike Price)：** 行权价。
-* **$f(x)$：** 我们想要的概率密度函数。
+* **$C$ (Call Price):** Call option prices at different strike prices.
+* **$K$ (Strike Price):** Strike price.
+* **$f(x)$:** The probability density function we want.
 
-**简单理解就是：** 如果市场对“行权价为 10”和“行权价为 11”的期权定价存在差异，系统可以通过计算这两个价格之间的斜率变化（二阶导数），**画出一段 PDF 曲线**。
-
----
-
-### 总结：流程闭环
-
-获取 PDF 的过程实际上是一个“市场定价 $\to$ 统计反演 $\to$ 曲线修正”的循环：
-
-1. **初始状态：** 模型设定一个初始的 PDF（例如 $\lambda=2.5$ 的泊松分布）。
-2. **交易输入：** 交易员基于个人观点买入/卖出不同区间的合约。
-3. **计算中心：** 系统实时汇总所有订单流，利用上述公式，将这些离散的订单信息，拟合成一条平滑的数学曲线。
-4. **实时输出：** 该曲线就是当前市场对事件结果的“共识分布”。
-
-### 给你的启发：
-
-如果你想从零开始构建一个这种系统，**“参数模型”是最好的起点**。因为它对流动性的要求最低——即使只有一个人在交易，系统也能根据模型推导出完整的概率曲线。
-
-你觉得在实际工程中，是直接根据交易订单去拟合曲线（统计学方法）**更稳健，还是**基于参数模型，通过调整参数（控制论方法）更易于防止市场操纵？
-
-# 那足球胜平负的形状模板是谁？
-
-针对**足球胜平负（1X2）**这种典型的**离散、有限且无序**的分类事件，我们不能使用泊松分布或高斯分布。因为这些分布假设结果之间存在“数值大小”或“顺序”关系（比如 3 球比 2 球大），而胜（Win）、平（Draw）、负（Lose）在数学本质上是**相互独立的分类变量**，不存在谁比谁“大”的线性逻辑。
-
-在这种情况下，这类事件的“形状模板”通常采用 **多项分布 (Multinomial Distribution)** 或者更工程化的 **Dirichlet 分布**。
+**Simply put:** If the market prices options at strike 10 and strike 11 differently, the system can compute the slope change (second derivative) between these two prices to **draw a segment of the PDF curve**.
 
 ---
 
-### 1. 核心形状模板：Dirichlet 分布 (Dirichlet Distribution)
+### Summary: Closed-Loop Process
 
-这是处理“互斥分类概率”最完美的数学工具，它描述的是：**在多个互斥选项中，每个选项发生的概率分布情况。**
+Obtaining a PDF is actually a cycle of "market pricing $\to$ statistical inversion $\to$ curve correction":
 
-对于胜（W）、平（D）、负（L），我们维护一个参数向量 $\boldsymbol{\alpha} = (\alpha_W, \alpha_D, \alpha_L)$。
+1. **Initial State:** The model sets an initial PDF (e.g., a Poisson distribution with $\lambda=2.5$).
+2. **Trading Input:** Traders buy/sell contracts across different intervals based on personal views.
+3. **Computation Center:** The system aggregates all order flow in real time, using the formulas above to fit discrete order information into a smooth mathematical curve.
+4. **Real-Time Output:** That curve is the market's current "consensus distribution" on event outcomes.
 
-* 每个 $\alpha$ 代表了该结果的“强度”。
-* 最终各结果的概率 $p$ 是通过 $\alpha$ 归一化得到的：
+### Food for Thought:
+
+If you want to build such a system from scratch, **"parametric models" are the best starting point.** They have the lowest liquidity requirements — even with only one person trading, the system can derive a complete probability curve from the model.
+
+In actual engineering, do you think directly fitting curves from trading orders (statistical method) **is more robust, or** adjusting parameters based on parametric models (control theory method) is easier for preventing market manipulation?
+
+# Then Who Sets the Shape Template for Football Win-Draw-Lose?
+
+For **football win-draw-lose (1X2)** — a typical **discrete, finite, and unordered** categorical event — we cannot use Poisson or Gaussian distributions. These distributions assume a "numerical magnitude" or "ordering" relationship between outcomes (e.g., 3 goals is greater than 2 goals), while Win, Draw, and Lose are mathematically **mutually independent categorical variables** with no linear logic of one being "greater" than another.
+
+In this case, the "shape template" for such events typically uses a **Multinomial Distribution** or the more engineering-oriented **Dirichlet Distribution**.
+
+---
+
+### 1. Core Shape Template: Dirichlet Distribution
+
+This is the perfect mathematical tool for handling "mutually exclusive categorical probabilities" — it describes: **the probability distribution of each option occurring among multiple mutually exclusive choices.**
+
+For Win (W), Draw (D), Lose (L), we maintain a parameter vector $\boldsymbol{\alpha} = (\alpha_W, \alpha_D, \alpha_L)$.
+
+* Each $\alpha$ represents the "strength" of that outcome.
+* Final probabilities $p$ for each outcome are obtained by normalizing $\alpha$:
 
 $$p_W = \frac{\alpha_W}{\alpha_W + \alpha_D + \alpha_L}, \quad p_D = \frac{\alpha_D}{\alpha_W + \alpha_D + \alpha_L}, \quad p_L = \frac{\alpha_L}{\alpha_W + \alpha_D + \alpha_L}$$
 
@@ -325,113 +327,113 @@ $$p_W = \frac{\alpha_W}{\alpha_W + \alpha_D + \alpha_L}, \quad p_D = \frac{\alph
 
 ---
 
-### 2. 它是如何充当“调音台”的？
+### 2. How Does It Act as a "Mixing Console"?
 
-在参数化 AMM 中，当你交易“胜”时，你实际上是在向 $\alpha_W$ 这个参数注资：
+In a parametric AMM, when you trade "Win," you're actually injecting capital into the $\alpha_W$ parameter:
 
-* **初始状态：** 系统认为两队实力相当，$\boldsymbol{\alpha} = (10, 10, 10)$，即胜平负概率各 $1/3$。
-* **交易发生：** 某大户押注“胜”，注入资金。
-* **参数更新：** 系统将参数更新为 $\boldsymbol{\alpha} = (20, 10, 10)$。
-* **自动重定价：** 系统自动算出新的概率：
+* **Initial State:** The system considers both teams evenly matched, $\boldsymbol{\alpha} = (10, 10, 10)$, i.e., win-draw-lose each at $1/3$ probability.
+* **Trade Occurs:** A large player bets on "Win," injecting capital.
+* **Parameter Update:** The system updates parameters to $\boldsymbol{\alpha} = (20, 10, 10)$.
+* **Automatic Repricing:** The system automatically calculates new probabilities:
 * $p_W = 20 / 40 = 0.5$
 * $p_D = 10 / 40 = 0.25$
 * $p_L = 10 / 40 = 0.25$
-* **整个市场的赔率在毫秒内自动刷新。**
+* **The entire market's odds refresh within milliseconds.**
 
 
 
 ---
 
-### 3. 如何处理“不确定性”（波动率）？
+### 3. How to Handle "Uncertainty" (Volatility)?
 
-你可能会问：那胜平负里的“波动率”怎么体现？在 Dirichlet 模型中，波动率由**参数的总和**（即浓度参数，Concentration Parameter）决定：
+You might ask: how is "volatility" expressed in win-draw-lose? In the Dirichlet model, volatility is determined by the **sum of parameters** (i.e., the concentration parameter):
 
-* **总和 $\sum \alpha$ 越大：** 曲线越“尖锐”，意味着市场信心越足，价格波动越难被单笔交易改变（流动性深）。
-* **总和 $\sum \alpha$ 越小：** 曲线越“平坦”，意味着市场分歧巨大或冷门赛，任何小额资金进入都会引起赔率的剧烈震荡（高波动率）。
-
----
-
-### 4. 为什么这比传统“抽水”博彩强？
-
-传统的博彩公司是“庄家逻辑”，他们靠压低赔率来赚取那一层抽水（Margin）。
-
-而基于 Dirichlet 参数的 AMM 是“协议逻辑”：
-
-1. **无损套利：** 如果博彩公司开出的概率是 $(0.5, 0.25, 0.25)$，但你的量化模型通过大数据分析认为该场比赛胜率高达 $0.6$。你直接在 AMM 里买入“胜”，你的资金会自动推动 $p_W$ 向 $0.6$ 靠拢。
-2. **定价权平权：** 每一个参与者都在“共同构建”这个概率分布。没有庄家封号，只有市场在不断纠偏。
-3. **衍生品联动：** 这种胜平负的概率 $(p_W, p_D, p_L)$ 还可以进一步作为“复合期权”的底层资产。比如你可以设计一个产品：“如果主队赢且总进球数 $> 2.5$”，这本质上就是两个 Dirichlet 分布的**联合概率计算**。
+* **Larger $\sum \alpha$:** The curve is more "sharp" — market confidence is higher, prices are harder to move with a single trade (deep liquidity).
+* **Smaller $\sum \alpha$:** The curve is more "flat" — market disagreement is huge or it's an upset match; any small capital inflow causes violent odds swings (high volatility).
 
 ---
 
-### 总结：你的“形状模板”库
+### 4. Why Is This Better Than Traditional "Vig" Betting?
 
-如果你要写一套代码来实现它，你的模板库应该是这样的：
+Traditional bookmakers use "house logic" — they profit by depressing odds to capture margin.
 
-| 事件类型 | 推荐数学模板 | 参数含义 |
+Dirichlet-parameter-based AMM uses "protocol logic":
+
+1. **Risk-Free Arbitrage:** If a bookmaker's implied probabilities are $(0.5, 0.25, 0.25)$, but your quantitative model based on big data analysis believes the win rate should be $0.6$, you directly buy "Win" in the AMM — your capital automatically pushes $p_W$ toward $0.6$.
+2. **Pricing Power Equality:** Every participant is "collectively building" this probability distribution. No bookmaker bans — only the market continuously correcting itself.
+3. **Derivatives Linkage:** These win-draw-lose probabilities $(p_W, p_D, p_L)$ can further serve as underlying assets for "compound options." For example, you can design a product: "if the home team wins AND total goals $> 2.5$" — this is essentially a **joint probability calculation** of two Dirichlet distributions.
+
+---
+
+### Summary: Your "Shape Template" Library
+
+If you're writing code to implement this, your template library should look like this:
+
+| Event Type | Recommended Math Template | Parameter Meaning |
 | --- | --- | --- |
-| **数值型区间（如：气温、通胀）** | 高斯分布 (Normal) | $\mu$ (位置), $\sigma$ (离散度) |
-| **发生频率（如：进球数）** | 泊松分布 (Poisson) | $\lambda$ (预期频率) |
-| **分类选择（如：胜平负、谁当选）** | Dirichlet 分布 | $\alpha_1, \alpha_2, \alpha_3$ (各选项强度) |
+| **Numerical intervals (e.g., temperature, inflation)** | Gaussian Distribution (Normal) | $\mu$ (location), $\sigma$ (dispersion) |
+| **Occurrence frequency (e.g., goal count)** | Poisson Distribution | $\lambda$ (expected frequency) |
+| **Categorical choice (e.g., win-draw-lose, who gets elected)** | Dirichlet Distribution | $\alpha_1, \alpha_2, \alpha_3$ (strength per option) |
 
-**思考题：** 面对足球比赛这种含有“胜平负”分类结果（Dirichlet）和“总进球数”数值结果（Poisson）的复合预测，你是倾向于为每一个维度分别建立一个 AMM 池，还是通过一个高维联合概率分布（Joint Probability Distribution）将它们统一在一个池子里？后者虽然极致丝滑，但会导致计算复杂度指数级上升，你怎么看？
+**Thought Exercise:** For composite predictions like football matches containing both win-draw-lose categorical outcomes (Dirichlet) and total goal count numerical outcomes (Poisson), do you prefer establishing a separate AMM pool for each dimension, or unifying them in one pool through a high-dimensional joint probability distribution? The latter is extremely smooth but causes computational complexity to grow exponentially — what's your view?
 
-# 最核心的工程挑战在于： 如何在链上高效实现泊松分布的计算（因为它涉及阶乘和指数计算，Gas 费较高）。为了实现这一点，你认为应该使用 ZK-Rollup 的预计算表（Look-up Tables） 来减小链上算力消耗，还是通过 预言机在链下计算 $\lambda$ 并通过签名锚定到链上 更好？你的推荐方案呢？
+# The Core Engineering Challenge: How to Efficiently Implement Poisson Distribution Computation On-Chain (Since It Involves Factorial and Exponential Calculations, Gas Costs Are High). To Achieve This, Do You Think ZK-Rollup Precomputed Tables (Look-up Tables) to Reduce On-Chain Compute, or Oracles Computing $\lambda$ Off-Chain and Anchoring It On-Chain via Signatures Is Better? What's Your Recommended Approach?
 
-在区块链基础设施的架构设计中，面对非线性高阶数学计算（如泊松分布、高斯积分），单纯选择你提到的方案 A（纯 ZK-Rollup）或方案 B（纯 Oracle 签名），都会让系统掉入不同的工程陷阱：**ZK 会让你卡在“交易延迟（Latency）”上，而纯 Oracle 签名则会让你死于“毒性流与夹子（Toxic Flow & MEV 套利）”。**
+In blockchain infrastructure architecture design, facing nonlinear higher-order mathematical computations (like Poisson distribution, Gaussian integrals), simply choosing Option A (pure ZK-Rollup) or Option B (pure Oracle signatures) will trap the system in different engineering pitfalls: **ZK gets you stuck on "latency," while pure Oracle signatures will kill you with "toxic flow & MEV arbitrage."**
 
-作为系统架构师，在决定动用重型武器（ZK 或 Oracle）之前，我们需要先做一件最重要的事：**解构业务的数学边界，然后给出分级的生产方案。**
-
----
-
-## 一、 为什么单纯选 A 或 B 都有致命缺陷？
-
-### 方案 A：ZK-Rollup + 预计算表（Look-up Tables）
-
-* **致命伤：** **证明生成延迟（Proving Latency）与异步体验。**
-* **分析：** 尽管在 2026 年，基于 Lasso/Jolt 等新一代证明系统的 ZK 查表性能已经有了质的飞跃，但生成一个状态变化的 ZK 证明依然需要数秒甚至更久。对于一个高频变动的参数化 AMM 来说，用户买入一笔后，池子的参数 $\lambda$ 必须**在当前区块内原子化更新**，否则下一个用户就会基于过时的价格进行无风险套利。让用户等几秒钟去生成 ZK 证明再完成交易，这在体验上是不可接受的。
-
-### 方案 B：预言机链下计算 $\lambda$ + 签名锚定
-
-* **致命伤：** **预言机抢跑（Oracle Front-running）与信任割裂。**
-* **分析：** 这种模式本质上把 AMM 降级为了一个“清算结算通道”。如果链下计算节点在收到赛场实时数据到签名上链之间存在 500 毫秒的延迟，熟练的量化夹子（MEV Bot）可以通过直接读取底层数据源，在预言机更新 $\lambda$ 之前，向链上发送抢跑交易，瞬间吸干池子的流动性。
+As a system architect, before deploying heavy weapons (ZK or Oracle), we need to do the most important thing first: **deconstruct the mathematical boundaries of the business, then deliver a tiered production solution.**
 
 ---
 
-## 二、 破局关键：重新审视足球业务的“数学边界”
+## I. Why Do Pure A or B Both Have Fatal Flaws?
 
-我们回过头来看足球进球数的泊松分布公式：
+### Option A: ZK-Rollup + Precomputed Tables (Look-up Tables)
+
+* **Fatal Flaw:** **Proving Latency and asynchronous experience.**
+* **Analysis:** Although by 2026, ZK lookup table performance based on next-generation proof systems like Lasso/Jolt has made qualitative leaps, generating a ZK proof for a state change still takes seconds or longer. For a high-frequency parametric AMM, after a user buys, the pool's $\lambda$ parameter must **update atomically within the current block** — otherwise the next user will arbitrage risk-free against stale prices. Making users wait seconds for ZK proof generation before completing a trade is unacceptable in terms of experience.
+
+### Option B: Oracle Off-Chain $\lambda$ Computation + Signature Anchoring
+
+* **Fatal Flaw:** **Oracle front-running and trust fragmentation.**
+* **Analysis:** This model essentially degrades the AMM to a "settlement clearing channel." If there's a 500ms delay between the off-chain compute node receiving real-time match data and signing on-chain, skilled quant sandwich bots (MEV Bots) can read the underlying data source directly and send front-running transactions to the chain before the oracle updates $\lambda$, instantly draining the pool's liquidity.
+
+---
+
+## II. The Breakthrough: Re-examining Football's "Mathematical Boundaries"
+
+Let's revisit the Poisson distribution formula for football goal counts:
 
 $$P(X=k) = \frac{\lambda^k e^{-\lambda}}{k!}$$
 
-在进行链上工程落地时，你会发现两个巨大的工程红利（Boundary Conditions）：
+When implementing on-chain engineering, you'll discover two huge engineering dividends (Boundary Conditions):
 
-1. **$k!$ (阶乘) 是高度有限的：** 一场足球比赛单队进球数极少超过 10 个。这意味着我们根本不需要在链上算阶乘，直接在智能合约里硬编码一个大小为 15 的静态只读数组（Array Look-up）即可，查询复杂度是 $O(1)$，Gas 消耗微乎其微。
-2. **$\lambda$ 也是高度收敛的：** 足球比赛的预期进球数 $\lambda$ 通常严格处于 $[0, 8]$ 之间。
+1. **$k!$ (factorial) is highly bounded:** A single team's goals in a football match rarely exceed 10. This means we don't need to compute factorials on-chain at all — just hardcode a static read-only array of size 15 in the smart contract (Array Look-up), with $O(1)$ query complexity and negligible Gas consumption.
+2. **$\lambda$ is also highly convergent:** Expected goal counts $\lambda$ for football matches typically stay strictly within $[0, 8]$.
 
-既然自变量和因变量都处于极小的有界空间内，**为了一个足球进球数去搞 ZK 或重型链下预言机，在工程上属于典型的“过度设计（Over-engineering）”。**
+Since both independent and dependent variables live in a tiny bounded space, **deploying ZK or heavy off-chain oracles for football goal counts is typical over-engineering.**
 
 ---
 
-## 三、 最终推荐：分级计算架构 (Tiered Computation Architecture)
+## III. Final Recommendation: Tiered Computation Architecture
 
-为了兼顾**去中心化信任、极致的低延迟、以及极低的 Gas 开销**，推荐采用以下分级落地策略：
+To balance **decentralized trust, ultra-low latency, and minimal Gas overhead**, we recommend the following tiered deployment strategy:
 
-### Tier 1：针对轻量/离散事件（如足球胜平负、进球数）
+### Tier 1: Lightweight/Discrete Events (e.g., football win-draw-lose, goal counts)
 
-**采用“链上定点数原生近似（Native Fixed-Point Approximation）”**
+**Use "Native Fixed-Point Approximation On-Chain"**
 
-不需要任何链下中间件，直接在链上（如 Solana Anchor 或 Sui Move）使用定点数（如 `I64F64` 或 `U128` 精度）原生实现：
+No off-chain middleware needed — directly implement on-chain (e.g., Solana Anchor or Sui Move) using fixed-point arithmetic (e.g., `I64F64` or `U128` precision):
 
-* **阶乘部分：** 使用链上静态数组查表。
-* **指数部分 $e^{-\lambda}$：** 由于 $\lambda \le 8$，直接使用泰勒级数展开（Taylor Series Expansion）进行链上近似逼近。
+* **Factorial part:** Use on-chain static array lookup tables.
+* **Exponential part $e^{-\lambda}$:** Since $\lambda \le 8$, directly use Taylor Series Expansion for on-chain approximation.
 
 $$\sum_{n=0}^{N} \frac{(-1)^n \lambda^n}{n!}$$
 
-在固定精度下，循环迭代 7 到 8 次即可实现高达 $10^{-9}$ 的金融级精度。在高性能公链上，这几步位移和乘法计算消耗的算力，甚至远低于一次跨合约调用的 Gas。**这保证了交易的完全原子性、零延迟、以及 100% 的链上可验证性。**
+Under fixed precision, looping 7 to 8 iterations achieves financial-grade precision up to $10^{-9}$. On high-performance public chains, the compute from these bit shifts and multiplications consumes even less than a single cross-contract call's Gas. **This guarantees complete atomicity, zero latency, and 100% on-chain verifiability.**
 
-### Tier 2：针对复杂/连续/高维事件（如宏观数据、多变量波动率曲面）
+### Tier 2: Complex/Continuous/High-Dimensional Events (e.g., macro data, multi-variable volatility surfaces)
 
-如果未来系统要升级到无法用泰勒级数简单拟合的复杂 PDF（例如多维高斯分布），则切入“乐观执行 + 异步零知识协处理器（ZK Coprocessor）验证”架构：
+If the system later upgrades to complex PDFs that can't be simply fitted with Taylor series (e.g., multi-dimensional Gaussian distributions), switch to an "optimistic execution + asynchronous zero-knowledge coprocessor verification" architecture:
 
 ```
 [交易阶段 - 毫秒级]
@@ -448,755 +450,755 @@ ZK Coprocessor (如 Axiom / Brevis) -> 链下抓取该区块的交易流
 
 ```
 
-### 总结方案的架构优势：
+### Summary of Architectural Advantages:
 
-1. **高频路径（Trading Path）极快：** 足球等主流事件全部在链上通过定点数数学引擎原子化完成，没有任何外部依赖，杜绝了预言机被夹的风险。
-2. **长尾路径（Generalized Path）极稳：** 面对复杂金融模型时，不把 ZK 放在交易流水线上，而是放在异步监督线上。用 ZK 充当“最高法院”，用乐观机制充当“执法机构”，完美解决了区块链“不可能三角”在金融衍生品定价上的冲突。
+1. **High-Frequency Path (Trading Path) is extremely fast:** Mainstream events like football are all completed atomically on-chain through the fixed-point math engine, with no external dependencies, eliminating oracle sandwich risk.
+2. **Long-Tail Path (Generalized Path) is extremely stable:** For complex financial models, ZK isn't placed on the trading pipeline but on the asynchronous supervision line. ZK acts as the "Supreme Court," optimistic mechanisms as the "enforcement agency" — perfectly resolving the blockchain "impossible triangle" conflict in financial derivatives pricing.
 
-# 参数化amm，那初始流动性怎么注入的？
+# Parametric AMM — How Is Initial Liquidity Injected?
 
-在参数化 AMM 架构中，初始流动性的注入逻辑与 Uniswap 这种传统 AMM 有着本质的区别。
+In parametric AMM architecture, initial liquidity injection logic is fundamentally different from traditional AMMs like Uniswap.
 
-传统 AMM 注入的是“资产对”（如准备好相同价值的 BTC 和 USDT）；而参数化 AMM 注入的是“单边结算资产（如 USDC） + 一组先验概率参数（Prior Parameters）”。
+Traditional AMMs inject "asset pairs" (e.g., preparing equal-value BTC and USDT); parametric AMMs inject **"single-sided settlement assets (like USDC) + a set of prior probability parameters (Prior Parameters)."**
 
-换句话说，LP（流动性提供者）在这里扮演的角色不是“代币兑换商”，而是“概率分布的承销商（Underwriter）”。
-
----
-
-## 1. 初始注入的三步流程
-
-假设我们要为某个事件（比如“下个月核心 CPI 数据”）创建参数化 AMM 池，初始注入包含以下三个步骤：
-
-### 步骤一：设定先验参数（The Priors）
-
-池子的创建者（可以是第一个 LP，也可以是协议方）需要指定输入模型的初始参数。
-
-* 如果是高斯模型，指定 $\mu_0 = 2.5\%$（预期均值），$\sigma_0 = 0.5$（初始标准差）。
-* 如果是足球胜平负的 Dirichlet 模型，指定 $\boldsymbol{\alpha}_0 = (10, 10, 10)$。
-这两组数字直接锁定了市场的**初始价格（或赔率）**。
-
-### 步骤二：存入单一结算资产（USDC）作为保证金
-
-LP 不需要准备任何事件代币，只需向智能合约的 Vault（保险库）中存入一笔主资产（如 100,000 USDC）。
-这笔钱被称为“风险承销准备金（Collateral Buffer）”。它的作用是：当市场结果揭晓时，用来给行权正确的交易员进行最终清算。
-
-### 步骤三：定义“流动性乘数”并铸造 LP Token
-
-存入的资金量决定了池子的“深度（Depth）”**。在数学模型中，资金量会转化为一个**全局缩放因子（Scaling Factor $C$）。
-系统会根据当前 Vault 的资产净值（NAV），向 LP 铸造并分发 LP Token。
+In other words, LPs (liquidity providers) here don't play the role of "token exchangers" but of **"probability distribution underwriters."**
 
 ---
 
-## 2. 核心数学魔术：注入流动性如何影响曲线？
+## 1. Three-Step Initial Injection Process
 
-这是系统架构中最优雅的部分：**注入或撤出流动性，只会改变曲线的“刚性（Price Impact Resilience）”，而不会改变当前的“价格（Probability）”。**
+Suppose we're creating a parametric AMM pool for an event (e.g., "next month's core CPI data"). Initial injection includes these three steps:
 
-我们以足球胜平负的 Dirichlet 模型 $\boldsymbol{\alpha} = (\alpha_W, \alpha_D, \alpha_L)$ 为例：
+### Step One: Set Prior Parameters (The Priors)
 
-### 场景 A：初始注入
+The pool creator (could be the first LP or the protocol) must specify the model's initial parameters.
 
-第一个 LP 设定 $\boldsymbol{\alpha} = (10, 10, 10)$，并存入 10,000 USDC。
-此时，胜平负的概率均等（各 $33.3\%$）。如果一个交易员用 1,000 USDC 买“胜”，由于池子很浅（数值只有 10），$\alpha_W$ 会瞬间被推高，产生巨大的滑点。
+* For a Gaussian model, specify $\mu_0 = 2.5\%$ (expected mean), $\sigma_0 = 0.5$ (initial standard deviation).
+* For a football win-draw-lose Dirichlet model, specify $\boldsymbol{\alpha}_0 = (10, 10, 10)$.
+These numbers directly lock in the market's **initial prices (or odds)**.
 
-### 场景 B：大资金追加流动性（Mid-way LP Injection）
+### Step Two: Deposit Single Settlement Asset (USDC) as Collateral
 
-此时市场运行了一段时间，经过交易，参数变成了 $\boldsymbol{\alpha} = (20, 10, 10)$（此时胜率被推高到了 $50\%$）。
-现在第二个 LP 想要追加 30,000 USDC 的流动性。
+LPs don't need any event tokens — they only deposit a primary asset (e.g., 100,000 USDC) into the smart contract's Vault.
+This money is called the **"Collateral Buffer."** Its purpose: when the market outcome is revealed, pay out traders who were correct at exercise.
 
-为了保证“提供流动性不影响当前市场价格”**，参数化 AMM 的底层算法会执行**等比例放大（Global Scaling）：
+### Step Three: Define "Liquidity Multiplier" and Mint LP Tokens
 
-系统计算出追加的资金可以将池子整体放大 3 倍，于是参数矩阵变为：
+The deposited amount determines the pool's **"Depth."** In the mathematical model, capital amount converts to a **global scaling factor (Scaling Factor $C$)**.
+The system mints and distributes LP Tokens to the LP based on the current Vault's net asset value (NAV).
+
+---
+
+## 2. Core Mathematical Magic: How Does Liquidity Injection Affect the Curve?
+
+This is the most elegant part of system architecture: **injecting or withdrawing liquidity only changes the curve's "rigidity (Price Impact Resilience)" — not the current "price (Probability)."**
+
+Let's use the football win-draw-lose Dirichlet model $\boldsymbol{\alpha} = (\alpha_W, \alpha_D, \alpha_L)$ as an example:
+
+### Scenario A: Initial Injection
+
+The first LP sets $\boldsymbol{\alpha} = (10, 10, 10)$ and deposits 10,000 USDC.
+At this point, win-draw-lose probabilities are equal (each $33.3\%$). If a trader uses 1,000 USDC to buy "Win," since the pool is shallow (values only 10), $\alpha_W$ gets instantly pushed up, producing huge slippage.
+
+### Scenario B: Large Capital Mid-Way LP Injection
+
+The market has been running for a while; after trading, parameters became $\boldsymbol{\alpha} = (20, 10, 10)$ (win probability pushed to $50\%$).
+Now a second LP wants to add 30,000 USDC of liquidity.
+
+To ensure **"providing liquidity doesn't affect current market prices,"** the parametric AMM's underlying algorithm executes **global scaling**:
+
+The system calculates that the additional capital can scale the pool 3x overall, so the parameter matrix becomes:
 
 $$\boldsymbol{\alpha}_{\text{new}} = 3 \times (20, 10, 10) = (60, 30, 30)$$
 
-* **价格未变：** 赢的概率依然是 $\frac{60}{60+30+30} = 50\%$。
-* **深度变厚：** 此时如果有另一个交易员再用 1,000 USDC 买“胜”，由于基数变成了 60，曲线被拉动（变价）的幅度会大大减小。
+* **Price unchanged:** Win probability remains $\frac{60}{60+30+30} = 50\%$.
+* **Depth thickened:** If another trader uses 1,000 USDC to buy "Win," since the base is now 60, the curve movement (price change) is greatly reduced.
 
 ---
 
-## 3. LP 是怎么赚钱和亏钱的？（风险模型）
+## 3. How Do LPs Make and Lose Money? (Risk Model)
 
-由于没有传统的无常损失（IL），参数化 AMM 的 LP 面临的是**完全不同的风险敞口**：
+Without traditional impermanent loss (IL), parametric AMM LPs face **completely different risk exposure**:
 
-### 亏钱场景：逆向选择风险（Adverse Selection）
+### Losing Scenario: Adverse Selection
 
-如果 LP 设定的初始参数 $\mu_0$ 或 $\boldsymbol{\alpha}_0$ 极度离谱（例如：把皇家马德里踢中超球队的胜率设成了 $10\%$），那么系统刚开放的瞬间，量化套利者（Informed Traders）就会疯狂买入“胜”。
-他们支付低廉的溢价，从 AMM 手中换走高额的“赔付承诺”。如果最终皇马赢了，Vault 里的 USDC 就会被交易员提走，LP 发生实实在在的亏损（类似于保险公司赔穿）。
+If the LP's initial parameters $\mu_0$ or $\boldsymbol{\alpha}_0$ are wildly off (e.g., setting Real Madrid vs. a lower-league team's win rate at $10\%$), the moment the system opens, quant arbitrageurs (Informed Traders) will frantically buy "Win."
+They pay a low premium and exchange for high "payout promises" from the AMM. If Real Madrid ultimately wins, USDC in the Vault gets withdrawn by traders — the LP suffers real losses (similar to an insurance company being wiped out).
 
-### 赚钱场景：时间价值衰减与 delta 中性套利
+### Earning Scenario: Time Value Decay and Delta-Neutral Arbitrage
 
-1. **波动率溢价（Vol Premium）：** 每一个在参数化 AMM 中交易的散户，都在支付由模型内置的滑点公式产生的“买卖价差（Spread）”。这些价差会源源不断地流入 Vault，推高 LP Token 的净值。
-2. **时空收敛（Variance Convergence）：** 如果市场在没有产生极端黑天鹅的情况下平稳结束，随着到期日临近，概率收敛，LP 相当于赚取了期权卖方的**时间价值（Theta）**。
-
----
-
-### 工程落地的安全性设计
-
-在编写此类智能合约（如使用 Rust/Move）时，由于 LP 承担了绝对的清算风险，Vault 必须具备 **“最高赔付边界硬检查（Max Loss Bounded Checking）”**：
-
-每当交易员试图发起一笔交易，Parametric AMM 必须在链上原子化地计算出：**“在最极端的单点事件结果下，系统总赔付额是否会超过当前 Vault 的资产总额？”** 如果超过，合约必须强制拒绝该交易（Slippage Reject），从而绝对断绝池子穿仓、资不抵债的可能性。
-
-从代币经济学的角度来看，这种“单边注入承销”的模式虽然干净，但对 LP 的专业度要求极高（一旦参数设错就会被套利）。你认为在冷启动阶段，应该引入一个**链下做市商（DMM）通过预言机动态修正初始 Prior 参数**，还是引入乐观双向竞价期（Opening Auction）让市场自己把初始参数“蹲”出来更安全？
-
-# 你的建议呢？
-
-从系统架构和风险控制的工程角度来看，我毫不犹豫地推荐：**采用“乐观双向竞价期（Opening Auction / 集合竞价）”作为冷启动的底层基石，并辅以“算法平滑过渡”机制。**
-
-在衍生品和参数化做市系统的设计中，“不把系统安全的底裤寄托在外部链下预言机的实时性上”是一个极其重要的原则。
+1. **Volatility Premium (Vol Premium):** Every retail trader in a parametric AMM pays the "bid-ask spread" generated by the model's built-in slippage formula. These spreads continuously flow into the Vault, pushing up LP Token NAV.
+2. **Variance Convergence:** If the market ends smoothly without extreme black swans, as expiry approaches and probabilities converge, the LP effectively earns the option seller's **time value (Theta)**.
 
 ---
 
-## 为什么拒绝纯“链下做市商（DMM）+ 预言机”方案？
+### Engineering Safety Design
 
-1. **蜜罐效应与网络延迟：** 即使是 Solana 或 Sui 这样清算极快的公链，从 DMM 观察到现实世界变化，到预言机打包签名，再到交易上链，依然存在百毫秒级的物理延迟。在高动态的事件中（如球赛刚开场、财报刚发布），这个延迟足够让套利者（Arbitrageurs）完成数次抢跑，直接抽干池子的流动性。
-2. **DMM 自身的模型作恶/单点故障：** 如果 DMM 的链下定价模型遭遇黑客攻击、参数配置错误或者喂价源被污染，错误的 Prior 参数一旦写入链上，参数化 AMM 会在瞬间沦为全网羊毛党和科学家的“提款机”，链上的 LP 连反应的时间都没有。
+When writing such smart contracts (e.g., using Rust/Move), since LPs bear absolute settlement risk, the Vault must have **"Max Loss Bounded Checking"**:
 
----
+Whenever a trader attempts a trade, the Parametric AMM must atomically compute on-chain: **"Under the most extreme single-point event outcome, will total system payout exceed the current Vault's total assets?"** If yes, the contract must forcibly reject the trade (Slippage Reject), absolutely preventing pool blow-up and insolvency.
 
-## 推荐方案：开盘竞价机制（Opening Auction）的工程实现
+From a tokenomics perspective, while this "single-sided underwriting injection" model is clean, it demands extremely high LP expertise (wrong parameters get arbitraged). Do you think during cold start, we should introduce a **decentralized market maker (DMM) dynamically correcting initial Prior parameters via oracle**, or an optimistic two-sided auction period (Opening Auction) letting the market "discover" initial parameters itself for safety?
 
-让市场自己把初始参数“蹲”出来，不仅能实现纯去中心化的价格发现，而且在数学上可以非常优雅地直接映射到我们的参数模型中。
+# What's Your Recommendation?
 
-具体在工程上分为两个阶段：
+From a system architecture and risk control engineering perspective, I unhesitatingly recommend: **use an "Opening Auction" as the cold-start foundation, supplemented by an "algorithmic smooth transition" mechanism.**
 
-### 阶段一：无追索权盲竞期（Blind Auction Phase）
-
-在事件开盘前的固定窗口期（例如球赛开始前 24 小时，或 CPI 公布前 3 小时），系统**不启动参数化 AMM 引擎**，而是开放一个单纯的**资金存入/意向挂单池**：
-
-* **对于胜平负（Dirichlet 分布）：** 交易员用 USDC 自由申购“胜”、“平”、“负”的初始份额。此时系统不计算滑点，只记录每个池子的绝对资金量（例如：胜池 6 万刀，平池 2 万刀，负池 2 万刀）。
-* **对于连续区间（高斯分布）：** 用户提交他们认为合理的均值和区间。
-
-### 阶段二：参数化定标与 AMM 激活（Parametric Pegging）
-
-竞价期截止的瞬间，智能合约执行**原子化清算**。此时，系统不做任何代币撮合，而是**直接读取三个池子的资金比例，将其转化为 AMM 的初始参数（Prior）**。
-
-以 Dirichlet 分布 $\boldsymbol{\alpha} = (\alpha_W, \alpha_D, \alpha_L)$ 为例，如果竞价期结束时，资金总额为 100,000 USDC，比例为 6:2:2，那么：
-
-1. **初始化参数：** 链上参数直接设为 $\boldsymbol{\alpha}_0 = (60, 20, 20)$。此时市场初始赔率完全由竞价期的供需决定。
-2. **资金沉淀为准备金：** 这 100,000 USDC 自动转化为该 AMM 池子的**初始流动性（Vault 准备金）**。而参与竞价的用户，自动按初始价格获得对应的仓位代币。
-3. **开启 Parametric AMM：** 此时正式解锁实时交易通道，后续的散户和小额交易开始动态拨动 $\boldsymbol{\alpha}$ 这个调音台。
+In derivatives and parametric market-making system design, "not pinning system safety on off-chain oracle real-time performance" is an extremely important principle.
 
 ---
 
-## 这种设计的架构优势
+## Why Reject Pure "DMM + Oracle" Approach?
 
-* **天然免疫 MEV 夹子：** 在竞价阶段，由于没有流动性池供人提取，也没有实时变动的价格，所有的抢跑、夹子和高频套利完全失效。
-* **冷启动流动性内生：** 价格出来的瞬间，池子里已经躺着 10 万刀的承销保证金了，系统不需要额外去满世界寻找专业 LP 来提供初始流动性。
-* **极其数学自洽：** 参与竞价的资金量越庞大，算出来的 $\sum \alpha$ 初始基数就越大。这意味着**市场参与度越高，开盘时的市场刚性（深度）就越厚**，完美符合市场经济规律。
-
----
-
-如果采用这种“集合竞价定标 + 动态参数做市”的混合架构，在产品上线后，你认为最应该警惕的风险，是竞价期结束前最后一秒可能出现的“巨鲸大额甩单恶意操纵初始参数（Closing-second Manipulation）”，还是在交易进行中由于突发突发新闻导致的参数单边倾斜、池子流动性集中度不足的风险？
-
-# 详细分析一下LP到底是如何赚钱的？其它用户是怎么赚钱的？举个例子说明一下。
-
-在参数化 AMM 架构的预测市场中，赚钱的逻辑彻底告别了传统订单簿的“低买高卖”，演变为一场“概率、风险与信息差”的金融博弈。
-
-我们可以用一个通俗的身份来定义它们：
-
-* **LP（流动性提供者）** = **保险公司（承销商）**。靠大数定律、精算胜率和收取“保费（价差）”赚钱。
-* **其他用户（交易员/套利者）** = **投保人或猎人**。靠精准预测、捕捉市场情绪或纠正定价错误赚钱。
+1. **Honeypot Effect and Network Latency:** Even on chains with extremely fast settlement like Solana or Sui, from DMM observing real-world changes to oracle packaging signatures to transaction landing on-chain, there's still hundred-millisecond-level physical latency. In highly dynamic events (e.g., match just kicked off, earnings just released), this latency is enough for arbitrageurs to complete multiple front-runs and directly drain pool liquidity.
+2. **DMM Model Manipulation/Single Point of Failure:** If the DMM's off-chain pricing model is hacked, misconfigured, or price feeds are poisoned, once wrong Prior parameters are written on-chain, the parametric AMM instantly becomes an ATM for wool parties and scientists — on-chain LPs don't even have time to react.
 
 ---
 
-## 一、 LP（流动性提供者）是如何赚钱与亏钱的？
+## Recommended Approach: Opening Auction Engineering Implementation
 
-LP 存入纯稳定币（如 USDC）进流动性池（Vault），不持有任何事件代币。他们的收益和亏损完全由模型的数学公式和最终结算结果决定。
+Letting the market discover initial parameters itself achieves purely decentralized price discovery and can elegantly map directly to our parametric models mathematically.
 
-### 1. 盈利来源
+Engineering-wise, it's divided into two phases:
 
-* **隐含价差收入（Spread/滑点）：** 每一个交易员买入或卖出时，参数化 AMM 都会通过公式故意调高被买方资产的价格。这个由于交易撞击产生的“溢价/滑点”，本质上就是散户支付给池子的交易手续费，直接沉淀在 Vault 中。
-* **吃掉“错误预测”的本金：** 当大众因为情绪狂热，疯狂买入一个最终没有发生的极端事件时（例如赌国足夺冠），他们支付的 USDC 全部归入 Vault，成为 LP 的利润。
-* **时间价值衰减（Theta）：** 随着事件截止日临近，不确定性降低，那些离散概率的尾部风险（归零概率）加速坍塌，LP 相当于作为期权卖方，稳赚这部分归零代币的沉淀资金。
+### Phase One: No-Recourse Blind Auction Phase
 
-### 2. 亏损来源
+During a fixed window before event opening (e.g., 24 hours before kickoff, or 3 hours before CPI release), the system **does not start the parametric AMM engine** — instead it opens a simple **capital deposit/intent order pool**:
 
-* **逆向选择风险（Adverse Selection）：** 如果市场上出现了掌握绝对内幕或高级量化模型的“知情交易员”，而 AMM 曲线调整太慢，知情交易员就会以极低的价格买走大量最终会行权的“神单”，导致结果揭晓时 Vault 遭遇定向爆破。
+* **For win-draw-lose (Dirichlet distribution):** Traders freely subscribe to initial shares of "Win," "Draw," "Lose" with USDC. The system doesn't calculate slippage — only records absolute capital per pool (e.g., Win pool 60k, Draw pool 20k, Lose pool 20k).
+* **For continuous intervals (Gaussian distribution):** Users submit what they believe are reasonable means and intervals.
 
----
+### Phase Two: Parametric Pegging and AMM Activation
 
-## 二、 其他用户（交易员/套利者）是如何赚钱的？
+The instant the auction period closes, the smart contract executes **atomic settlement**. The system doesn't match any tokens — it **directly reads the capital ratios of the three pools and converts them into the AMM's initial parameters (Prior)**.
 
-其他用户根据其策略不同，分为三类挣钱模式：
+Taking Dirichlet distribution $\boldsymbol{\alpha} = (\alpha_W, \alpha_D, \alpha_L)$ as an example, if at auction close total capital is 100,000 USDC with ratio 6:2:2:
 
-1. **方向性交易员（Directional Speculators）：**
-* **玩法：** 赌 $\mu$（均值/结果）的变动。
-* **赚法：** 在事件概率被低估时买入，持有到最终结算拿 1 刀；或者在概率被市场情绪推高后，中途卖出离场，赚取“概率上涨”的差价。
-
-
-2. **波动率交易员（Volatility Traders）：**
-* **玩法：** 赌 $\sigma$（标准差/分歧度）的变动。
-* **赚法：** 他们不在乎谁赢，只在乎市场吵得凶不凶。在市场极其风平浪静时，同时买入极端做多和极端做空的期权（构建跨式套利 Straddle）。一旦突发重磅新闻导致市场陷入大恐慌，波动率参数 $\sigma$ 暴涨，两个极端的期权价格同时被 AMM 抬高，他们双向平仓躺赚。
-
-
-3. **量化套利者（Arbitrageurs）：**
-* **玩法：** 搬砖，抹平价差。
-* **赚法：** 发现传统博彩盘口或 Polymarket 上某球队胜率是 $60\%$，而这个参数化 AMM 算出来的胜率只有 $50\%$。他们立刻在 AMM 里买入该队获胜，推动 AMM 参数回归 $60\%$ 的真实共识，无风险赚取对冲利润。
-
-
+1. **Initialize Parameters:** On-chain parameters are directly set to $\boldsymbol{\alpha}_0 = (60, 20, 20)$. Initial market odds are fully determined by auction supply and demand.
+2. **Capital Becomes Reserve:** This 100,000 USDC automatically converts to the AMM pool's **initial liquidity (Vault reserve)**. Auction participants automatically receive corresponding position tokens at initial prices.
+3. **Unlock Parametric AMM:** Real-time trading channels are now unlocked; subsequent retail and small trades dynamically adjust the $\boldsymbol{\alpha}$ mixing console.
 
 ---
 
-## 三、 举个具体例子：胜平负（Dirichlet AMM）实战演练
+## Architectural Advantages of This Design
 
-为了让你闭着眼睛都能看懂，我们来模拟一场足球赛：**皇家马德里 vs 巴塞罗那**。
-
-### 1. 初始开盘状态
-
-系统采用 Dirichlet 分布模板，通过初始集合竞价，定标了初始参数：
-
-* **底层参数：** $\boldsymbol{\alpha} = (50, 25, 25)$（总分母 = 100）
-* **当前市场概率：** 皇马胜（W）$50\%$，平局（D）$25\%$，巴萨胜（L）$25\%$
-* **LP 初始注入：** 10,000 USDC 锁在 Vault 里。
-
-此时，皇马胜代币的理论价格是 0.50 USDC，巴萨胜是 0.25 USDC。
+* **Naturally Immune to MEV Sandwich:** During the auction phase, there's no liquidity pool to extract from and no real-time changing prices — all front-running, sandwiching, and high-frequency arbitrage are completely ineffective.
+* **Endogenous Cold-Start Liquidity:** The moment prices are discovered, the pool already has 100k in underwriting collateral — the system doesn't need to hunt worldwide for professional LPs to provide initial liquidity.
+* **Extremely Mathematically Self-Consistent:** The larger the auction participation capital, the larger the initial $\sum \alpha$ base. This means **higher market participation leads to thicker market rigidity (depth) at opening** — perfectly aligned with market economics.
 
 ---
 
-### 2. 交易阶段（资金流入）
+If adopting this "call auction pegging + dynamic parametric market-making" hybrid architecture, after product launch, which risk do you think deserves the most vigilance — "whale dump manipulation of initial parameters in the final second before auction close (Closing-second Manipulation)," or "parameter one-sided tilt and insufficient pool liquidity concentration due to breaking news during trading"?
 
-* **交易员 Tom（看好皇马）：** 砸入 **1,000 USDC** 坚决买入“皇马胜”。由于他的买入拉动了曲线，触发了滑点，他的平均买入价格被 AMM 动态调整为了 0.55 USDC。
-* *结果：* Tom 获得了 $1000 / 0.55 = 1818$ 个“皇马胜”的兑付代币。
-* *AMM 状态刷新：* 皇马参数被推高，系统 $\boldsymbol{\alpha}$ 变更为 $(70, 25, 25)$。
+# Detailed Analysis: How Exactly Do LPs Make Money? How Do Other Users Make Money? Examples.
 
+In parametric AMM prediction markets, profit logic completely departs from traditional order book "buy low, sell high" — evolving into a financial game of "probability, risk, and information asymmetry."
 
-* **套利者 Alice（认为平局概率被低估）：**
-发现平局概率被动稀释了，砸入 **500 USDC** 买入“平局”，平均成本 0.20 USDC。
-* *结果：* Alice 获得了 $500 / 0.20 = 2500$ 个“平局”的兑付代币。
-* *AMM 状态刷新：* 系统 $\boldsymbol{\alpha}$ 变更为 $(70, 35, 25)$。
+We can define them with simple identities:
 
-
-
-**此时 Vault（流动性池）的账面资产：**
-
-
-$$\text{初始 10,000} + \text{Tom 的 1,000} + \text{Alice 的 500} = 11,500 \text{ USDC}$$
+* **LP (Liquidity Provider)** = **Insurance company (underwriter)**. Profits through law of large numbers, actuarial win rates, and collecting "premiums (spread)."
+* **Other users (traders/arbitrageurs)** = **Policyholders or hunters.** Profit through accurate prediction, capturing market sentiment, or correcting pricing errors.
 
 ---
 
-### 3. 终局结算（分钱时刻）
+## I. How Do LPs Make and Lose Money?
 
-比赛结束，现实世界结果出炉。我们分两种完全不同的结局来看大家怎么分钱：
+LPs deposit pure stablecoins (like USDC) into the liquidity pool (Vault), holding no event tokens. Their gains and losses are entirely determined by the model's mathematical formulas and final settlement outcomes.
 
-#### 结局 A：皇马赢了（Tom 预测正确，Alice 失败）
+### 1. Profit Sources
 
-* **Tom（方向交易员）：** 拿着 1818 个“皇马胜”代币找智能合约兑付（每个兑 1 刀），获得 **1,818 USDC**。
-* *Tom 的净利润：* $1818 - 1000 = \mathbf{+818\text{ USDC}}$（大赚）。
+* **Implicit Spread Income (Spread/Slippage):** Every time a trader buys or sells, the parametric AMM deliberately raises the price of the asset being bought through formulas. This "premium/slippage" from trade impact is essentially trading fees retail pays to the pool, settling directly in the Vault.
+* **Eating "Wrong Prediction" Principal:** When the public frantically buys an extreme event that ultimately doesn't happen due to emotional frenzy (e.g., betting China wins the World Cup), their USDC all flows into the Vault, becoming LP profit.
+* **Time Value Decay (Theta):** As the event deadline approaches, uncertainty decreases, tail risks of discrete probabilities (zero-out probability) accelerate collapse — the LP effectively acts as an option seller, steadily earning the settled funds from these zeroed-out tokens.
 
+### 2. Loss Sources
 
-* **Alice（套利者）：** 预测错误，“平局”代币归零。
-* *Alice 的净利润：* $\mathbf{-500\text{ USDC}}$（血亏给池子）。
+* **Adverse Selection:** If "informed traders" with absolute insider information or advanced quant models appear in the market, and the AMM curve adjusts too slowly, informed traders buy large amounts of "god-tier" positions that will ultimately exercise at extremely low prices — causing targeted blow-up of the Vault at settlement.
 
+---
 
-* **LP（流动性提供者）：** Vault 总资产 11,500 USDC，兑付给 Tom 1,818 USDC 后，池子还剩 $11500 - 1818 = 9,682\text{ USDC}$。
-* *LP 的净利润：* $9682 - 10000 = \mathbf{-318\text{ USDC}}$。
-* *深度分析：* 在这个结局里 LP 亏了。因为 Tom 的信息更精准，他在概率很低（0.55）的时候抄底成功，LP 遭遇了逆向选择，自己充当了 Tom 的交易对手盘。
+## II. How Do Other Users (Traders/Arbitrageurs) Make Money?
 
+Other users earn through three strategy modes:
 
-
-#### 结局 B：爆冷，双方打平（Alice 预测正确，Tom 失败）
-
-* **Tom：** 预测错误，“皇马胜”代币归零。
-* *Tom 的净利润：* $\mathbf{-1000\text{ USDC}}$（血亏给池子）。
-
-
-* **Alice：** 拿着 2500 个“平局”代币兑付，获得 **2,500 USDC**。
-* *Alice 的净利润：* $2500 - 500 = \mathbf{+2000\text{ USDC}}$（暴赚 4 倍）。
+1. **Directional Speculators:**
+* **Play:** Bet on $\mu$ (mean/outcome) movement.
+* **Earn:** Buy when event probability is undervalued, hold to settlement for $1; or sell mid-way after market sentiment pushes probability up, earning the "probability appreciation" spread.
 
 
-* **LP（流动性提供者）：** Vault 总资产 11,500 USDC，兑付给 Alice 2,500 USDC 后，池子还剩 $11500 - 2500 = 9,000\text{ USDC}$。
-* *LP 的净利润：* $9000 - 10000 = \mathbf{-1000\text{ USDC}}$。
+2. **Volatility Traders:**
+* **Play:** Bet on $\sigma$ (standard deviation/disagreement) movement.
+* **Earn:** They don't care who wins — only how heated the market debate is. When the market is extremely calm, simultaneously buy extreme long and extreme short options (building a straddle). Once breaking news causes market panic, volatility parameter $\sigma$ surges, both extreme option prices get raised by the AMM — they close both sides and profit.
 
 
-
-#### 结局 C：史诗级冷门，巴萨赢了（Tom 和 Alice 全猜错！）
-
-* **Tom：** 归零（$\mathbf{-1000\text{ USDC}}$）。
-* **Alice：** 归零（$\mathbf{-500\text{ USDC}}$）。
-* **没有任何人持有“巴萨胜”的代币。**
-* **LP（流动性提供者）：** Vault 没有任何兑付包袱。
-* *LP 的净利润：* $11500 - 10000 = \mathbf{+1500\text{ USDC}}$。
-* *深度分析：* LP 赢麻了。不仅吃掉了 Tom 和 Alice 合计 1,500 刀的本金，而且因为整个交易过程中没有给外部支付一分钱，这些钱全成了 LP 的纯利润。
+3. **Arbitrageurs:**
+* **Play:** Brick-moving, flattening spreads.
+* **Earn:** Discover a team's win rate is $60\%$ on traditional betting or Polymarket, but this parametric AMM calculates only $50\%$. They immediately buy that team to win in the AMM, pushing parameters back to the true $60\%$ consensus, earning risk-free hedging profit.
 
 
 
 ---
 
-## 四、 总结：大数定律下的最终赢家
+## III. Concrete Example: Win-Draw-Lose (Dirichlet AMM) Walkthrough
 
-在单场比赛中，LP 的胜负取决于市场的胜负（结局 A、B 亏，结局 C 赚）。但现实中，**LP 是通过同时承销成百上千场比赛来赚钱的。**
+To make this crystal clear, let's simulate a football match: **Real Madrid vs. Barcelona**.
 
-只要时间拉长、场次变多，根据统计学的大数定律：散户由于情绪化买入造成的亏损（结局 C 这种全输的冷门，或两边下注不均匀导致的价差损耗），会源源不断、稳定地转化为滑点和保费输入，最终推动 LP 的资金曲线呈现出类似**保险公司**那样稳定、向右上角延伸的复利曲线。
+### 1. Initial Opening State
 
-## 五、足球进球区间的结算到底怎么算？（`[2,6]` 命中示例）
+The system uses a Dirichlet distribution template; through initial call auction, initial parameters are pegged:
 
-以总进球数事件为例，系统使用 Poisson 参数 `lambda` 定价。  
-区间头寸在结算时只有两种状态：
+* **Underlying Parameters:** $\boldsymbol{\alpha} = (50, 25, 25)$ (total denominator = 100)
+* **Current Market Probability:** Real Madrid Win (W) $50\%$, Draw (D) $25\%$, Barcelona Win (L) $25\%$
+* **LP Initial Injection:** 10,000 USDC locked in Vault.
 
-- 命中区间：每份头寸兑付 1 USDC
-- 未命中：头寸归零
+At this point, Real Madrid win token theoretical price is 0.50 USDC, Barcelona win is 0.25 USDC.
 
-假设：
+---
 
-- 下单时 `lambda = 3.0`
-- 用户买入区间 `[2,6]`
-- 受滑点影响后平均成交价为 `0.70`
-- 用户投入本金 `1000 USDC`
+### 2. Trading Phase (Capital Inflow)
 
-则用户持仓数量：
+* **Trader Tom (bullish on Real Madrid):** Pours in **1,000 USDC** firmly buying "Real Madrid Win." His buy moves the curve, triggering slippage — his average buy price is dynamically adjusted to 0.55 USDC.
+* *Result:* Tom receives $1000 / 0.55 = 1818$ "Real Madrid Win" redemption tokens.
+* *AMM State Refresh:* Real Madrid parameter pushed up, system $\boldsymbol{\alpha}$ changes to $(70, 25, 25)$.
+
+
+* **Arbitrageur Alice (believes draw probability is undervalued):**
+Discovers draw probability was passively diluted, pours in **500 USDC** buying "Draw" at average cost 0.20 USDC.
+* *Result:* Alice receives $500 / 0.20 = 2500$ "Draw" redemption tokens.
+* *AMM State Refresh:* System $\boldsymbol{\alpha}$ changes to $(70, 35, 25)$.
+
+
+
+**Vault (liquidity pool) book assets at this point:**
+
+
+$$\text{Initial 10,000} + \text{Tom's 1,000} + \text{Alice's 500} = 11,500 \text{ USDC}$$
+
+---
+
+### 3. Final Settlement (Distribution Moment)
+
+Match ends, real-world result revealed. Let's see how everyone gets paid under two completely different outcomes:
+
+#### Outcome A: Real Madrid Wins (Tom correct, Alice wrong)
+
+* **Tom (directional trader):** Redeems 1818 "Real Madrid Win" tokens with smart contract (1:1 to USDC), receives **1,818 USDC**.
+* *Tom's net profit:* $1818 - 1000 = \mathbf{+818\text{ USDC}}$ (big win).
+
+
+* **Alice (arbitrageur):** Wrong prediction — "Draw" tokens zero out.
+* *Alice's net profit:* $\mathbf{-500\text{ USDC}}$ (big loss to pool).
+
+
+* **LP (liquidity provider):** Vault total assets 11,500 USDC, after paying Tom 1,818 USDC, pool has $11500 - 1818 = 9,682\text{ USDC}$ remaining.
+* *LP's net profit:* $9682 - 10000 = \mathbf{-318\text{ USDC}}$.
+* *Deep analysis:* In this outcome LP loses. Because Tom's information was more accurate — he successfully bought low when probability was still low (0.55) — LP suffered adverse selection, acting as Tom's counterparty.
+
+
+
+#### Outcome B: Upset Draw (Alice correct, Tom wrong)
+
+* **Tom:** Wrong prediction — "Real Madrid Win" tokens zero out.
+* *Tom's net profit:* $\mathbf{-1000\text{ USDC}}$ (big loss to pool).
+
+
+* **Alice:** Redeems 2500 "Draw" tokens, receives **2,500 USDC**.
+* *Alice's net profit:* $2500 - 500 = \mathbf{+2000\text{ USDC}}$ (4x windfall).
+
+
+* **LP (liquidity provider):** Vault total assets 11,500 USDC, after paying Alice 2,500 USDC, pool has $11500 - 2500 = 9,000\text{ USDC}$ remaining.
+* *LP's net profit:* $9000 - 10000 = \mathbf{-1000\text{ USDC}}$.
+
+
+
+#### Outcome C: Epic Upset, Barcelona Wins (Tom and Alice both wrong!)
+
+* **Tom:** Zeroed ($\mathbf{-1000\text{ USDC}}$).
+* **Alice:** Zeroed ($\mathbf{-500\text{ USDC}}$).
+* **Nobody holds "Barcelona Win" tokens.**
+* **LP (liquidity provider):** Vault has no redemption obligations.
+* *LP's net profit:* $11500 - 10000 = \mathbf{+1500\text{ USDC}}$.
+* *Deep analysis:* LP wins big. Not only ate Tom and Alice's combined 1,500 principal, but since no external payouts were made during trading, all of it became pure LP profit.
+
+
+
+---
+
+## IV. Summary: The Ultimate Winner Under the Law of Large Numbers
+
+In a single match, LP wins or loses depending on market outcomes (Outcomes A, B lose; Outcome C wins). But in reality, **LPs profit by simultaneously underwriting hundreds of matches.**
+
+As time stretches and match count grows, by the law of large numbers: retail losses from emotional buying (Outcome C-style total losses, or uneven two-sided betting causing spread erosion) continuously and steadily convert into slippage and premium inflows, ultimately driving LP capital curves toward stable, upper-right extending compound growth like an **insurance company**.
+
+## V. How Is Football Goal Interval Settlement Calculated? (`[2,6]` Hit Example)
+
+Taking total goal count events as an example, the system uses Poisson parameter `lambda` for pricing.
+Interval positions have only two states at settlement:
+
+- Hit interval: each position redeems 1 USDC
+- Miss: position zeroes out
+
+Assume:
+
+- At order time `lambda = 3.0`
+- User buys interval `[2,6]`
+- After slippage, average fill price is `0.70`
+- User invests principal `1000 USDC`
+
+Then user position quantity:
 
 $$Q=\frac{1000}{0.70}=1428.57$$
 
-如果赛果是 `X=5`（落在 `[2,6]`）：
+If result is `X=5` (falls in `[2,6]`):
 
-- 总兑付 = `1428.57 * 1 = 1428.57 USDC`
-- 净利润 = `1428.57 - 1000 = +428.57 USDC`
+- Total redemption = `1428.57 * 1 = 1428.57 USDC`
+- Net profit = `1428.57 - 1000 = +428.57 USDC`
 - ROI = `42.857%`
 
-如果赛果是 `X=1` 或 `X>=7`：
+If result is `X=1` or `X>=7`:
 
-- 头寸归零
-- 净利润 = `-1000 USDC`
+- Position zeroes out
+- Net profit = `-1000 USDC`
 
-核心结论：**中途参数怎么波动只影响建仓成本；终局只看结果是否落在购买区间。**
+Core conclusion: **Mid-path parameter fluctuations only affect entry cost; final settlement only cares whether the result falls in the purchased interval.**
 
-## 六、为什么买超宽区间（如 `[1,7]`）不一定压垮 LP？
+## VI. Why Doesn't Buying an Ultra-Wide Interval (e.g., `[1,7]`) Necessarily Crush the LP?
 
-直觉上宽区间“更容易中”，但同时它“更贵”，因此常见结构是：
+Intuitively wide intervals "are easier to hit," but they're also "more expensive" — so the common structure is:
 
-- 高胜率
-- 低赔率
-- 尾部一次性大回撤
+- High win rate
+- Low odds
+- Tail one-time large drawdown
 
-示例（`lambda=3.0`）：
+Example (`lambda=3.0`):
 
-- `[1,7]` 理论概率约 `95%`
-- 考虑滑点后平均买入价约 `0.97`
-- 投入 `1000 USDC`，持仓 `1000/0.97=1030.93`
+- `[1,7]` theoretical probability ~ `95%`
+- After slippage, average buy price ~ `0.97`
+- Invest `1000 USDC`, position `1000/0.97=1030.93`
 
-若命中（常态）：
+If hit (normal case):
 
-- 总兑付 `1030.93`
-- 净利润 `+30.93`（ROI 约 `3.09%`）
+- Total redemption `1030.93`
+- Net profit `+30.93` (ROI ~ `3.09%`)
 
-若未命中（尾部）：
+If miss (tail):
 
-- 头寸归零
-- 净利润 `-1000`
+- Position zeroes out
+- Net profit `-1000`
 
-因此交易者并非“稳赢高收益”，而是典型的：
+So traders aren't "guaranteed high returns" — it's the classic:
 
-- 高频小赚
-- 低频大亏
+- Frequent small wins
+- Infrequent large losses
 
-LP 对应镜像收益特征则是：
+LP's mirrored profit profile is:
 
-- 高频小赔（常态命中时的小额兑付）
-- 低频大赚（尾部未命中时吃掉全部本金）
+- Frequent small losses (small redemptions on normal hits)
+- Infrequent large wins (eating all principal on tail misses)
 
-长期盈亏最终取决于：交易换手率、滑点/费率溢价、尾部结果频率、以及 LP 防守参数是否启用（动态费率、虚拟流动性、时间锁等）。
+Long-term P&L ultimately depends on: trading turnover, slippage/fee premium, tail outcome frequency, and whether LP defense parameters are enabled (dynamic fees, virtual liquidity, time locks, etc.).
 
-# 那举个选举的例子，多个候选人
+# An Election Example with Multiple Candidates
 
-多个候选人的选举预测（如：三人竞选市长），是参数化 AMM 最具威力的应用场景之一。在传统的 Polymarket 里，如果候选人有 5 个，平台必须开 5 个独立的 Yes/No 盘口，资金会碎成渣。
+Multi-candidate election prediction (e.g., three candidates for mayor) is one of the most powerful application scenarios for parametric AMM. In traditional Polymarket, if there are 5 candidates, the platform must open 5 independent Yes/No markets — capital shatters into fragments.
 
-而在参数化 AMM 里，我们使用 **Dirichlet 分布（狄利克雷分布）** 模板，只开**一个统一的流动性池**，就能同时为所有候选人完美定价。
+In parametric AMM, we use the **Dirichlet Distribution** template — opening **one unified liquidity pool** that perfectly prices all candidates simultaneously.
 
-下面我们用一个具体的例子，看看**多候选人选举**中，LP、方向交易员和套利者是如何博弈和分钱的。
-
----
-
-## 一、 初始状态：竞标定盘
-
-假设有三位候选人：**Candidate A**（热门老牌政客）、**Candidate B**（黑马改革派）、**Candidate C**（边缘搅局者）。
-
-通过开盘前的“集合竞价”，市场注入了 **100,000 USDC** 的初始流动性（锁在 Vault 准备金池里），并动态捏出了初始的先验参数：
-
-* **底层参数：** $\boldsymbol{\alpha} = (\alpha_A, \alpha_B, \alpha_C) = (40, 40, 20)$ （总分母 = 100）
-* **初始市场胜率（价格）：**
-* 候选人 A：$40 / 100 = 40\%$ （代币价格：**0.40 USDC**）
-* 候选人 B：$40 / 100 = 40\%$ （代币价格：**0.40 USDC**）
-* 候选人 C：$20 / 100 = 20\%$ （代币价格：**0.20 USDC**）
-
-
+Below we use a concrete example to see how **multi-candidate elections** play out — how LPs, directional traders, and arbitrageurs compete and get paid.
 
 ---
 
-## 二、 交易阶段：神奇的“联动重定价”
+## I. Initial State: Auction Pegging
 
-在这个阶段，我们能清晰地看到参数化 AMM 的核心魔术：**你买入候选人 C，候选人 A 和 B 的价格会在没有任何人交易它们的情况下，自动原子化下跌。**
+Suppose three candidates: **Candidate A** (established favorite), **Candidate B** (dark horse reformer), **Candidate C** (fringe disruptor).
 
-### 交易 1：交易员 Mao 抄底黑马
+Through pre-opening "call auction," the market injects **100,000 USDC** initial liquidity (locked in Vault reserve pool) and dynamically shapes initial prior parameters:
 
-Mao 经过线下调研，认为边缘候选人 C 的支持率绝对不止 $20\%$，现在严重被低估。他砸入 **2,000 USDC** 坚决买入“C 胜”。
+* **Underlying Parameters:** $\boldsymbol{\alpha} = (\alpha_A, \alpha_B, \alpha_C) = (40, 40, 20)$ (total denominator = 100)
+* **Initial Market Win Rates (Prices):**
+* Candidate A: $40 / 100 = 40\%$ (token price: **0.40 USDC**)
+* Candidate B: $40 / 100 = 40\%$ (token price: **0.40 USDC**)
+* Candidate C: $20 / 100 = 20\%$ (token price: **0.20 USDC**)
 
-* **AMM 响应：** 资金流入推动 $\alpha_C$ 从 20 飙升到 40。参数矩阵变为 $\boldsymbol{\alpha} = (40, 40, 40)$，总分母变成 120。
-* **滑点计算：** 由于交易撞击，Mao 的平均买入成本被拉高到了 **0.25 USDC**。
-* **Mao 获得的资产：** $2000 / 0.25 = \mathbf{8,000}$ 个“C 胜”代币。
 
-> **此时全局价格自动刷新：**
-> * A 的胜率跌至：$40 / 120 = 33.3\%$
-> * B 的胜率跌至：$40 / 120 = 33.3\%$
-> * C 的胜率涨至：$40 / 120 = 33.3\%$
+
+---
+
+## II. Trading Phase: The Magic of "Linked Repricing"
+
+At this stage, we can clearly see the parametric AMM's core magic: **when you buy Candidate C, Candidate A and B prices automatically drop atomically — without anyone trading them.**
+
+### Trade 1: Trader Mao Bottom-Fishes the Dark Horse
+
+After offline research, Mao believes fringe Candidate C's support rate is definitely more than $20\%$ — severely undervalued now. He pours in **2,000 USDC** firmly buying "C Wins."
+
+* **AMM Response:** Capital inflow pushes $\alpha_C$ from 20 soaring to 40. Parameter matrix becomes $\boldsymbol{\alpha} = (40, 40, 40)$, total denominator becomes 120.
+* **Slippage Calculation:** Due to trade impact, Mao's average buy cost is raised to **0.25 USDC**.
+* **Mao's Assets:** $2000 / 0.25 = \mathbf{8,000}$ "C Wins" tokens.
+
+> **Global prices auto-refresh:**
+> * A's win rate drops to: $40 / 120 = 33.3\%$
+> * B's win rate drops to: $40 / 120 = 33.3\%$
+> * C's win rate rises to: $40 / 120 = 33.3\%$
 > 
 > 
 
-### 交易 2：套利者 Lin 进场捡漏
+### Trade 2: Arbitrageur Lin Picks Up Bargains
 
-Lin 看到全局刷新后的价格，敏锐地发现：候选人 A 本来是头号热门，现在因为 Mao 爆买 C，导致 A 的价格居然被动跌到了 0.333 USDC。Lin 认为这是白给的套利机会，立刻砸入 **3,333 USDC** 买入“A 胜”。
+Lin sees globally refreshed prices and keenly notices: Candidate A was the top favorite, but because Mao bought C heavily, A's price passively dropped to 0.333 USDC. Lin considers this free arbitrage and immediately pours in **3,333 USDC** buying "A Wins."
 
-* **AMM 响应：** $\alpha_A$ 从 40 被推高到 80。参数矩阵变为 $\boldsymbol{\alpha} = (80, 40, 40)$，总分母变成 160。
-* **滑点计算：** Lin 的平均买入成本为 **0.38 USDC**。
-* **Lin 获得的资产：** $3333 / 0.38 = \mathbf{8,771}$ 个“A 胜”代币。
+* **AMM Response:** $\alpha_A$ pushed from 40 to 80. Parameter matrix becomes $\boldsymbol{\alpha} = (80, 40, 40)$, total denominator becomes 160.
+* **Slippage Calculation:** Lin's average buy cost is **0.38 USDC**.
+* **Lin's Assets:** $3333 / 0.38 = \mathbf{8,771}$ "A Wins" tokens.
 
 ---
 
-## 三、 终局结算：账本拆解
+## III. Final Settlement: Ledger Breakdown
 
-此时选举投票结束，计票结果出炉。整个市场中，用户的总投入和 Vault 现金流如下：
+Election voting ends, vote count revealed. Total user investment and Vault cash flow in the market:
 
-* **Vault 里的总资金（总水池）：** $\text{初始 100,000} + \text{Mao 的 2,000} + \text{Lin 的 3,333} = \mathbf{105,333\text{ USDC}}$
+* **Total Vault Funds (Total Pool):** $\text{Initial 100,000} + \text{Mao's 2,000} + \text{Lin's 3,333} = \mathbf{105,333\text{ USDC}}$
 
-我们来看看三种不同的选举结局，各方最终的盈利表格：
+Let's see final profit tables under three different election outcomes:
 
-### 结局 1：候选人 C 史诗级逆袭获胜（Mao 猜对，Lin 猜错）
+### Outcome 1: Candidate C Epic Comeback Wins (Mao correct, Lin wrong)
 
-* 智能合约规定：只有“C 胜”代币可以 1:1 兑换 USDC，其余代币归零。
+* Smart contract rule: only "C Wins" tokens redeem 1:1 for USDC; all others zero out.
 
-| 角色 | 结算行为 | 投入本金 | 最终拿到 | 净利润 | 输赢逻辑 |
+| Role | Settlement Action | Principal Invested | Final Received | Net Profit | Win/Loss Logic |
 | --- | --- | --- | --- | --- | --- |
-| **交易员 Mao** | 兑付 8,000 个 C 代币 | 2,000 USDC | 8,000 USDC | **+6,000 USDC** | 成功捕捉到了潜在的冷门，暴赚 3 倍。 |
-| **套利者 Lin** | A 代币归零 | 3,333 USDC | 0 USDC | **-3,333 USDC** | 虽然抓住了被动价差，但大选政治方向看错，本金归零。 |
-| **池子 LP** | 支付 Mao 后，Vault 剩 97,333 | 100,000 USDC | 97,333 USDC | **-2,667 USDC** | **遭遇逆向选择。** 虽然吃掉了 Lin 的 3,333 刀，但赔给 Mao 太多。 |
+| **Trader Mao** | Redeem 8,000 C tokens | 2,000 USDC | 8,000 USDC | **+6,000 USDC** | Successfully captured potential upset, 3x windfall. |
+| **Arbitrageur Lin** | A tokens zero out | 3,333 USDC | 0 USDC | **-3,333 USDC** | Caught passive spread but wrong on political direction, principal zeroed. |
+| **Pool LP** | After paying Mao, Vault has 97,333 | 100,000 USDC | 97,333 USDC | **-2,667 USDC** | **Adverse selection.** Ate Lin's 3,333 but paid Mao too much. |
 
 ---
 
-### 结局 2：候选人 A 稳扎稳打获胜（Lin 猜对，Mao 猜错）
+### Outcome 2: Candidate A Steady Win (Lin correct, Mao wrong)
 
-* 此时只有“A 胜”代币可以 1:1 兑换 USDC。
+* Only "A Wins" tokens redeem 1:1 for USDC.
 
-| 角色 | 结算行为 | 投入本金 | 最终拿到 | 净利润 | 输赢逻辑 |
+| Role | Settlement Action | Principal Invested | Final Received | Net Profit | Win/Loss Logic |
 | --- | --- | --- | --- | --- | --- |
-| **交易员 Mao** | C 代币归零 | 2,000 USDC | 0 USDC | **-2,000 USDC** | 误判了搅局者的实力，交了学费。 |
-| **套利者 Lin** | 兑付 8,771 个 A 代币 | 3,333 USDC | 8,771 USDC | **+5,438 USDC** | 成功利用价格联动，在低位捡到热门候选人的廉价筹码。 |
-| **池子 LP** | 支付 Lin 后，Vault 剩 96,562 | 100,000 USDC | 96,562 USDC | **-3,438 USDC** | **依然亏损。** 因为热门候选人 A 胜出，Lin 拿走了大头，Mao 留下的 2000 刀不够填补窟窿。 |
+| **Trader Mao** | C tokens zero out | 2,000 USDC | 0 USDC | **-2,000 USDC** | Misjudged disruptor's strength, paid tuition. |
+| **Arbitrageur Lin** | Redeem 8,771 A tokens | 3,333 USDC | 8,771 USDC | **+5,438 USDC** | Successfully used price linkage to pick up favorite candidate's cheap chips at low price. |
+| **Pool LP** | After paying Lin, Vault has 96,562 | 100,000 USDC | 96,562 USDC | **-3,438 USDC** | **Still losing.** Favorite A won, Lin took the bulk, Mao's 2000 wasn't enough to fill the hole. |
 
 ---
 
-### 结局 3：候选人 B 乱中取胜（Mao 和 Lin 全猜错！）
+### Outcome 3: Candidate B Wins in Chaos (Mao and Lin both wrong!)
 
-* 此时只有“B 胜”代币可以 1:1 兑换 USDC。**重点：在实时交易阶段，没有任何人买过 B。**
+* Only "B Wins" tokens redeem 1:1 for USDC. **Key point: during live trading, nobody bought B.**
 
-| 角色 | 结算行为 | 投入本金 | 最终拿到 | 净利润 | 输赢逻辑 |
+| Role | Settlement Action | Principal Invested | Final Received | Net Profit | Win/Loss Logic |
 | --- | --- | --- | --- | --- | --- |
-| **交易员 Mao** | C 代币归零 | 2,000 USDC | 0 USDC | **-2,000 USDC** | 输。 |
-| **套利者 Lin** | A 代币归零 | 3,333 USDC | 0 USDC | **-3,333 USDC** | 输。 |
-| **池子 LP** | **无需给任何人兑付！** | 100,000 USDC | 105,333 USDC | **+5,333 USDC** | **LP 全收赢麻。** Mao 和 Lin 互相博弈，结果第三方胜出。两人的本金全部沦为 LP 的纯利润。 |
+| **Trader Mao** | C tokens zero out | 2,000 USDC | 0 USDC | **-2,000 USDC** | Loss. |
+| **Arbitrageur Lin** | A tokens zero out | 3,333 USDC | 0 USDC | **-3,333 USDC** | Loss. |
+| **Pool LP** | **No redemptions to anyone!** | 100,000 USDC | 105,333 USDC | **+5,333 USDC** | **LP takes all.** Mao and Lin battled each other, third party won. Both principals became pure LP profit. |
 
 ---
 
-## 💡 为什么这种机制在工程上很高级？
+## 💡 Why Is This Mechanism Architecturally Advanced?
 
-1. **零资金碎片化：** 在整个过程中，无论选民投 A、B 还是 C，钱全部进了同一个 105,333 USDC 的大水池。这为长尾候选人（哪怕有 10 个）提供了极其丝滑的底层流动性。
-2. **LP 的“大数定律”护城河：** 你可能注意到，在结局 1 和 2 中，LP 都亏钱了。但请记住，选举往往持续数周，每天都有成百上千笔交易在反复蹂躏这条曲线。每一笔交易产生的**隐含滑点（即 Mao 0.25 买入、Lin 0.38 买入时的溢价）都会像滚雪球一样不断留存在 Vault 里**。
-3. **最终的胜负：** 只要交易频次足够高，LP 积攒的“滑点手续费”将远超单次结局可能带来的赔付亏损。LP 赚的不是“谁选上”的钱，赚的是“全市场因为意见不合而反复频繁交易”的波动溢价。
+1. **Zero Capital Fragmentation:** Throughout the process, whether voters bet A, B, or C, all money flows into the same 105,333 USDC pool. This provides extremely smooth underlying liquidity for long-tail candidates (even with 10 candidates).
+2. **LP's "Law of Large Numbers" Moat:** You may notice LPs lost money in Outcomes 1 and 2. But remember, elections often last weeks with hundreds of trades daily reshaping the curve. **Implicit slippage from every trade (Mao buying at 0.25, Lin at 0.38) snowballs and continuously remains in the Vault.**
+3. **Ultimate Outcome:** With sufficient trading frequency, LP-accumulated "slippage fees" far exceed single-outcome payout losses. LPs don't earn from "who gets elected" — they earn the volatility premium from "the entire market repeatedly trading due to disagreement."
 
-# 那再举一个结果是区间的例子，比如CPI
+# Another Interval Outcome Example: CPI
 
-预测连续区间事件（如 **CPI 通胀率、美联储降息基点、非农就业人口**）是高斯（正态）分布参数化 AMM 的绝对主场。
+Predicting continuous interval events (e.g., **CPI inflation rate, Fed rate cut basis points, non-farm payroll**) is the absolute home turf of Gaussian (normal) distribution parametric AMM.
 
-在这种模式下，用户不再买“Yes”或“No”，而是买“某个数值区间”**。系统通过对高斯密度函数进行**积分（计算曲线下方的面积）来给任意区间自动化定价。
+In this mode, users no longer buy "Yes" or "No" — they buy "a numerical interval." The system automatically prices any interval by **integrating** the Gaussian density function (computing area under the curve).
 
-下面我们以“预测下个月官方公布的 CPI 同胀率”为例，详细拆解整个博弈和分钱的过程。
-
----
-
-## 一、 初始状态：开盘定调
-
-假设市场开盘，系统选定高斯分布（正态分布）作为形状模板。通过集合竞价，池子注入了 **100,000 USDC** 的初始流动性（准备金），并锁定了初始参数：
-
-* **核心参数：** * $\mu = 2.5\%$ （市场普遍预期 CPI 是 2.5%）
-* $\sigma = 0.2\%$ （标准差，代表市场认为上下波动的范围很小）
-
-
-* **初始曲线形状：** 一条以 2.5% 为最高峰、两边快速塌陷的瘦高曲线。
-
-### 此时的区间定价逻辑：
-
-任何人想买任意区间，价格就是该区间在曲线下的**面积**（最高 1 刀，最低 0 刀）。
-
-* **区间 $[2.4\%, 2.6\%]$：** 处于核心风口，面积巨大，系统算出概率为 $68\%$。代币价格：**0.68 USDC**。
-* **区间 $[2.9\%, 3.1\%]$：** 远离核心，属于小概率事件，面积很小，系统算出概率仅为 $5\%$。代币价格：**0.05 USDC**。
+Below we use "predicting next month's officially published CPI year-over-year rate" as an example, detailing the entire game and payout process.
 
 ---
 
-## 二、 交易阶段：拨动“均值”与“波动率”
+## I. Initial State: Opening Tone
 
-连续区间的参数化 AMM 最厉害的地方在于：**用户的每一次买入，都在重塑这条曲线的“位置（$\mu$）”和“胖瘦（$\sigma$）”。**
+Suppose the market opens; the system selects Gaussian distribution (normal distribution) as the shape template. Through call auction, the pool injects **100,000 USDC** initial liquidity (reserve) and locks initial parameters:
 
-### 交易 1：方向性交易（狂热买多，拨动 $\mu$）
+* **Core Parameters:** * $\mu = 2.5\%$ (market broadly expects CPI at 2.5%)
+* $\sigma = 0.2\%$ (standard deviation — market believes fluctuation range is very small)
 
-交易员 **Macro Wang** 看到中东局势升级、油价暴涨，认定下个月 CPI 绝对会破 3.0%。他砸入 **2,000 USDC** 买入区间 **$[2.9\%, 3.1\%]$**。
 
-* **AMM 响应：** 资金的定向撞击引发模型修正，系统认为市场预期在上移，于是**将 $\mu$ 从 2.5% 强行向右推到了 2.7%**。
-* **滑点计算：** 由于他买入量大，曲线右移导致该区间不断涨价，他的平均买入成本被拉高到了 **0.10 USDC**。
-* **Wang 获得的资产：** $2000 / 0.10 = \mathbf{20,000}$ 个“$[2.9\%, 3.1\%]$ 区间兑付券”。
+* **Initial Curve Shape:** A tall, narrow curve peaking at 2.5%, collapsing quickly on both sides.
 
-### 交易 2：波动率交易（买入迷茫，拨动 $\sigma$）
+### Interval Pricing Logic at This Point:
 
-随后，美联储几位官员发表了极其矛盾的讲话，市场陷入极度混乱。交易员 **Vol Filter** 认为接下来的数据要么高得吓人，要么低得离谱。于是他砸入 **3,000 USDC** 专门买入“两端极端区间”（即 $<2.0\%$ 或 $>3.4\%$ 的肥尾）。
+Anyone wanting to buy any interval — price is the **area** under the curve for that interval (max $1, min $0).
 
-* **AMM 响应：** 这种双向押注极端的操作，让系统感知到市场的分歧在急剧扩大。AMM **不改变 $\mu$，而是将标准差 $\sigma$ 从 0.2% 调大到了 0.5%**。
-* **曲线变形：** 整个高斯曲线瞬间被“压扁、拉宽”（如下图所示）。
+* **Interval $[2.4\%, 2.6\%]$:** In the core sweet spot, huge area — system calculates probability at $68\%$. Token price: **0.68 USDC**.
+* **Interval $[2.9\%, 3.1\%]$:** Far from core, low-probability event, tiny area — system calculates only $5\%$ probability. Token price: **0.05 USDC**.
 
-> **曲线变胖后的连锁反应：**
-> * 之前最稳的中间核心区 $[2.4\%, 2.6\%]$ 概率暴跌，价格大幅下滑。
-> * 两端原本无人问津的“死角区间”，面积变大，价格集体飙升。
+---
+
+## II. Trading Phase: Adjusting "Mean" and "Volatility"
+
+The parametric AMM's greatest strength for continuous intervals: **every user buy reshapes the curve's "position ($\mu$)" and "width ($\sigma$)."**
+
+### Trade 1: Directional Trade (Bullish Frenzy, Adjusting $\mu$)
+
+Trader **Macro Wang** sees Middle East escalation and oil price surge, convinced next month's CPI will definitely break 3.0%. He pours in **2,000 USDC** buying interval **$[2.9\%, 3.1\%]$**.
+
+* **AMM Response:** Directional capital impact triggers model correction — system believes market expectations are shifting up, so **forcibly pushes $\mu$ from 2.5% right to 2.7%**.
+* **Slippage Calculation:** Due to large buy volume, curve right-shift causes interval to keep rising in price — his average buy cost is raised to **0.10 USDC**.
+* **Wang's Assets:** $2000 / 0.10 = \mathbf{20,000}$ "$[2.9\%, 3.1\%]$ interval redemption vouchers."
+
+### Trade 2: Volatility Trade (Buying Uncertainty, Adjusting $\sigma$)
+
+Subsequently, several Fed officials give extremely contradictory speeches — market falls into extreme confusion. Trader **Vol Filter** believes upcoming data will either be terrifyingly high or surprisingly low. He pours in **3,000 USDC** specifically buying "both extreme intervals" (i.e., fat tails of $<2.0\%$ or $>3.4\%$).
+
+* **AMM Response:** This two-sided bet on extremes makes the system sense market disagreement expanding sharply. AMM **doesn't change $\mu$ — adjusts standard deviation $\sigma$ from 0.2% up to 0.5%**.
+* **Curve Deformation:** The entire Gaussian curve is instantly "flattened and widened" (as shown below).
+
+> **Chain reaction after curve widens:**
+> * Previously stable core zone $[2.4\%, 2.6\%]$ probability plummets, prices drop sharply.
+> * Previously ignored "dead zone" intervals at both ends grow in area, prices surge collectively.
 > 
 > 
 
 ---
 
-## 三、 终局结算：真相大白
+## III. Final Settlement: Truth Revealed
 
-统计局正式公布 CPI 数据。此时 Vault（流动性池）里的总资金为：
+Statistics bureau officially publishes CPI data. Vault (liquidity pool) total funds:
 
 
-$$\text{初始 100,000} + \text{Wang 的 2,000} + \text{Filter 的 3,000} = \mathbf{105,000\text{ USDC}}$$
+$$\text{Initial 100,000} + \text{Wang's 2,000} + \text{Filter's 3,000} = \mathbf{105,000\text{ USDC}}$$
 
-我们来看看三种完全不同的现实结局下，大家的财富如何转移：
+Let's see how wealth transfers under three completely different real-world outcomes:
 
-### 结局 A：数据通胀，最终公布 CPI 为 2.95%
+### Outcome A: Inflationary Data, Final CPI at 2.95%
 
-（落在 Macro Wang 的 $[2.9\%, 3.1\%]$ 区间内，Vol Filter 失败）
+(Falls in Macro Wang's $[2.9\%, 3.1\%]$ interval; Vol Filter fails)
 
-| 角色 | 结算行为 | 投入本金 | 最终拿到 | 净利润 | 输赢逻辑 |
+| Role | Settlement Action | Principal Invested | Final Received | Net Profit | Win/Loss Logic |
 | --- | --- | --- | --- | --- | --- |
-| **交易员 Wang** | 凭 20,000 个券 1:1 兑付 | 2,000 USDC | 20,000 USDC | **+18,000 USDC** | **精准猎杀。** 依靠宏观信息差，在 0.1 刀的低位重仓了尾部区间，暴赚 9 倍。 |
-| **交易员 Filter** | 极端区间券全部归零 | 3,000 USDC | 0 USDC | **-3,000 USDC** | 虽然市场波动大，但数据没有进入他买的超极端死角，本金被吃。 |
-| **池子 LP** | 支付 Wang 后，Vault 剩 85,000 | 100,000 USDC | 85,000 USDC | **-15,000 USDC** | **遭遇高维定向爆破。** 赚了 Filter 的 3000 刀，但不够赔给硬核宏观交易员 Wang。 |
+| **Trader Wang** | Redeem 20,000 vouchers 1:1 | 2,000 USDC | 20,000 USDC | **+18,000 USDC** | **Precision kill.** Used macro information edge to heavily load tail interval at 0.1 low price, 9x windfall. |
+| **Trader Filter** | All extreme interval vouchers zero out | 3,000 USDC | 0 USDC | **-3,000 USDC** | Market volatility was high but data didn't enter his ultra-extreme dead zones, principal eaten. |
+| **Pool LP** | After paying Wang, Vault has 85,000 | 100,000 USDC | 85,000 USDC | **-15,000 USDC** | **High-dimensional targeted blow-up.** Earned Filter's 3000 but not enough to pay hardcore macro trader Wang. |
 
 ---
 
-### 结局 B：风平浪静，最终公布 CPI 为 2.50%
+### Outcome B: Calm Waters, Final CPI at 2.50%
 
-（完美符合最开始的预测，Wang 和 Filter 全输）
+(Perfectly matches initial prediction; Wang and Filter both lose)
 
-| 角色 | 结算行为 | 投入本金 | 最终拿到 | 净利润 | 输赢逻辑 |
+| Role | Settlement Action | Principal Invested | Final Received | Net Profit | Win/Loss Logic |
 | --- | --- | --- | --- | --- | --- |
-| **交易员 Wang** | 区间券归零 | 2,000 USDC | 0 USDC | **-2,000 USDC** | 错判了通胀趋势，交了学费。 |
-| **交易员 Filter** | 极端区间券归零 | 3,000 USDC | 0 USDC | **-3,000 USDC** | 市场最终选择了最稳妥的共识，做多波动率宣告失败。 |
-| **池子 LP** | **无需给任何人兑付！** | 100,000 USDC | 105,000 USDC | **+5,333 USDC** | **LP 躺赢。** 市场看似喧闹（有人买多有人买波动），但现实毫无波澜。两名交易员合计 5,000 刀本金全被 LP 吞掉。 |
+| **Trader Wang** | Interval vouchers zero out | 2,000 USDC | 0 USDC | **-2,000 USDC** | Misjudged inflation trend, paid tuition. |
+| **Trader Filter** | Extreme interval vouchers zero out | 3,000 USDC | 0 USDC | **-3,000 USDC** | Market ultimately chose safest consensus, long volatility bet failed. |
+| **Pool LP** | **No redemptions to anyone!** | 100,000 USDC | 105,000 USDC | **+5,000 USDC** | **LP wins effortlessly.** Market seemed noisy (some buying up, some buying volatility) but reality was calm. Both traders' combined 5,000 principal all swallowed by LP. |
 
 ---
 
-### 结局 C：黑天鹅爆发，最终公布 CPI 为 3.60%
+### Outcome C: Black Swan, Final CPI at 3.60%
 
-（发生了超级恶性通胀，直接砸进 Vol Filter 的 $>3.4\%$ 极端区间，Wang 失败）
+(Super malignant inflation, directly hits Vol Filter's $>3.4\%$ extreme interval; Wang fails)
 
-| 角色 | 结算行为 | 投入本金 | 最终拿到 | 净利润 | 输赢逻辑 |
+| Role | Settlement Action | Principal Invested | Final Received | Net Profit | Win/Loss Logic |
 | --- | --- | --- | --- | --- | --- |
-| **交易员 Wang** | 区间券归零 | 2,000 USDC | 0 USDC | **-2,000 USDC** | 方向虽然对了，但用力过猛，猜中了前头没猜中结局。 |
-| **交易员 Filter** | 凭极端区间券 1:1 兑付 | 3,000 USDC | 12,000 USDC | **+9,000 USDC** | **黑天鹅捕手。** 成功预测了分歧的放大，并在模型曲线“变胖”时锁定了极端区间的低价筹码。 |
-| **池子 LP** | 支付 Filter 后，Vault 剩 93,000 | 100,000 USDC | 93,000 USDC | **-7,000 USDC** | 亏损。作为承销商，黑天鹅事件是 LP 的天然天敌。 |
+| **Trader Wang** | Interval vouchers zero out | 2,000 USDC | 0 USDC | **-2,000 USDC** | Direction was right but overcommitted — guessed the front but not the ending. |
+| **Trader Filter** | Redeem extreme interval vouchers 1:1 | 3,000 USDC | 12,000 USDC | **+9,000 USDC** | **Black swan catcher.** Successfully predicted disagreement amplification, locked cheap extreme interval chips when model curve "widened." |
+| **Pool LP** | After paying Filter, Vault has 93,000 | 100,000 USDC | 93,000 USDC | **-7,000 USDC** | Loss. As underwriter, black swan events are LP's natural enemy. |
 
 ---
 
-## 核心复盘：连续区间 AMM 的生产优势
+## Core Review: Production Advantages of Continuous Interval AMM
 
-通过这个例子可以发现，高斯参数化 AMM 在工程和金融设计上有两个无与伦比的优势：
+Through this example, we can see two unparalleled advantages of Gaussian parametric AMM in engineering and financial design:
 
-1. **无穷个盘口，一个资金池：** 理论上，CPI 可以是 2.51%、2.512% 甚至任何无限的小数。如果用传统的 Yes/No 代币，你需要开几万个盘口。而在这里，整个轴线上的任意切片（区间）都是通过对同一条曲线求积分算出来的，**所有的钱都在同一个 105,000 USDC 的池子里流转**，资金效率达到了数学的极限。
-2. **波动率不仅能看，还能交易：** 传统预测市场只能赌“结果是什么”（买 $\mu$）。而参数化 AMM 赋予了用户交易“迷茫度”（买卖 $\sigma$）的能力。当市场上两端资金开始均衡博弈时，即使 $\mu$ 不动，LP 也能通过调大 $\sigma$ 自动完成防守性提价，这才是现代链上微观金融工程的核心魅力。
+1. **Infinite Markets, One Capital Pool:** Theoretically, CPI could be 2.51%, 2.512%, or any infinite decimal. With traditional Yes/No tokens, you'd need tens of thousands of markets. Here, any slice (interval) on the entire axis is computed by integrating the same curve — **all money flows in the same 105,000 USDC pool**, achieving mathematical limits in capital efficiency.
+2. **Volatility Isn't Just Observable — It's Tradable:** Traditional prediction markets only bet "what the outcome is" (buy $\mu$). Parametric AMM gives users the ability to trade "uncertainty" (buy/sell $\sigma$). When capital at both ends begins balanced competition, even if $\mu$ doesn't move, LP can automatically complete defensive repricing by increasing $\sigma$ — this is the core charm of modern on-chain micro-financial engineering.
 
-# 看起来LP损失概率很大啊，每一笔交易产生的隐含滑点， 那要多少交易才能能给LP带来多少收益？
+# LP Loss Probability Seems High — How Many Trades Does Implicit Slippage Per Trade Need to Generate How Much Revenue for LP?
 
-你的直觉非常敏锐。如果只看单场比赛或者单次选举，且每次都有精明的量化黑客（Informed Traders）精准收割，LP（流动性提供者）确实看起来像个“大冤种”。
+Your intuition is very sharp. Looking at single matches or elections alone, if savvy quant hackers (Informed Traders) harvest precisely each time, LP (liquidity provider) does look like a "sucker."
 
-但金融工程的神奇之处在于：**参数化 AMM 赚的不是“最终结果”的钱，而是利用数学公式，在交易者来回拉扯价格的过程中，像吸血螺丝一样疯狂榨取“路径积分溢价”。**
+But the magic of financial engineering is: **parametric AMM doesn't earn from "final outcomes" — it uses mathematical formulas to voraciously extract "path integral premium" like a vampire screw during traders' back-and-forth price tugging.**
 
-为了让你彻底看清这里面的暴利，我们直接上硬核数学公式和量化测算。
+To let you see the profit clearly, let's go straight to hardcore math formulas and quantitative estimates.
 
 ---
 
-## 一、 核心数学原理：为什么来回交易，池子会凭空多出钱？
+## I. Core Math Principle: Why Does Round-Trip Trading Make the Pool Grow Money Out of Thin Air?
 
-在参数化 AMM 中，用户买入时支付的资金，并不是简单的“数量 $\times$ 当前价格”，而是**价格曲线的积分（Cost Function）**。
+In parametric AMM, funds users pay when buying aren't simply "quantity $\times$ current price" — they're the **integral of the price curve (Cost Function)**.
 
-假设一个简化的参数化模型，某种资产的即时价格为 $P(x)$。当一个交易员把市场状态从 $x_1$ 推到 $x_2$ 时，他必须支付总资金：
+Suppose a simplified parametric model where an asset's instant price is $P(x)$. When a trader pushes market state from $x_1$ to $x_2$, they must pay total funds:
 
 $$\text{Cost} = \int_{x_1}^{x_2} P(x) \, dx$$
 
-因为价格随着他的买入在不断抬高（$P(x)$ 是单调递增的），所以**他支付的平均价格，永远高于他买入前的初始价格。**
+Because price keeps rising as they buy ($P(x)$ is monotonically increasing), **their average payment price is always higher than the initial price before their buy.**
 
-### 1. 什么是“双向过路费”（Round-Trip Churn）？
+### 1. What Is "Round-Trip Toll" (Round-Trip Churn)?
 
-最极端的例子：市场上有两个傻子，老王和老李。
+The most extreme example: two fools in the market, Old Wang and Old Li.
 
-* 初始状态：两队胜率各 $50\%$。
-* **第一步：** 老王看好 A 队，砸钱把 A 的胜率推到了 $70\%$。因为滑点，老王付出了高昂的溢价（平均按 $60\%$ 的成本买入）。
-* **第二步：** 老李看好 B 队，反向砸同等的钱，把 B 的胜率推回去，让市场重新回到了各 $50\%$ 的初始状态。老李同样付出了溢价。
+* Initial state: both teams at $50\%$ win rate.
+* **Step one:** Old Wang likes Team A, pours money pushing A's win rate to $70\%$. Due to slippage, Old Wang pays a high premium (average cost $60\%$ to buy).
+* **Step two:** Old Li likes Team B, reverses with equal money pushing B's win rate back, market returns to $50\%$ each — initial state. Old Li also pays premium.
 
-**神奇的事情发生了：** 此时市场的概率、赔率和初始状态一模一样，但池子（Vault）里平空多了老王和老李交的“滑点过路费”。**只要市场在到期前反复震荡、来回拉扯，无论最后谁赢，这笔钱都绝对属于 LP。**
-
----
-
-## 二、 到底需要多少交易才能回本？（量化测算模型）
-
-LP 能不能赚钱，取决于一个核心博弈指标：**散户/噪音交易员（Noise Traders）的交易量，能否覆盖精明套利者（Informed Traders）卷走的利润。**
-
-我们用一个标准的量化模型来做个推演：
-
-* **池子总大小 (Vault)：** 100,000 USDC
-* **单笔交易滑点率 (Slippage Take)：** 平均为交易额的 $2\%$ （由模型中的控制参数决定）
-* **大选/比赛最终揭晓时，套利者能卷走的最大定向利润：** 10,000 USDC（假设套利者极其敏锐，在最后关头精准把池子抽干了 10%）
-
-### LP 的盈亏平衡公式：
-
-$$\text{LP 收益} = (\text{总交易量} \times \text{平均滑点率}) - \text{精明套利者利润}$$
-
-如果要实现盈亏平衡（收益 $> 0$）：
-
-
-$$\text{总交易量} \times 2\% > 10,000 \implies \text{总交易量} > 500,000 \text{ USDC}$$
-
-### 换算成具体交易笔数：
-
-如果这个池子在开盘到结算的 7 天内：
-
-* 每天有 100 笔散户小额散单（平均每笔 500 USDC），日交易量为 50,000 USDC。
-* 7 天总交易量 = $50,000 \times 7 = 350,000$ USDC。
-* **此时 LP 收益：** $350,000 \times 2\% = 7,000$ USDC。由于没到 50 万的临界点，LP 最终清算后会亏损 3,000 USDC。
-
-**但是！如果遇到热门事件（如美国大选或欧冠决赛）：**
-
-* 每天有 500 笔买卖摩擦（平均每笔 1,000 USDC），日交易量高达 500,000 USDC。
-* 7 天总交易量 = 3,500,000 USDC。
-* **此时 LP 收益：** $3,500,000 \times 2\% = 70,000$ USDC。
-* **最终净利润：** $70,000 - 10,000 (\text{赔付}) = \mathbf{+60,000\text{ USDC}}$。**LP 仅用 7 天就实现了 60% 的资金回报率（ROI）！**
+**The magical thing:** At this point market probability, odds, and initial state are identical — but the pool (Vault) has extra "slippage toll" from Old Wang and Old Li. **As long as the market oscillates back and forth before expiry, regardless of who wins, this money absolutely belongs to LP.**
 
 ---
 
-## 三、 生产环境中的真实数据对比
+## II. How Many Trades to Break Even? (Quantitative Estimation Model)
 
-在实际的链上预测市场中，散户的狂热程度和交易换手率往往远超想象。
+Whether LP profits depends on a core game metric: **can retail/noise trader volume cover profits taken by savvy arbitrageurs (Informed Traders)?**
 
-| 指标维度 | 冷门事件（如小众技术预测） | 热门事件（如大选、世界杯） |
+Let's use a standard quant model for deduction:
+
+* **Pool Total Size (Vault):** 100,000 USDC
+* **Per-Trade Slippage Rate (Slippage Take):** Average 2% of trade amount (determined by model control parameters)
+* **Maximum Directional Profit Arbitrageurs Can Take at Election/Match Reveal:** 10,000 USDC (assuming arbitrageurs are extremely sharp, precisely draining 10% of pool at the end)
+
+### LP Break-Even Formula:
+
+$$\text{LP Profit} = (\text{Total Volume} \times \text{Average Slippage Rate}) - \text{Informed Arbitrageur Profit}$$
+
+To achieve break-even (profit $> 0$):
+
+
+$$\text{Total Volume} \times 2\% > 10,000 \implies \text{Total Volume} > 500,000 \text{ USDC}$$
+
+### Converted to Specific Trade Count:
+
+If this pool runs 7 days from opening to settlement:
+
+* 100 retail small orders daily (average 500 USDC each), daily volume 50,000 USDC.
+* 7-day total volume = $50,000 \times 7 = 350,000$ USDC.
+* **LP profit at this point:** $350,000 \times 2\% = 7,000$ USDC. Below the 500k threshold — LP ultimately loses 3,000 USDC after settlement.
+
+**But! For hot events (e.g., US election or Champions League final):**
+
+* 500 buy-sell frictions daily (average 1,000 USDC each), daily volume up to 500,000 USDC.
+* 7-day total volume = 3,500,000 USDC.
+* **LP profit at this point:** $3,500,000 \times 2\% = 70,000$ USDC.
+* **Final net profit:** $70,000 - 10,000 (\text{payout}) = \mathbf{+60,000\text{ USDC}}$. **LP achieves 60% ROI in just 7 days!**
+
+---
+
+## III. Real Production Data Comparison
+
+In actual on-chain prediction markets, retail frenzy and trading turnover often far exceed imagination.
+
+| Metric Dimension | Niche Event (e.g., obscure tech prediction) | Hot Event (e.g., election, World Cup) |
 | --- | --- | --- |
-| **池子深度 (TVL)** | 10,000 USDC | 1,000,000 USDC |
-| **换手率 (Volume / TVL)** | 0.5 倍（资金周转慢） | **15 - 30 倍**（资金疯狂换手） |
-| **总交易笔数** | 约 50 - 100 笔 | **5,000 - 20,000 笔** |
-| **滑点与保费沉淀** | 极少，无法覆盖定向赔付 | 极其丰厚，形成巨大的安全垫 |
-| **LP 最终结局** | **大概率亏钱**（沦为非对称信息受害者） | **极大概率躺赚**（大数定律生效） |
+| **Pool Depth (TVL)** | 10,000 USDC | 1,000,000 USDC |
+| **Turnover Rate (Volume / TVL)** | 0.5x (slow capital rotation) | **15 - 30x** (capital frantically churning) |
+| **Total Trade Count** | ~50 - 100 trades | **5,000 - 20,000 trades** |
+| **Slippage & Premium Settlement** | Minimal, can't cover directional payouts | Extremely rich, forming huge safety cushion |
+| **LP Final Outcome** | **Likely losing** (becomes asymmetric information victim) | **Very likely winning** (law of large numbers kicks in) |
 
 ---
 
-## 四、 顶级工程防守：如何不让 LP 沦为肉鸡？
+## IV. Top-Tier Engineering Defense: How to Keep LP from Becoming Cannon Fodder?
 
-作为架构师，我们绝不能精确定位在“祈祷散户多交易”上。为了死死护住 LP 的底裤，真正的参数化 AMM 会在智能合约里植入三套**防守算法**：
+As architects, we absolutely cannot rely on "praying retail trades more." To firmly protect LP's bottom line, real parametric AMMs embed three **defense algorithms** in smart contracts:
 
-1. **动态费率引擎（Dynamic Fee Layer）：**
-就像流动性遇到剧烈单边波动时，Uniswap v4 会提高 Fee 一样。当检测到参数 $\mu$ 或 $\alpha$ 在极短时间内被单边连续砸盘（说明有内幕消息或巨鲸在定向收割），合约会**自动将滑点系数或手续费从 2% 瞬间拉高到 8%**。强行让精明交易员付出极高的成本，将利润吐回给池子。
-2. **虚拟流动性与波动率衰减（Virtual Liquidity）：**
-在开盘初期，交易量低迷时，系统会人工调大参数中的 $\sigma$（标准差）或增加虚拟本金。这样可以让早期的每一笔妄图收割池子的小额交易，都产生如同撞击巨浪般的超大滑点，从源头上劝退高频套利者。
-3. **延迟结算与时间锁（Oracle Resolution Window）：**
-在事件结果揭晓的前夕，系统会强制关闭实时变价交易，或者在结果出来的瞬间引入“乐观清算窗口”。这直接杜绝了量化夹子利用现实世界 100 毫秒的信息差在链上进行无风险套利的可能性。
+1. **Dynamic Fee Layer:**
+Just like Uniswap v4 raises fees when liquidity faces violent one-sided volatility — when detecting $\mu$ or $\alpha$ being continuously hammered one-sided in extremely short time (indicating insider info or whale directional harvesting), the contract **automatically raises slippage coefficient or fees from 2% instantly to 8%**. Forcing savvy traders to pay extremely high costs, vomiting profits back to the pool.
+2. **Virtual Liquidity and Volatility Decay:**
+During early opening when trading volume is low, the system artificially increases $\sigma$ (standard deviation) in parameters or adds virtual principal. This makes every early small trade attempting to harvest the pool produce enormous slippage like hitting a tsunami — deterring high-frequency arbitrageurs at the source.
+3. **Delayed Settlement and Time Lock (Oracle Resolution Window):**
+On the eve of event outcome reveal, the system forcibly closes real-time repricing trading, or introduces an "optimistic settlement window" the instant results come out. This directly eliminates quant sandwich bots exploiting 100-millisecond real-world information gaps for risk-free on-chain arbitrage.
 
-### 总结
+### Summary
 
-你看到的单次亏损，是**微观的单点风险**；而 LP 赖以生存的，是**宏观的统计学红利**。只要事件本身具备足够的话题度和换手率（大于池子 TVL 的 5 到 10 倍以上），参数化 AMM 的底层数学逻辑就会自动把 LP 变成一个稳赚“过路费”的去中心化交易网络。
+The single losses you see are **microscopic point risks**; what LPs survive on is **macroscopic statistical dividends**. As long as the event itself has sufficient topicality and turnover rate (greater than 5 to 10x pool TVL), parametric AMM's underlying math automatically turns LP into a decentralized trading network steadily earning "toll fees."
 
-# LP的收益呢？特别是LP加入时机不一样。
+# LP Returns? Especially When LP Join Timing Differs.
 
-这是一个非常深刻的架构设计问题。在传统的 Uniswap 里，LP 随时加入只需要按比例存入两种代币即可，因为池子的价值是完全实时的。
+This is a very profound architecture design question. In traditional Uniswap, LPs can join anytime by depositing two tokens proportionally — because pool value is fully real-time.
 
-但在参数化 AMM 预测市场中，**池子不仅存着现金（USDC），还背负着未决的“赔付期权负债”**。如果 LP 加入的时机不一样，系统如果只是粗暴地按资金比例分钱，就会导致早期的 LP 被严重剥削，或者晚来的 LP 进来纯粹“白嫖”手续费。
+But in parametric AMM prediction markets, **the pool holds not just cash (USDC) but also outstanding "payout option liabilities."** If LPs join at different times and the system crudely distributes by capital proportion, early LPs get severely exploited, or late LPs purely "freeload" on fees.
 
-为了解决这个问题，参数化 AMM 必须引入现代对冲基金的 **NAV（Net Asset Value，净资产价值）标价机制**。
-
----
-
-## 一、 核心底层机制：LP 代币的“净值化”
-
-在参数化 AMM 中，LP 存入资金换取的是 **LP-Token**。这个 LP-Token 的价格不是恒定为 1 USDC 的，而是动态变动的：
-
-$$\text{LP-Token 净值 (NAV)} = \frac{\text{Vault 现金总额} - \text{当前所有未决订单的账面价值 (Mark-to-Market Liability)}}{\text{已发行的 LP-Token 总总量}}$$
-
-* **账面负债（Liability）：** 此时比赛还没结束，但根据当前的系统参数（如 $\mu$ 或 $\alpha$），系统可以精准计算出如果此时立刻结算，池子预期需要赔出去多少钱。
-
-每当有新 LP 在不同的时间点加入时，系统会**实时计算当前的 NAV 净值，并按净值去“申购” LP-Token**。
+To solve this, parametric AMM must introduce modern hedge fund **NAV (Net Asset Value) pricing mechanism**.
 
 ---
 
-## 二、 不同时机加入，LP 的风险与收益拆解
+## I. Core Underlying Mechanism: "Net-Value" LP Tokens
 
-我们可以把事件的发展周期分为三个阶段，不同阶段进场的 LP，其搞钱逻辑和风险完全不同：
+In parametric AMM, LPs deposit capital in exchange for **LP-Token**. This LP-Token price isn't fixed at 1 USDC — it fluctuates dynamically:
 
-### 1. $T_0$ 阶段进场：拓荒 LP（高风险，吞下最大手续费）
+$$\text{LP-Token NAV} = \frac{\text{Total Vault Cash} - \text{Mark-to-Market Liability of All Outstanding Orders}}{\text{Total LP-Token Supply}}$$
 
-* **时机：** 刚刚开盘，市场还没有被大量交易蹂躏过，分歧最大。
-* **收益逻辑：** **他们是手续费（滑点）的最大受益者。** 因为开盘初期曲线最敏感，散户每次买入都会产生巨大的滑点溢价。这些源源不断的信息摩擦成本，会 100% 注入到 $T_0$ LP 的份额里，推动他们的 LP-Token 净值迅速从 1.0 涨到 1.1、1.2。
-* **风险：** **方向被爆破风险。** 如果开盘价（Prior）设错了，或者遇到了超级知情交易员（拥有绝对内幕），$T_0$ LP 将会孤身一人承担第一波定向收割的全部亏损。
+* **Book Liability:** The match hasn't ended yet, but based on current system parameters (e.g., $\mu$ or $\alpha$), the system can precisely calculate expected payout if settled immediately.
 
-### 2. $T_1$ 阶段进场：接盘/中场 LP（中风险，放大系统刚性）
-
-* **时机：** 市场已经交易了几天，价格已经收敛（比如大选概率稳定在 55%），交易量正处于高频爆发期。
-* **收益逻辑：** 此时进场，虽然错过了早期的暴利滑点，但因为当前的 NAV 净值已经包含了之前沉淀的手续费，他们需要**溢价申购**（比如用 1.2 USDC 才能买到 1 个 LP-Token）。进来后，他们通过等比例放大参数（如将 $\boldsymbol{\alpha}$ 放大 3 倍），为市场提供了更深的深度，从而开始赚取后续大额机构资金进场时的手续费。
-* **风险：** 承担后续突发黑天鹅事件的共担风险。
-
-### 3. $T_2$ 阶段进场：末期/套利 LP（极低风险，受协议严厉限制）
-
-* **时机：** 比赛还有 5 分钟结束，或者大选点票已经完成了 99%，胜负已定。
-* **收益逻辑：** 这种 LP 通常是“秃鹫（Vulture LP）”，他们看到局势已定，池子稳赚不赔，想在最后几分钟把大额资金砸进去，白嫖最终结算时的胜出红利。
-* **协议防御：** 真正的参数化 AMM 会在代码里锁死 $T_2$ 阶段的流动性注入（比如封盘前 10% 的时间窗口禁止申购），或者在 $T_2$ 注入时强制扣除一笔昂贵的“入场惩罚费”，以保护前期顶着风险做市的老 LP。
+Whenever new LPs join at different time points, the system **computes current NAV in real time and "subscribes" LP-Tokens at net value**.
 
 ---
 
-## 三、 极限实战演练：不同时机加入的分配账本
+## II. Different Join Timing — LP Risk and Return Breakdown
 
-我们用一个非常直观的表格和数字，看看 **早来 1 小时的 LP** 和 **晚来 1 小时的 LP** 最终利益如何划分。
+We can divide the event lifecycle into three phases — LPs entering at different phases have completely different profit logic and risks:
 
-假设事件：**某科技巨头今晚发财报，预测股价是否涨超 5%**。
+### 1. $T_0$ Phase Entry: Pioneer LP (High Risk, Captures Maximum Fees)
 
-| 时间轴与事件状态 | LP 1 (早来) 的动作与池子状态 | LP 2 (晚来) 的动作与池子状态 | 散户/交易员的撞击 | LP-Token 净值 (NAV) 计算 |
+* **Timing:** Just opened, market not yet battered by heavy trading, maximum disagreement.
+* **Profit Logic:** **They're the biggest beneficiaries of fees (slippage).** Early curve is most sensitive — every retail buy produces huge slippage premium. These continuous information friction costs 100% inject into $T_0$ LP's share, pushing their LP-Token NAV rapidly from 1.0 to 1.1, 1.2.
+* **Risk:** **Directional blow-up risk.** If opening price (Prior) is wrong, or super informed traders (with absolute insider info) appear, $T_0$ LP bears the full first wave of directional harvesting losses alone.
+
+### 2. $T_1$ Phase Entry: Mid-Game/Takeover LP (Medium Risk, Amplifies System Rigidity)
+
+* **Timing:** Market has traded for days, prices converged (e.g., election probability stable at 55%), trading volume in high-frequency burst.
+* **Profit Logic:** Entering now, though missing early slippage windfall, current NAV already includes previously settled fees — they must **subscribe at premium** (e.g., pay 1.2 USDC for 1 LP-Token). After entering, they proportionally scale parameters (e.g., scale $\boldsymbol{\alpha}$ 3x), providing deeper depth, then earn fees from subsequent large institutional capital entry.
+* **Risk:** Bears shared risk of subsequent sudden black swan events.
+
+### 3. $T_2$ Phase Entry: Late-Stage/Vulture LP (Extremely Low Risk, Protocol Strictly Limits)
+
+* **Timing:** Match has 5 minutes left, or election vote count is 99% complete, outcome essentially decided.
+* **Profit Logic:** These LPs are typically "Vulture LPs" — they see outcome is decided, pool is guaranteed profit, wanting to pour large capital in the final minutes to freeload final settlement windfall.
+* **Protocol Defense:** Real parametric AMM locks $T_2$ phase liquidity injection in code (e.g., ban subscriptions in final 10% time window), or forcibly deducts expensive "entry penalty fee" on $T_2$ injection to protect early risk-bearing LPs.
+
+---
+
+## III. Extreme Walkthrough: Allocation Ledger for Different Join Timing
+
+Let's use a very intuitive table and numbers to see how **LP arriving 1 hour early** and **LP arriving 1 hour late** ultimately divide interests.
+
+Assume event: **A tech giant reports earnings tonight — predict whether stock rises over 5%.**
+
+| Timeline & Event State | LP 1 (Early) Action & Pool State | LP 2 (Late) Action & Pool State | Retail/Trader Impact | LP-Token NAV Calculation |
 | --- | --- | --- | --- | --- |
-| **$T_0$ 开盘** | **LP 1 注入 10,000 USDC**。<br>
+| **$T_0$ Opening** | **LP 1 injects 10,000 USDC**.<br>
 
-<br>系统发行 10,000 个 LP-Token。<br>
+<br>System issues 10,000 LP-Tokens.<br>
 
-<br>此时**净值 = 1.0**。 | 还没起床，未入场。 | 此时无人交易，没有负债。 | $\text{NAV} = \frac{10000 - 0}{10000} = \mathbf{1.0}$ |
-| **$T_1$ 激战 (1小时后)** | 躺着不动。 | 看到市场火爆，**LP 2 携带 12,000 USDC 申请入场**。 | 过去 1 小时，散户疯狂买多卖空，来回拉扯，给池子**沉淀了 2,000 USDC 的纯滑点利润**。此时池子现金有 12,000 刀。 | **此时池子净值升值：**<br>
+<br>**NAV = 1.0** at this point. | Still asleep, not entered. | No trading yet, no liability. | $\text{NAV} = \frac{10000 - 0}{10000} = \mathbf{1.0}$ |
+| **$T_1$ Battle (1 hour later)** | Lying still. | Sees market hot, **LP 2 brings 12,000 USDC to apply for entry**. | Past hour, retail frantically buying/selling back and forth, **settling 2,000 USDC pure slippage profit** into pool. Pool cash now 12,000. | **Pool NAV appreciates:**<br>
 
-<br>$\text{NAV} = \frac{12000}{10000} = \mathbf{1.2}$。<br>
+<br>$\text{NAV} = \frac{12000}{10000} = \mathbf{1.2}$.<br>
 
 <br>
 
-<br>**LP 2 按 1.2 的净值入场：**<br>
+<br>**LP 2 enters at 1.2 NAV:**<br>
 
-<br>他交了 12,000 现金，但系统只给他铸造了 $12000 / 1.2 = \mathbf{10,000}$ 个 LP-Token。 |
-| **$T_1$ 扩容后状态** | 持有 10,000 个 LP-Token。 | 持有 10,000 个 LP-Token。 | 双方**平分了股权**（各占 50%）。目前总 LP-Token = 20,000，池子总现金 = 24,000 USDC。 | $\text{NAV} = \frac{24000}{20000} = \mathbf{1.2}$（价格未变，但池子变厚了）。 |
-| **$T_2$ 终局结算** | 财报公布，完美符合预期！没有发生大额赔付。在过去的时间里，市场又产生了 **4,000 USDC 的新手续费**。 | 池子总现金变为：$24000 + 4000 = \mathbf{28,000\text{ USDC}}$。 | **最终净值决算出炉：**<br>
+<br>He pays 12,000 cash, but system only mints $12000 / 1.2 = \mathbf{10,000}$ LP-Tokens. |
+| **$T_1$ Post-Expansion State** | Holds 10,000 LP-Tokens. | Holds 10,000 LP-Tokens. | Both **split equity equally** (50% each). Total LP-Tokens = 20,000, total pool cash = 24,000 USDC. | $\text{NAV} = \frac{24000}{20000} = \mathbf{1.2}$ (price unchanged, pool thickened). |
+| **$T_2$ Final Settlement** | Earnings released, perfectly matches expectations! No large payouts. Market generated **4,000 USDC new fees** over time. | Pool total cash becomes: $24000 + 4000 = \mathbf{28,000\text{ USDC}}$. | **Final NAV settlement:**<br>
 
-<br>$\text{NAV} = \frac{28000}{20000} = \mathbf{1.4}$。 |  |
+<br>$\text{NAV} = \frac{28000}{20000} = \mathbf{1.4}$. |  |
 
 ---
 
-### 最终分钱结果（提现）：
+### Final Distribution Results (Withdrawal):
 
-* **LP 1 (早来的拓荒者)：**
-手握 10,000 个 LP-Token，按最终净值 1.4 赎回 $\to$ 拿到 **14,000 USDC**。
-* *净利润：* $14000 - 10000 = \mathbf{+4,000\text{ USDC}}$ （回报率 **$40\%$**）。
-
-
-* **LP 2 (晚来的接盘者)：**
-手握 10,000 个 LP-Token，按最终净值 1.4 赎回 $\to$ 拿到 **14,000 USDC**。
-* *净利润：* $14000 - 12000 = \mathbf{+2,000\text{ USDC}}$ （回报率 **$16.6\%$**）。
+* **LP 1 (Early Pioneer):**
+Holds 10,000 LP-Tokens, redeems at final NAV 1.4 $\to$ receives **14,000 USDC**.
+* *Net profit:* $14000 - 10000 = \mathbf{+4,000\text{ USDC}}$ (return rate **$40\%$**).
 
 
+* **LP 2 (Late Takeover):**
+Holds 10,000 LP-Tokens, redeems at final NAV 1.4 $\to$ receives **14,000 USDC**.
+* *Net profit:* $14000 - 12000 = \mathbf{+2,000\text{ USDC}}$ (return rate **$16.6\%$**).
 
-### 为什么这个分配绝对公平？
 
-1. LP 1 拿到了 $40\%$ 的高回报，因为他不仅享受了全场的最终收益，还**独吞**了在他独自做市期间（前 1 小时）散户贡献的 2,000 刀利润。
-2. LP 2 拿到了 $16.6\%$ 的较低回报，因为他来晚了，他不能白嫖前人栽的树。他入场后，和 LP 1 **等比例平分**了后半场产生的 4,000 刀利润。
 
-这套 NAV 机制完全参考了传统华尔街开放式共同基金（Mutual Funds）的申购赎回逻辑。它确保了不管流动性池的换手率多高、LP 进出多频繁，**每一笔由于时间、风险非对称带来的利润和亏损，都会精准记账到当时在场的 LP 头上。**
+### Why Is This Distribution Absolutely Fair?
+
+1. LP 1 got $40\%$ high return because they not only enjoyed full-event final gains but also **solely captured** the 2,000 profit from retail during their solo market-making period (first hour).
+2. LP 2 got $16.6\%$ lower return because they arrived late — they can't freeload on predecessors' work. After entering, they **split equally** with LP 1 the 4,000 profit from the second half.
+
+This NAV mechanism fully references traditional Wall Street open-end mutual fund subscription/redemption logic. It ensures that no matter how high pool turnover or how frequently LPs enter/exit, **every profit and loss from time and risk asymmetry is precisely booked to the LPs present at that moment.**

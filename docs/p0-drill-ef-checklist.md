@@ -11,50 +11,52 @@
   automatically becomes available under the Apache License 2.0.
 -->
 
-# P0.7 演练 E/F 检查清单
+**English** | [简体中文](./p0-drill-ef-checklist.zh.md)
 
-> 链上 A–D 由 `app/scripts/p0-drills.ts` 自动化；本节为 **手工** 项，完成后在 [mainnet-drill-2026-06-06.md](./mainnet-drill-2026-06-06.md) 勾选。
+# P0.7 Drill E/F Checklist
+
+> On-chain A–D are automated by `app/scripts/p0-drills.ts`; this section covers **manual** items. Check them off in [mainnet-drill-2026-06-06.md](./mainnet-drill-2026-06-06.md) when complete.
 
 ---
 
-## E. 前端关键页面回归（Testnet）
+## E. Frontend Critical Page Regression (Testnet)
 
-**前置：** `app/.env.local` 指向 `deploy/testnet-v2.json` 的 v3 `packageId`；`npm run dev` 启动后连接 Testnet 钱包。
+**Prerequisites:** `app/.env.local` points to the v3 `packageId` from `deploy/testnet-v2.json`; after `npm run dev`, connect a Testnet wallet.
 
-| # | 路由 | 检查项 | 通过 |
+| # | Route | Check | Pass |
 |---|------|--------|------|
-| E1 | `/` | 首页加载、种子市场卡片、导航 | [ ] |
-| E2 | `/markets/[id]` | Poisson / Dirichlet / Normal 池详情、买入表单、链上池状态 | [ ] |
-| E3 | `/positions` | 持仓列表与 Drill A 买入记录一致 | [ ] |
-| E4 | `/lp` | LP 存入/赎回 UI；paused 池显示暂停状态 | [ ] |
-| E5 | `/oracle` | DataFeed / 断言状态只读展示 | [ ] |
-| E6 | `/prophet` | 预言提交、Gas Station 赞助 commit（`unlock_price=0`） | [ ] |
-| E7 | `/leaderboard` | Prophet 排行加载无报错 | [ ] |
-| E8 | `/margin` | 保证金页加载、与池配置一致 | [ ] |
+| E1 | `/` | Home loads, seed market cards, navigation | [ ] |
+| E2 | `/markets/[id]` | Poisson / Dirichlet / Normal pool details, buy form, on-chain pool state | [ ] |
+| E3 | `/positions` | Position list matches Drill A buy records | [ ] |
+| E4 | `/lp` | LP deposit/redeem UI; paused pools show paused state | [ ] |
+| E5 | `/oracle` | DataFeed / assertion status read-only display | [ ] |
+| E6 | `/prophet` | Prophecy commit, Gas Station sponsored commit (`unlock_price=0`) | [ ] |
+| E7 | `/leaderboard` | Prophet leaderboard loads without errors | [ ] |
+| E8 | `/margin` | Margin page loads, consistent with pool config | [ ] |
 
-**签字：** 产品 __________ · 日期 __________
+**Sign-off:** Product __________ · Date __________
 
 ---
 
-## F. 告警链路与值班响应（Testnet 预发）
+## F. Alert Pipeline & On-call Response (Testnet Staging)
 
-**前置：** `start-services-testnet.ps1` 已启动 Gas Station (`:8787`) 与 LP Guard (`:8788`)。
+**Prerequisites:** `start-services-testnet.ps1` has started Gas Station (`:8787`) and LP Guard (`:8788`).
 
-| # | 场景 | 操作 | 预期 | 通过 |
+| # | Scenario | Action | Expected | Pass |
 |---|------|------|------|------|
-| F1 | 服务健康 | `.\scripts\verify-services-health.ps1` | 两服务 HTTP 200 | [ ] |
-| F2 | Gas 不足 | 人为降低 Gas Payer SUI（或 mock） | `/health` 报告余额告警字段 | [ ] |
-| F3 | Keeper 干预 | 对种子池触发 `paused`（Drill B/C） | Keeper 日志出现 risk 评估；dry_run=false 时不误伤 | [ ] |
-| F4 | 值班手册 | 阅读 [services-testnet-runbook.md](./services-testnet-runbook.md) §On-call | 知晓重启、日志路径、联系人 | [ ] |
-| F5 | 演练留痕 | 将 F1–F4 结果写入 drill 记录 §3 | 有截图或命令输出摘要 | [ ] |
+| F1 | Service health | `.\scripts\verify-services-health.ps1` | Both services HTTP 200 | [ ] |
+| F2 | Low Gas | Artificially lower Gas Payer SUI (or mock) | `/health` reports low-balance alert field | [ ] |
+| F3 | Keeper intervention | Trigger `paused` on seed pool (Drill B/C) | Keeper logs show risk evaluation; dry_run=false does not cause collateral damage | [ ] |
+| F4 | On-call runbook | Read [services-testnet-runbook.md](./services-testnet-runbook.md) §On-call | Know restart steps, log paths, contacts | [ ] |
+| F5 | Drill record | Write F1–F4 results to drill record §3 | Screenshots or command output summary | [ ] |
 
-### On-call 速查（Testnet）
+### On-call Quick Reference (Testnet)
 
-| 事件 | 动作 |
+| Event | Action |
 |------|------|
-| Gas Station down | `stop-services-testnet.ps1` → 查 `services/gas-station` 日志 → `start-services-testnet.ps1` |
-| LP Guard 连续失败 | 确认 `LP_GUARD_DRY_RUN`、池 authority 地址、RPC 可达 |
-| 池 `paused=true` | 查 SlashRecord；timelock 后 `unslash_resume_pool`（Admin） |
-| ZK 争议窗口 | 3600s 后 Admin `finalize_verification` |
+| Gas Station down | `stop-services-testnet.ps1` → check `services/gas-station` logs → `start-services-testnet.ps1` |
+| LP Guard repeated failures | Confirm `LP_GUARD_DRY_RUN`, pool authority address, RPC reachable |
+| Pool `paused=true` | Check SlashRecord; after timelock, Admin `unslash_resume_pool` |
+| ZK dispute window | After 3600s, Admin `finalize_verification` |
 
-**签字：** 运维 __________ · 日期 __________
+**Sign-off:** Ops __________ · Date __________

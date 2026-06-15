@@ -11,105 +11,107 @@
   automatically becomes available under the Apache License 2.0.
 -->
 
-# X-Market Sui 主网上线演练记录模板
+**English** | [简体中文](./mainnet-drill-record-template.zh.md)
 
-> 用途：记录每一次主网前演练的执行证据、结果与整改项。  
-> 建议：每次演练复制本模板为新文件，例如 `mainnet-drill-2026-06-01.md`。
+# X-Market Sui Mainnet Launch Drill Record Template
 
----
-
-## 0. 基本信息
-
-- 演练名称：
-- 演练日期：
-- 演练环境（Testnet/Mainnet Shadow）：
-- 目标版本（commit）：
-- 负责人：
-- 参与人：
+> Purpose: Record execution evidence, results, and remediation items for each pre-mainnet drill.  
+> Recommendation: Copy this template to a new file for each drill, e.g. `mainnet-drill-2026-06-01.md`.
 
 ---
 
-## 1. 演练范围
+## 0. Basic Information
 
-- [ ] A. 正常买入/结算/兑奖闭环
-- [ ] B. Slash 触发与 timelock 后恢复
-- [ ] C. Slash 多签提案 -> 审批 -> 执行
-- [ ] D. ZK challenge -> delayed finalization
-- [ ] E. 前端主网配置与关键页面回归
-- [ ] F. 告警链路与值班响应
-
-备注：
+- Drill name:
+- Drill date:
+- Drill environment (Testnet/Mainnet Shadow):
+- Target version (commit):
+- Lead:
+- Participants:
 
 ---
 
-## 2. 前置校验
+## 1. Drill Scope
 
-- [ ] `sui move build` 成功
-- [ ] `sui move test` 全通过
-- [ ] `Package ID` / `GlobalConfig` / `AdminCap` 已确认
-- [ ] 风控参数基线已确认（LP guard / slash / ZK）
-- [ ] 演练钱包与测试资金已准备完成
+- [ ] A. Normal buy / settlement / claim closed loop
+- [ ] B. Slash trigger and post-timelock recovery
+- [ ] C. Slash multisig proposal → approval → execution
+- [ ] D. ZK challenge → delayed finalization
+- [ ] E. Frontend mainnet config and key page regression
+- [ ] F. Alert pipeline and on-call response
+
+Notes:
 
 ---
 
-## 3. 执行记录（按步骤填写）
+## 2. Pre-flight Checks
 
-### 3.1 步骤清单
+- [ ] `sui move build` succeeds
+- [ ] `sui move test` all pass
+- [ ] `Package ID` / `GlobalConfig` / `AdminCap` confirmed
+- [ ] Risk parameter baseline confirmed (LP guard / slash / ZK)
+- [ ] Drill wallets and test funds prepared
 
-| 步骤 | 操作描述 | 交易哈希 / 对象 ID | 结果(成功/失败) | 备注 |
+---
+
+## 3. Execution Record (fill in step by step)
+
+### 3.1 Step Checklist
+
+| Step | Operation description | Transaction hash / object ID | Result (success/failure) | Notes |
 | --- | --- | --- | --- | --- |
 | 1 |  |  |  |  |
 | 2 |  |  |  |  |
 | 3 |  |  |  |  |
 
-### 3.2 关键断言
+### 3.2 Key Assertions
 
-- [ ] 交易成功率符合预期
-- [ ] 资金与负债变化符合预期
-- [ ] `paused` 状态切换符合预期
-- [ ] `SlashRecord` / `ZkVerification` 事件可被正确观测
-- [ ] 前端页面展示与链上状态一致
+- [ ] Transaction success rate meets expectations
+- [ ] Fund and liability changes meet expectations
+- [ ] `paused` state transitions meet expectations
+- [ ] `SlashRecord` / `ZkVerification` events observable correctly
+- [ ] Frontend display consistent with on-chain state
 
 ---
 
-## 4. 异常与处理
+## 4. Incidents and Handling
 
-| 时间 | 异常现象 | 初步原因 | 临时处置 | 最终结论 |
+| Time | Incident | Initial cause | Temporary mitigation | Final conclusion |
 | --- | --- | --- | --- | --- |
 |  |  |  |  |  |
 
 ---
 
-## 5. 演练结论
+## 5. Drill Conclusion
 
-- 总体结论（通过 / 有条件通过 / 不通过）：
-- 阻断项（P0）：
-- 高优先级问题（P1）：
-- 可延后问题（P2）：
+- Overall conclusion (pass / conditional pass / fail):
+- Blockers (P0):
+- High-priority issues (P1):
+- Deferrable issues (P2):
 
 ---
 
-## 6. 整改计划
+## 6. Remediation Plan
 
-| 问题 | 优先级 | 负责人 | 截止时间 | 状态 |
+| Issue | Priority | Owner | Deadline | Status |
 | --- | --- | --- | --- | --- |
 |  |  |  |  |  |
 
 ---
 
-## 7. 复核与签字
+## 7. Review and Sign-off
 
-- 协议负责人：
-- 风控负责人：
-- 运维负责人：
-- 产品负责人：
-- 最终批准时间：
+- Protocol lead:
+- Risk lead:
+- Ops lead:
+- Product lead:
+- Final approval time:
 
 ---
 
-## 8. 附件
+## 8. Attachments
 
-- 日志链接：
-- 监控截图：
-- 浏览器链接：
-- 相关 PR / commit：
+- Log links:
+- Monitoring screenshots:
+- Browser links:
+- Related PR / commit:

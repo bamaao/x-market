@@ -11,29 +11,31 @@
   automatically becomes available under the Apache License 2.0.
 -->
 
-# GeoBlock 与合规说明（P3.4）
+**English** | [简体中文](./compliance-geoblock.zh.md)
 
-X-Market 为非托管链上协议；前端 GeoBlock 仅限制 **Web 应用访问**，不阻止直接与链交互。
+# GeoBlock & Compliance (P3.4)
 
-## 配置
+X-Market is a non-custodial on-chain protocol; frontend GeoBlock only restricts **web app access** and does not prevent direct chain interaction.
 
-| 变量 | 说明 |
+## Configuration
+
+| Variable | Description |
 |------|------|
-| `GEO_BLOCK_ENABLED` | `true` 启用 |
-| `GEO_BLOCKED_COUNTRIES` | ISO 3166-1 alpha-2，逗号分隔，如 `US,CN,IR` |
+| `GEO_BLOCK_ENABLED` | `true` to enable |
+| `GEO_BLOCKED_COUNTRIES` | ISO 3166-1 alpha-2, comma-separated, e.g. `US,CN,IR` |
 
-## 部署建议
+## Deployment Recommendations
 
-- **Vercel：** 自动提供 `x-vercel-ip-country`
-- **Cloudflare：** 使用 `cf-ipcountry`
-- **自建：** 反向代理注入 `x-geo-country`
+- **Vercel:** automatically provides `x-vercel-ip-country`
+- **Cloudflare:** use `cf-ipcountry`
+- **Self-hosted:** reverse proxy injects `x-geo-country`
 
-## 免责声明模板
+## Disclaimer Template
 
-被拦截页面（`/blocked`）应链接至运营方合规政策。主网上线前须由法务确认禁止名单司法辖区。
+The blocked page (`/blocked`) should link to the operator's compliance policy. Legal must confirm prohibited jurisdictions before mainnet launch.
 
-## 非目标
+## Non-goals
 
-- 不替代 KYC/AML 流程
-- 不阻止 RPC / 合约直接调用
-- 移动端需单独在应用商店层面处理地域分发
+- Does not replace KYC/AML processes
+- Does not block RPC / direct contract calls
+- Mobile apps require separate geo distribution handling at the app store level

@@ -11,13 +11,15 @@
   automatically becomes available under the Apache License 2.0.
 -->
 
-# P4 SuiProphet 规模化 Runbook
+**English** | [简体中文](./p4-scale-runbook.zh.md)
 
-> Phase 4 生产闭环：审计 Keeper、EventRoot 索引、前端闭环、GMV 运营指标。
+# P4 SuiProphet Scale Runbook
+
+> Phase 4 production loop: audit Keeper, EventRoot index, frontend closed loop, GMV ops metrics.
 
 ## 4.1 Prophet Audit Keeper
 
-自动在 Oracle 结算后提交 `audit_prophecy`（Hash → 战绩 → 分账）。
+Automatically submits `audit_prophecy` after Oracle settlement (hash → stats → revenue split).
 
 ```powershell
 .\scripts\bootstrap-services-env.ps1
@@ -25,41 +27,41 @@
 # GET http://localhost:8792/health
 ```
 
-| 变量 | 说明 |
+| Variable | Description |
 |------|------|
-| `PROPHET_AUDIT_DRY_RUN` | 默认 `true`；联调通过后设 `false` |
-| `INDEXER_URL` | 优先读明文缓存 |
-| `PROPHET_AUDIT_POOL_IDS` | 种子池列表 |
+| `PROPHET_AUDIT_DRY_RUN` | Default `true`; set `false` after integration passes |
+| `INDEXER_URL` | Prefer plaintext cache reads |
+| `PROPHET_AUDIT_POOL_IDS` | Seed pool list |
 
-## 4.2 EventRoot 索引
+## 4.2 EventRoot Index
 
-- **表：** `event_roots`
-- **API：** `GET /v1/event-roots` · `GET /v1/event-roots/:id`
-- **种子：** `deploy/testnet-v2.json` → `eventRoots`
+- **Table:** `event_roots`
+- **API:** `GET /v1/event-roots` · `GET /v1/event-roots/:id`
+- **Seed:** `deploy/testnet-v2.json` → `eventRoots`
 
-## 4.3 Prophet 前端闭环
+## 4.3 Prophet Frontend Closed Loop
 
-- 预言列表：Indexer `/v1/prophecies` 优先
-- 解密：`decryptFromIndexerCache` → Seal 回退
-- EventRoot 导航：`EVENT_ROOT_BY_POOL` + Indexer `event_root_id`
+- Prophecy list: Indexer `/v1/prophecies` first
+- Decryption: `decryptFromIndexerCache` → Seal fallback
+- EventRoot navigation: `EVENT_ROOT_BY_POOL` + Indexer `event_root_id`
 
-## 4.4 Prophet GMV 指标
+## 4.4 Prophet GMV Metrics
 
-- **表：** `prophet_gmv_daily`（解锁 GMV + 审计量）
-- **API：** `GET /v1/metrics/prophet-gmv?days=30`
-- **前端：** `/metrics`
+- **Table:** `prophet_gmv_daily` (unlock GMV + audit volume)
+- **API:** `GET /v1/metrics/prophet-gmv?days=30`
+- **Frontend:** `/metrics`
 
-## 本机 Postgres（无需 Docker）
+## Local Postgres (No Docker)
 
 ```powershell
-.\scripts\bootstrap-local-postgres.ps1   # 一次性建库
+.\scripts\bootstrap-local-postgres.ps1   # one-time DB setup
 .\scripts\start-indexer.ps1
 .\scripts\bootstrap-services-env.ps1
 .\scripts\start-services-testnet.ps1 -IncludeP4
 .\scripts\verify-p4-e2e-local.ps1
 ```
 
-## 验证
+## Verification
 
 ```powershell
 .\scripts\verify-p4-readiness.ps1
@@ -67,8 +69,8 @@
 .\scripts\verify-p3-readiness.ps1
 ```
 
-## 服务端口
+## Service Ports
 
-| 服务 | 端口 |
+| Service | Port |
 |------|------|
 | prophet-audit-keeper | 8792 |

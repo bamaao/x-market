@@ -13,39 +13,41 @@
 
 # Brevis ZK Prover
 
-PRD §3.6 · Phase 3 — **异步 ZK 监督线**（不阻塞 `buy_*` 热路径）。
+**English** | [简体中文](./README.zh.md)
 
-## 架构
+PRD §3.6 · Phase 3 — **Asynchronous ZK oversight path** (does not block the `buy_*` hot path).
+
+## Architecture
 
 ```
-MarketPool 状态变更（checkpoint / 参数 / liability）
-  → 链下审计（max-loss / 参数边界）
-  → mock: 本地 SHA-256 证明哈希
-  → live: Brevis RPC（可选）→ 失败则回退本地哈希
-  → submit_proof → verify_proof_with_policy（委员会阈值）
-  → 挑战窗口 3600s 后 Admin finalize_verification
+MarketPool state changes (checkpoint / parameters / liability)
+  → Off-chain audit (max-loss / parameter bounds)
+  → mock: local SHA-256 proof hash
+  → live: Brevis RPC (optional) → fallback to local hash on failure
+  → submit_proof → verify_proof_with_policy (committee threshold)
+  → Admin finalize_verification after 3600s challenge window
 ```
 
-> Brevis 尚无原生 Sui Move 验算器；本服务将 Brevis 证明输出映射为 `zk_coprocessor` 的 `proof_hash` / `public_inputs_hash`，链上仍为 Attestation + 挑战约束，与 [tier2-decision.md](../../docs/tier2-decision.md) 一致。
+> Brevis has no native Sui Move verifier yet; this service maps Brevis proof output to `zk_coprocessor` `proof_hash` / `public_inputs_hash`. On-chain logic remains Attestation + challenge constraints, consistent with [tier2-decision.md](../../docs/tier2-decision.md).
 
-## 初始化
+## Initialization
 
 ```powershell
 .\scripts\init-zk-verifier-policy.ps1 -PackageId 0x... -VerifierAddress 0x...
 .\scripts\bootstrap-services-env.ps1
 ```
 
-## 环境
+## Environment
 
-| 变量 | 说明 |
+| Variable | Description |
 |------|------|
-| `ZK_VERIFIER_POLICY_ID` | `init_verifier_policy` 创建的共享对象 |
-| `ZK_PROVER_POOL_IDS` | 待审计池 ID 列表 |
-| `ZK_PROVER_MODE` | `mock`（默认）或 `live` |
-| `ZK_PROVER_DRY_RUN` | 默认 `true`；`false` 时实际上链 |
-| `BREVIS_RPC_URL` | live 模式 Brevis Prover RPC（可选） |
+| `ZK_VERIFIER_POLICY_ID` | Shared object created by `init_verifier_policy` |
+| `ZK_PROVER_POOL_IDS` | List of pool IDs to audit |
+| `ZK_PROVER_MODE` | `mock` (default) or `live` |
+| `ZK_PROVER_DRY_RUN` | Default `true`; set `false` to submit on-chain |
+| `BREVIS_RPC_URL` | Brevis Prover RPC for live mode (optional) |
 
-## 运行
+## Run
 
 ```powershell
 cd services/brevis-zk-prover
@@ -54,7 +56,7 @@ npm run dev
 # GET http://localhost:8794/health
 ```
 
-## 测试
+## Tests
 
 ```powershell
 npm test

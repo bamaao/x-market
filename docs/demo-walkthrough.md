@@ -11,273 +11,275 @@
   automatically becomes available under the Apache License 2.0.
 -->
 
-# X-Market Sui 核心业务演示指南
+**English** | [简体中文](./demo-walkthrough.zh.md)
 
-> **版本：** v1.0 · **日期：** 2026-06-08  
-> **用途：** 产品演示、投资人路演、内部 onboarding  
-> **关联：** [test-cases.md](./test-cases.md) · [PRD.md](../PRD.md) · [deploy/testnet-v2.json](../deploy/testnet-v2.json)
+# X-Market Sui Core Business Demo Guide
+
+> **Version:** v1.0 · **Date:** 2026-06-08  
+> **Purpose:** Product demos, investor pitches, internal onboarding  
+> **Related:** [test-cases.md](./test-cases.md) · [PRD.md](../PRD.md) · [deploy/testnet-v2.json](../deploy/testnet-v2.json)
 
 ---
 
-## 1. 演示要讲清的故事
+## 1. The Story the Demo Should Tell
 
-用 **一条线** 串起产品，避免模块堆砌：
+Use **one thread** to connect the product—avoid stacking modules:
 
 ```
-现实世界事件（进球 / CPI / 胜平负）
+Real-world events (goals / CPI / win-draw-loss)
         │
         ▼
-   EventRoot + Oracle Feed（同一真相源）
+   EventRoot + Oracle Feed (single source of truth)
         │
    ┌────┴────┐
    ▼         ▼
 X-Market    SuiProphet
-链上 AMM    私密预测 + 付费解锁
-买 Position  事后审计战绩
+On-chain AMM    Private predictions + paid unlock
+Buy Position    Post-hoc audit of track record
    │         │
    └────┬────┘
         ▼
-   Oracle 结算 → claim / audit
+   Oracle settlement → claim / audit
 ```
 
-**三句话版本：**
+**Three-sentence version:**
 
-1. **一个事件根节点** — 博弈与知识付费共用同一 Oracle 结果，数据不割裂。  
-2. **Tier 1 链上定价** — 毫秒级 PDF 积分，无外部报价依赖（见 [tier2-decision.md](./tier2-decision.md)）。  
-3. **乐观 Oracle + 经济约束** — 提议 → 争议 → 委员会；风控有 Slash / LP Guard（冷路径）。
+1. **One event root** — Betting and knowledge monetization share the same Oracle outcome; data is not siloed.  
+2. **Tier 1 on-chain pricing** — Millisecond PDF integration with no external quote dependency (see [tier2-decision.md](./tier2-decision.md)).  
+3. **Optimistic Oracle + economic constraints** — Propose → dispute → committee; risk controls include Slash / LP Guard (cold path).
 
 ---
 
-## 2. 选哪条演示路线
+## 2. Which Demo Route to Choose
 
-| 路线 | 时长 | 适合场景 | 能否当场 claim |
+| Route | Duration | Best for | Can claim on the spot? |
 | --- | --- | --- | --- |
-| **路线 A · 闪电演示** | 15–20 分钟 | 路演、首次见面 | 否（口头说明） |
-| **路线 B · 标准演示** | 35–45 分钟 | 客户 POC、团队培训 | 否（展示 Oracle 流程） |
-| **路线 C · 完整闭环** | 跨 1–2 天 | 深度尽调、录屏留档 | 是（需提前建演示池） |
+| **Route A · Lightning demo** | 15–20 min | Pitches, first meetings | No (explain verbally) |
+| **Route B · Standard demo** | 35–45 min | Customer POC, team training | No (show Oracle flow) |
+| **Route C · Full loop** | 1–2 days | Deep diligence, screen recording | Yes (requires pre-built demo pool) |
 
-> **为何种子池通常不能当场 claim？**  
-> [deploy/testnet-v2.json](../deploy/testnet-v2.json) 中种子池 `maturityTs` 在未来，且 Oracle 争议窗口为 24h。  
-> 路线 C 会说明如何提前创建 **短到期演示池**。
+> **Why can seed pools usually not be claimed on the spot?**  
+> Seed pools in [deploy/testnet-v2.json](../deploy/testnet-v2.json) have `maturityTs` in the future, and the Oracle dispute window is 24h.  
+> Route C explains how to create a **short-maturity demo pool** in advance.
 
 ---
 
-## 3. 演示前检查清单
+## 3. Pre-Demo Checklist
 
-### 3.1 环境（演示前 30 分钟）
+### 3.1 Environment (30 minutes before demo)
 
 ```powershell
-# 仓库根目录
+# Repository root
 cd g:\apps\x-market-sui\app
-cp .env.example .env.local   # 若尚未配置
+cp .env.example .env.local   # If not yet configured
 npm install
 npm run dev                  # http://localhost:3000
 ```
 
-确认 `.env.local` 与 [deploy/testnet-v2.json](../deploy/testnet-v2.json) 一致（Package、三池 ID、Oracle、Prophet Registry）。
+Confirm `.env.local` matches [deploy/testnet-v2.json](../deploy/testnet-v2.json) (Package, three pool IDs, Oracle, Prophet Registry).
 
-### 3.2 钱包
+### 3.2 Wallet
 
-| 项 | 要求 |
+| Item | Requirement |
 | --- | --- |
-| 网络 | Sui **Testnet** |
-| SUI | ≥ 0.5 SUI（Gas） |
-| USDC | ≥ 100 测试 USDC（演示买入 + Prophet 解锁） |
+| Network | Sui **Testnet** |
+| SUI | ≥ 0.5 SUI (Gas) |
+| USDC | ≥ 100 test USDC (demo buys + Prophet unlock) |
 
-**领测试币：**
+**Get test tokens:**
 
 ```powershell
-# 有 TreasuryCap 时
+# When TreasuryCap is available
 .\scripts\mint-test-usdc.ps1
 
-# 或前端市场页「铸造测试 USDC」（Faucet 包）
-# 或请部署者：.\scripts\transfer-test-usdc.ps1 -Recipient 0x你的地址
+# Or use "Mint test USDC" on the frontend market page (Faucet package)
+# Or ask deployer: .\scripts\transfer-test-usdc.ps1 -Recipient 0x你的地址
 ```
 
-### 3.3 可选增强（Prophet Gas 赞助）
+### 3.3 Optional enhancement (Prophet Gas sponsorship)
 
-若演示 `/prophet` 的 **Gas Station 免 Gas Commit**：
+If demoing **Gas Station gas-free Commit** on `/prophet`:
 
 ```powershell
 .\scripts\bootstrap-services-env.ps1
 .\scripts\start-services-testnet.ps1
-.\scripts\verify-services-health.ps1   # Gas Station :8787 应 200
+.\scripts\verify-services-health.ps1   # Gas Station :8787 should return 200
 ```
 
-未启动时 Prophet 仍可用，用户自付 SUI Gas。
+If services are not started, Prophet still works; users pay SUI Gas themselves.
 
-### 3.4 演示素材（建议提前准备）
+### 3.4 Demo materials (recommended to prepare in advance)
 
-| 素材 | 作用 |
+| Material | Purpose |
 | --- | --- |
-| 已买入的 Position 1–2 个 | 打开 `/positions` 不必等链上确认 |
-| Suivision 交易链接 1 条 | 讲解「链上原子定价」 |
-| （路线 C）演示专用 Pool ID | 写入便签，页面手填 |
+| 1–2 purchased Positions | Open `/positions` without waiting for on-chain confirmation |
+| 1 Suivision transaction link | Explain "on-chain atomic pricing" |
+| (Route C) Demo-specific Pool ID | Write on a sticky note, enter manually on page |
 
-### 3.5 双钱包（演示 Prophet 付费解锁时）
+### 3.5 Dual wallets (when demoing Prophet paid unlock)
 
-| 钱包 | 角色 |
+| Wallet | Role |
 | --- | --- |
-| 钱包 A | 预言家 Commit |
-| 钱包 B | 订阅者 Unlock + 解密 |
+| Wallet A | Prophet Commit |
+| Wallet B | Subscriber Unlock + decrypt |
 
-可用两个浏览器（Chrome + Edge）或 Sui Wallet 多账户。
+Use two browsers (Chrome + Edge) or Sui Wallet multi-account.
 
 ---
 
-## 4. 路线 A · 闪电演示（15–20 分钟）
+## 4. Route A · Lightning Demo (15–20 minutes)
 
-> **目标：** 让观众看到「能买、有链上头寸、产品形态完整」，不等待 Oracle 窗口。
+> **Goal:** Show the audience "you can buy, there are on-chain positions, the product shape is complete"—without waiting for the Oracle window.
 
-### 步骤一览
+### Step overview
 
-| 步骤 | 页面 | 操作 | 讲解要点 |
+| Step | Page | Action | Talking points |
 | --- | --- | --- | --- |
-| A1 | `/` | 展示三枚种子市场卡片 | 三种分布：Poisson / Dirichlet / Normal |
-| A2 | `/markets/poisson-goals` | 连接钱包 → 铸造 USDC（若无） | Vault 托管 USDC，非 Uniswap 双币对 |
-| A3 | 同上 · 交易面板 | 选「数字期权」k=3 或「区间」[2,3] → 买入 10 USDC | **Tier 1**：同一笔 tx 内改 λ + 铸 Position |
-| A4 | `/positions` | 刷新，点开刚买的 Position | Owned Object，可 transfer |
-| A5 | `/markets/normal-cpi` | 展示 IV / LP Guard 面板（填 Pool ID 若未自动） | LP 防守：动态费率、虚拟 σ |
-| A6 | `/oracle` | 选 Poisson 市场 → 看 Feed 自动发现 | L0 与 L2 解耦；Feed 非 .env 硬编码 |
-| A7 | （口头） | — | 结算需 maturity + Oracle finalize；生产无 Admin 单方按钮 |
+| A1 | `/` | Show three seed market cards | Three distributions: Poisson / Dirichlet / Normal |
+| A2 | `/markets/poisson-goals` | Connect wallet → mint USDC (if needed) | Vault-custodied USDC, not Uniswap token pairs |
+| A3 | Same · trade panel | Select "digital option" k=3 or "range" [2,3] → buy 10 USDC | **Tier 1**: same tx updates λ + mints Position |
+| A4 | `/positions` | Refresh, open the Position just bought | Owned Object, transferable |
+| A5 | `/markets/normal-cpi` | Show IV / LP Guard panel (enter Pool ID if not auto-filled) | LP defense: dynamic fees, virtual σ |
+| A6 | `/oracle` | Select Poisson market → watch Feed auto-discovery | L0 and L2 decoupled; Feed not hardcoded in .env |
+| A7 | (Verbal) | — | Settlement requires maturity + Oracle finalize; production has no Admin unilateral button |
 
-### 推荐话术（A3 买入时）
+### Recommended script (A3 buy)
 
-> 「传统 AMM 换的是代币对；这里是 **参数化 AMM** — 用户用 USDC 买走的是赔付承诺，链上 Poisson 分布的 λ 会随这笔单一起更新。」
+> "Traditional AMMs swap token pairs; here it's a **parametric AMM**—users buy payout commitments with USDC, and the on-chain Poisson distribution's λ updates with this order."
 
-### 备用：若买入失败
+### Fallback: if buy fails
 
-| 现象 | 处理 |
+| Symptom | Action |
 | --- | --- |
-| USDC 不足 | 铸造或合并 USDC |
-| Gas 不足 | Testnet faucet 领 SUI |
-| `paused` | 换种子池或查是否被 Slash 演练暂停 |
-| 函数找不到 | 检查 `NEXT_PUBLIC_PACKAGE_ID` 是否为 v3 包 |
+| Insufficient USDC | Mint or merge USDC |
+| Insufficient Gas | Get SUI from Testnet faucet |
+| `paused` | Switch seed pool or check if paused by Slash drill |
+| Function not found | Check whether `NEXT_PUBLIC_PACKAGE_ID` is the v3 package |
 
 ---
 
-## 5. 路线 B · 标准演示（35–45 分钟）
+## 5. Route B · Standard Demo (35–45 minutes)
 
-在路线 A 基础上，增加 **Opening Auction、LP、Prophet、Oracle 提议**。
+Build on Route A, adding **Opening Auction, LP, Prophet, Oracle propose**.
 
-### 5.1 Opening Auction（约 8 分钟）
+### 5.1 Opening Auction (~8 minutes)
 
-**方式一：前端（推荐）**
+**Method 1: Frontend (recommended)**
 
-1. 打开 `/markets/dirichlet-wdl`
-2. 滚动到 **AuctionPanel**
-3. 填入 **新建** Auction Pool ID（见下方脚本）或同事提前创建的 ID
-4. 选桶位 0/1/2，竞价 20 USDC → 再换桶位竞价（可换钱包模拟多人）
-5. 竞价结束后点击 **finalize_auction** → 状态变 Trading
+1. Open `/markets/dirichlet-wdl`
+2. Scroll to **AuctionPanel**
+3. Enter a **new** Auction Pool ID (see script below) or an ID created by a colleague in advance
+4. Select bucket 0/1/2, bid 20 USDC → bid on another bucket (can switch wallets to simulate multiple bidders)
+5. After bidding ends, click **finalize_auction** → status becomes Trading
 
-**方式二：演示前创建短竞价池**
+**Method 2: Create short auction pool before demo**
 
 ```powershell
 $env:X_MARKET_PACKAGE_ID="0x2e368e00532771eedd2df288bd61b0cb2324471b9fc6e14160a7f3079310ae6e"
 
-# 竞价 0 小时 = 创建后立即可 finalize；到期 30 天
+# Auction 0 hours = can finalize immediately after creation; maturity 30 days
 .\scripts\start-auction-pool.ps1 -Kind dirichlet -AuctionHours 0 -MaturityDays 30
-# 记录输出的 MarketPool Object ID
+# Record the output MarketPool Object ID
 ```
 
-**讲解要点：**
+**Talking points:**
 
-> 「LP 不是换币对，而是 **承销先验概率** — 竞价桶比例决定 Dirichlet 的初始 α，finalize 后 AMM 才开放。」
+> "LP is not swapping token pairs—it's **underwriting prior probabilities**—bucket bid ratios set Dirichlet initial α; AMM opens only after finalize."
 
-### 5.2 LP 申购（约 5 分钟）
+### 5.2 LP subscription (~5 minutes)
 
 1. `/markets/dirichlet-wdl` → **LpDepositPanel**
-2. 填入 **Trading** 状态的 Pool ID
-3. 注入 50 USDC → `deposit_liquidity`
-4. 打开 `/lp` → 看到 `LpShare` 对象
+2. Enter a Pool ID in **Trading** state
+3. Deposit 50 USDC → `deposit_liquidity`
+4. Open `/lp` → see `LpShare` object
 
-**讲解要点：** NAV 申购、Dirichlet α 等比缩放（概率形状不变）。
+**Talking points:** NAV subscription, Dirichlet α scaled proportionally (probability shape unchanged).
 
-### 5.3 第二笔交易 + 结构化产品（约 5 分钟）
+### 5.3 Second trade + structured products (~5 minutes)
 
-1. `/markets/normal-cpi` → 合约类型选 **Variance Swap** 或 **Range Note**
-2. 小额买入 → `/positions` 看新标签
+1. `/markets/normal-cpi` → contract type **Variance Swap** or **Range Note**
+2. Small buy → `/positions` to see new tag
 
-说明：Phase 3 票据仍是 **Normal + Tier 1**，不依赖 ZK 热路径。
+Note: Phase 3 notes are still **Normal + Tier 1**, no ZK hot path dependency.
 
-### 5.4 SuiProphet 知识付费（约 10 分钟）
+### 5.4 SuiProphet knowledge monetization (~10 minutes)
 
-1. 打开 `/prophet`
-2. **钱包 A**：选 Normal CPI 池 → 填写预测值 + 短分析 → **Commit**  
-   （Seal 加密 → Indexer blob → 链上 `commit_private_prophecy`）
-3. **钱包 B**：同一预言 → **Unlock**（付 USDC）→ 页面自动尝试解密
-4. 打开 `/leaderboard` → 说明 audit 需 Oracle 结算后
+1. Open `/prophet`
+2. **Wallet A**: Select Normal CPI pool → enter prediction + short analysis → **Commit**  
+   (Seal encrypt → Indexer blob → on-chain `commit_private_prophecy`)
+3. **Wallet B**: Same prophecy → **Unlock** (pay USDC) → page auto-attempts decrypt
+4. Open `/leaderboard` → explain audit requires Oracle settlement first
 
-**讲解要点：**
+**Talking points:**
 
-> 「带单和下注共用 **同一 Pool、同一 lock_time**；Oracle 结算后 `audit_prophecy` 对 blake2b256 验明文，改稿即 CHEAT。」
+> "Signal sharing and betting share the **same Pool, same lock_time**; after Oracle settlement `audit_prophecy` verifies plaintext with blake2b256—editing the draft is CHEAT."
 
-详细链上语义见 [prophet-playbook.md](./prophet-playbook.md)。
+See [prophet-playbook.md](./prophet-playbook.md) for detailed on-chain semantics.
 
-### 5.5 Oracle 提议（约 5 分钟）
+### 5.5 Oracle propose (~5 minutes)
 
-1. `/oracle` → 选择 **Poisson 进球** 市场
-2. 确认页面已 **自动发现 Feed**（无需手动填 Feed ID）
-3. 填写 `claimed_value`（Poisson：outcome 槽位 0–14，如进球 3 → 填 `3`）
-4. 点击 **提议结果** → 质押 USDC
-5. 展示 **争议窗口倒计时**（Testnet 通常 24h）
+1. `/oracle` → select **Poisson goals** market
+2. Confirm page has **auto-discovered Feed** (no manual Feed ID needed)
+3. Fill `claimed_value` (Poisson: outcome slot 0–14, e.g. 3 goals → enter `3`)
+4. Click **Propose result** → stake USDC
+5. Show **dispute window countdown** (Testnet usually 24h)
 
-**讲解要点：** 乐观博弈四阶段 — 提议 → 窗口 → [争议/委员会] → 消费。  
-**诚实说明：** 当场无法 finalize；生产由 Proposer 或运营在窗口后触发。
+**Talking points:** Optimistic game four phases—propose → window → [dispute/committee] → consume.  
+**Be honest:** Cannot finalize on the spot; production triggered by Proposer or ops after window.
 
-### 5.6 风控冷路径（约 3 分钟，可选 PPT / 文档）
+### 5.6 Risk control cold path (~3 minutes, optional PPT / docs)
 
-打开 [slash-and-attestation.md](./slash-and-attestation.md) 示意图，口头过：
+Open [slash-and-attestation.md](./slash-and-attestation.md) diagram, walk through verbally:
 
-- **Attestation**：ZK 监督登记 `proof_hash`，不阻塞 `buy_*`
-- **Slash**：争议成立后罚没 Vault、暂停市场、1800s timelock 恢复
+- **Attestation**: ZK supervision registers `proof_hash`, does not block `buy_*`
+- **Slash**: After dispute upheld, forfeit Vault, pause market, 1800s timelock resume
 
-不必现场执行 `slash_pool`（会暂停种子池）。
+No need to execute `slash_pool` on site (will pause seed pool).
 
 ---
 
-## 6. 路线 C · 完整闭环（跨 1–2 天）
+## 6. Route C · Full Loop (1–2 days)
 
-> **目标：** 录屏或尽调时展示 **买入 → 结算 → claim**，以及 Prophet **audit**。
+> **Goal:** Screen recording or diligence showing **buy → settle → claim**, plus Prophet **audit**.
 
-### 6.1 演示前一日（T-1）
+### 6.1 Day before demo (T-1)
 
 ```powershell
 $env:X_MARKET_PACKAGE_ID="0x2e368e00532771eedd2df288bd61b0cb2324471b9fc6e14160a7f3079310ae6e"
 
-# 1. 创建短到期 Poisson 演示池（竞价立即可 finalize）
+# 1. Create short-maturity Poisson demo pool (auction can finalize immediately)
 .\scripts\start-auction-pool.ps1 -Kind poisson -AuctionHours 0 -MaturityDays 1
 
-# 2. 记录 POOL_ID，前端 AuctionPanel finalize
+# 2. Record POOL_ID, finalize via frontend AuctionPanel
 
-# 3. 为该池注册 Feed（若未走 _with_feed）
-#    见 init-oracle-testnet.ps1 或 /oracle 页「注册 Feed」
+# 3. Register Feed for this pool (if not via _with_feed)
+#    See init-oracle-testnet.ps1 or /oracle page "Register Feed"
 
-# 4. 买入区间 [2,4] 数字或区间合约，留 20 USDC
-# 5. （可选）钱包 A 在 /prophet 对该 POOL_ID Commit
+# 4. Buy range [2,4] digital or range contract, keep 20 USDC
+# 5. (Optional) Wallet A Commit on /prophet for this POOL_ID
 ```
 
-把 `POOL_ID`、预期 `resolved_value`（如进球 3）、买入区间记到演示备忘。
+Note `POOL_ID`, expected `resolved_value` (e.g. 3 goals), and buy range in demo notes.
 
-### 6.2 演示日 T — 结算与 claim
+### 6.2 Demo day T — settlement and claim
 
-**前置：** 链上时间 ≥ `maturity_ts`。
+**Prerequisite:** On-chain time ≥ `maturity_ts`.
 
-#### 路径 C1 · 生产路径（Oracle 乐观流）
+#### Path C1 · Production path (Oracle optimistic flow)
 
-| 顺序 | 操作 | 页面/入口 |
+| Order | Action | Page/entry |
 | --- | --- | --- |
 | 1 | `propose_data` | `/oracle` |
-| 2 | 等待争议窗口（24h） | — |
+| 2 | Wait dispute window (24h) | — |
 | 3 | `finalize_assertion` | `/oracle` |
-| 4 | Pool `resolved` | 页面状态变「已结算」 |
+| 4 | Pool `resolved` | Page status becomes "Settled" |
 | 5 | `claim_position` | `/positions` |
 
-适合 **T-1 提议、T 日 finalize** 的跨天录屏。
+Suited for **T-1 propose, T-day finalize** cross-day screen recording.
 
-#### 路径 C2 · Testnet 快路径（仅联调，勿作生产叙事）
+#### Path C2 · Testnet fast path (integration only, not for production narrative)
 
-> 需要 **AdminCap**；maturity 必须已过。
+> Requires **AdminCap**; maturity must have passed.
 
 ```powershell
 $PKG = "0x2e368e00532771eedd2df288bd61b0cb2324471b9fc6e14160a7f3079310ae6e"
@@ -285,100 +287,100 @@ $GLOBAL = "0x9ce278547f0590cc04a79f76cf97d103940557e7a3ff5bfecf5a99f198012b08"
 $ADMIN = "0xb18fdb5f7ceaf2ccc9f94f35594043de3773422520666ec391e54e6b02b5b8c2"
 $POOL = "0x你的演示池ID"
 $CLOCK = "0x6"
-# resolved_value：Poisson outcome 槽位，例如 3 表示总进球 3
+# resolved_value: Poisson outcome slot, e.g. 3 means total goals 3
 $VALUE = 3
 
 sui client call --package $PKG --module settlement_oracle --function report_resolution `
   --args $GLOBAL $ADMIN $POOL $VALUE $CLOCK --gas-budget 100000000
 ```
 
-然后在 `/positions` 点击 **领取赔付**。
+Then click **Claim payout** on `/positions`.
 
-**对观众说明：** 「这是 Testnet 联调快路径；主网只走 Oracle 委员会终裁，无 Admin 单方结算。」
+**Tell the audience:** "This is the Testnet integration fast path; mainnet only uses Oracle committee final ruling—no Admin unilateral settlement."
 
-### 6.3 Prophet audit（路线 C 补充）
+### 6.3 Prophet audit (Route C supplement)
 
-Oracle 结算且 `lock_time` 到达后：
+After Oracle settlement and `lock_time` reached:
 
-1. `/prophet` → **审计** 步骤
-2. 预言家提交与 Commit 时一致的明文
-3. 链上比对 hash → WIN/LOSS/CHEAT → `/leaderboard` 更新
+1. `/prophet` → **Audit** step
+2. Prophet submits plaintext consistent with Commit
+3. On-chain hash comparison → WIN/LOSS/CHEAT → `/leaderboard` updates
 
 ---
 
-## 7. 页面速查（演示动线）
+## 7. Page Quick Reference (demo flow)
 
 ```
-/  首页 · 种子市场入口
-├── /markets/poisson-goals    足球 Poisson · 区间/数字
-├── /markets/dirichlet-wdl    胜平负 · Auction + LP 面板
-├── /markets/normal-cpi       CPI Normal · 结构化票据 + IV 面板
-├── /positions                持仓 · claim
-├── /lp                       LP 份额 · 赎回
-├── /oracle                   Feed · 提议 · 争议 · Finalize
+/  Home · seed market entry
+├── /markets/poisson-goals    Football Poisson · range/digital
+├── /markets/dirichlet-wdl    Win-draw-loss · Auction + LP panel
+├── /markets/normal-cpi       CPI Normal · structured notes + IV panel
+├── /positions                Positions · claim
+├── /lp                       LP shares · redeem
+├── /oracle                   Feed · propose · dispute · Finalize
 ├── /prophet                  Commit · Unlock · Audit
-├── /leaderboard              预言家战绩
-└── /margin                   Cross-Margin（可选一笔带过）
+├── /leaderboard              Prophet track record
+└── /margin                   Cross-Margin (optional brief mention)
 ```
 
 ---
 
-## 8. 演示用链上 ID（Testnet v3）
+## 8. Demo On-Chain IDs (Testnet v3)
 
-来自 [deploy/testnet-v2.json](../deploy/testnet-v2.json)，演示前核对 `.env.local`：
+From [deploy/testnet-v2.json](../deploy/testnet-v2.json)—verify `.env.local` before demo:
 
-| 资源 | ID |
+| Resource | ID |
 | --- | --- |
 | Package | `0x2e368e00532771eedd2df288bd61b0cb2324471b9fc6e14160a7f3079310ae6e` |
-| Poisson 池 | `0xb5d1a85213d6757d1cb386e8b719b524162a117018e6f5b8f0101f4dcc532b5f` |
-| Dirichlet 池 | `0x89fb5ff5754fe5b2d32d071ce98ad778b62a48f738e0d7dd27a86b390eddaac5` |
-| Normal 池 | `0xa43716a746c01d6039cd7b9e6a77562f17a8730dc72c9363ddfde06859e4f834` |
+| Poisson pool | `0xb5d1a85213d6757d1cb386e8b719b524162a117018e6f5b8f0101f4dcc532b5f` |
+| Dirichlet pool | `0x89fb5ff5754fe5b2d32d071ce98ad778b62a48f738e0d7dd27a86b390eddaac5` |
+| Normal pool | `0xa43716a746c01d6039cd7b9e6a77562f17a8730dc72c9363ddfde06859e4f834` |
 | OracleConfig | `0x1ad185d06bcbb53a98c5a834516da7a28c748f32079faa8ff310a35d04f663d8` |
 | ProphetRegistry | `0xfa8359d6e1693542ef315eeda6a5c6c659dc819683a7bf86ac3391d1c4f63f38` |
-| Faucet 包 | `0x70bb4f8ed11991f79dbafef255ad1881d169bb1e337b69b129d997dd4216ebf0` |
+| Faucet package | `0x70bb4f8ed11991f79dbafef255ad1881d169bb1e337b69b129d997dd4216ebf0` |
 
-浏览器包页：  
+Browser package page:  
 https://testnet.suivision.xyz/package/0x2e368e00532771eedd2df288bd61b0cb2324471b9fc6e14160a7f3079310ae6e
 
 ---
 
-## 9. 常见问题（演示现场）
+## 9. FAQ (live demo)
 
-| 问题 | 回答 / 处理 |
+| Question | Answer / action |
 | --- | --- |
-| 和 Polymarket 有何不同？ | 参数化 AMM + 链上 PDF；多种分布模板；LP 承销概率而非换币 |
-| 为什么不用 Tier 2 / 链上 ZK？ | [tier2-decision.md](./tier2-decision.md)：主路径 Tier 1 已覆盖 MVP；ZK 为异步监督 |
-| Oracle 谁说了算？ | 乐观提议 + 争议 + **委员会**多签，非 Admin 单方 |
-| 当场能 claim 吗？ | 种子池一般不能；路线 C 或事先录屏 |
-| Prophet 解密失败 | 检查包 ID 是否与加密时一致；Unlock 是否成功；SessionKey 是否过期 |
-| Indexer blob 上传失败 | 确认 Indexer 已启动；`NEXT_PUBLIC_INDEXER_URL` 正确 |
-| 页面空白 / RPC 超时 | 配置 `NEXT_PUBLIC_SUI_RPC_URL` 备用 RPC |
+| How is this different from Polymarket? | Parametric AMM + on-chain PDF; multiple distribution templates; LP underwrites probability not token swaps |
+| Why not Tier 2 / on-chain ZK? | [tier2-decision.md](./tier2-decision.md): main path Tier 1 covers MVP; ZK is async supervision |
+| Who decides Oracle? | Optimistic propose + dispute + **committee** multisig, not Admin unilateral |
+| Can we claim on the spot? | Seed pools generally no; Route C or pre-recorded video |
+| Prophet decrypt fails | Check package ID matches encryption time; Unlock succeeded; SessionKey not expired |
+| Indexer blob upload fails | Confirm Indexer running; `NEXT_PUBLIC_INDEXER_URL` correct |
+| Blank page / RPC timeout | Configure `NEXT_PUBLIC_SUI_RPC_URL` backup RPC |
 
 ---
 
-## 10. 演示后收尾
+## 10. Post-Demo Wrap-Up
 
-- [ ] 关闭 `npm run dev` 与 `stop-services-testnet.ps1`（若开了）
-- [ ] 记录本次使用的 Pool ID、tx digest（便于复现）
-- [ ] 若误 Slash 种子池：timelock 1800s 后 Admin `unslash_resume_pool`
-- [ ] 反馈记入 [test-cases.md](./test-cases.md) 或 drill 记录
+- [ ] Stop `npm run dev` and `stop-services-testnet.ps1` (if started)
+- [ ] Record Pool ID and tx digest used (for reproduction)
+- [ ] If seed pool accidentally Slashed: Admin `unslash_resume_pool` after 1800s timelock
+- [ ] Log feedback in [test-cases.md](./test-cases.md) or drill record
 
 ---
 
-## 11. 相关文档
+## 11. Related Docs
 
-| 文档 | 何时翻阅 |
+| Doc | When to consult |
 | --- | --- |
-| [test-cases.md](./test-cases.md) | QA 回归、演示项转测试 |
-| [phase1.5-playbook.md](./phase1.5-playbook.md) | Auction / LP 链上细节 |
-| [oracle-playbook.md](./oracle-playbook.md) | Oracle 争议与委员会操作 |
-| [prophet-playbook.md](./prophet-playbook.md) | Seal / Indexer blob 故障排查 |
-| [phase3-playbook.md](./phase3-playbook.md) | Slash / ZK 若要做风控演示 |
+| [test-cases.md](./test-cases.md) | QA regression, convert demo items to tests |
+| [phase1.5-playbook.md](./phase1.5-playbook.md) | Auction / LP on-chain details |
+| [oracle-playbook.md](./oracle-playbook.md) | Oracle dispute and committee ops |
+| [prophet-playbook.md](./prophet-playbook.md) | Seal / Indexer blob troubleshooting |
+| [phase3-playbook.md](./phase3-playbook.md) | Slash / ZK if doing risk control demo |
 
 ---
 
-## 修订记录
+## Revision History
 
-| 日期 | 版本 | 说明 |
+| Date | Version | Notes |
 | --- | --- | --- |
-| 2026-06-08 | v1.0 | 初版：路线 A/B/C、检查清单、页面动线、Testnet ID |
+| 2026-06-08 | v1.0 | Initial: Routes A/B/C, checklist, page flow, Testnet IDs |

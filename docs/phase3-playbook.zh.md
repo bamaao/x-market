@@ -1,0 +1,246 @@
+<!--
+  Copyright (c) 2026 zouyc zouyccq@gmail.com.
+  All rights reserved.
+
+  Licensed under the Business Source License 1.1 (BSL 1.1).
+  You may not use this file except in compliance with the License.
+
+  Change Date: 2031-01-01
+  On the Change Date, or the fourth anniversary of the first publicly available
+  distribution of the code under the BSL, whichever comes first, the code
+  automatically becomes available under the Apache License 2.0.
+-->
+
+**简体中文** | [English](./phase3-playbook.md)
+
+# X-Market Sui Phase 3 操作手册
+
+本文用于在 **Sui Testnet** 上跑通 Phase 3 的新增能力：
+
+- Tier-2 ZK 协处理接口（`zk_coprocessor`）
+- Slash 风控处置（`slash`）
+- 结构化票据篮子（Variance / Structured / Range / Barrier）
+
+---
+
+## 1. 前置条件
+
+- 已完成 Phase 1.5 与 Phase 2 部署流程
+- 当前 `PACKAGE_ID` 为包含 Phase 3 代码的新包
+- 钱包中有 USDC 与足够 SUI Gas
+- 管理员地址持有 `AdminCap`
+
+---
+
+## 2. 发布与升级
+
+在仓库根目录执行：
+
+```powershell
+sui move build
+sui client publish --gas-budget 500000000
+```
+
+记录：
+
+- `Package ID`
+- `GlobalConfig`
+- `AdminCap`
+
+并更新前端环境变量：
+
+```env
+NEXT_PUBLIC_PACKAGE_ID=0x你的Phase3包ID
+NEXT_PUBLIC_SUI_NETWORK=testnet
+NEXT_PUBLIC_SUI_CLOCK=0x6
+```
+
+---
+
+## 3. 结构化票据交易（前端）
+
+进入任意 Normal 市场页面（例如 `/markets/normal-cpi`），在交易面板「合约类型」可选择：
+
+1. **Variance Swap**
+   - 参数：`K`
+   - 收益：与 `(X-K)^2` 成正比，尾部波动敏感
+
+2. **Structured Note（封顶看涨）**
+   - 参数：`K`、`C`
+   - 收益：`min(max(X-K, 0), C-K)`
+   - 约束：`C > K`
+
+3. **Range Note（区间票息）**
+   - 参数：`L`、`U`
+   - 收益：当 `X ∈ [L,U]` 支付固定票息
+   - 约束：`U >= L`
+
+4. **Barrier Note（障碍票息）**
+   - 参数：`B`
+   - 收益：当 `X >= B` 支付固定票息
+
+---
+
+## 4. ZK 协处理接口（链上，Phase 3.1 增强）
+
+模块：`x_market::zk_coprocessor`
+
+> **产品决策：** 主网前不启用 Tier 2 联合 PDF 交易路径；本模块保留为接口占位。详见 [tier2-decision.md](./tier2-decision.md)。
+
+> 当前版本为 **Attestation + 挑战约束过渡层**：链上仍不直接执行 Groth16/Plonk 数学验算，
+> 但已支持 `proof_scheme_code`、验证委员会阈值确认、挑战证据哈希与挑战裁决流程。
+
+### 4.1 提交证明哈希
+
+- 入口：`submit_proof(pool, proof_hash, clock)`
+- 结果：用户钱包收到 `ZkProofTicket`（owned object）
+
+### 4.2 管理员验证证明（兼容路径）
+
+- 入口：`verify_proof(config, cap, pool, ticket, status_code, clock)`
+- `status_code`：
+  - `1` = accepted
+  - `2` = rejected
+  - `3` = challenged
+- 结果：生成共享对象 `ZkVerification`（初始为 `finalized=false`，默认挑战窗口 3600 秒）
+
+### 4.2.1 委员会阈值验证（推荐）
+
+- 初始化策略：`init_verifier_policy(config, cap, signers, threshold, ctx)`
+- 更新策略：`update_verifier_policy(config, cap, policy, signers, threshold, ctx)`
+- 首次验证：`verify_proof_with_policy(policy, pool, ticket, status_code, proof_scheme_code, public_inputs_hash, clock, ctx)`
+- 附加见证：`attest_verification(policy, verification, ctx)`
+- 说明：
+  - `proof_scheme_code` 当前约定：`1=Groth16, 2=Plonk, 3=STARK`
+  - 仅当见证数达到 `required_approvals` 才可最终 finalize
+
+### 4.3 挑战窗口内发起挑战
+
+- 入口：`challenge_verification(pool, verification, evidence_hash, clock, ctx)`
+- 约束：仅在挑战窗口内可调用，窗口到期后不可再挑战
+- 结果：
+  - `ZkVerification.status_code` 置为 `3`（challenged）
+  - 记录挑战证据哈希 `challenge_evidence_hash`
+  - 未裁决前禁止 finalize
+
+### 4.3.1 管理员挑战裁决
+
+- 入口：`resolve_challenge(config, cap, verification, resolved_status_code, ctx)`
+- 约束：`resolved_status_code` 仅允许 `accepted/rejected`
+- 结果：挑战状态关闭，可进入后续 finalize 判定
+
+### 4.4 挑战窗口后最终确认
+
+- 入口：`finalize_verification(config, cap, verification, clock, ctx)`
+- 约束：仅管理员可调用，且必须同时满足：
+  - 挑战窗口到期
+  - 阈值见证已满足
+  - 无未裁决挑战
+- 结果：`ZkVerification.finalized=true`
+
+### 4.5 Brevis 异步 Prover（链下，真集成）
+
+> **不阻塞交易热路径**；池状态变更后由 Keeper 异步提交证明哈希。Brevis 尚无原生 Sui 验算器，证明输出映射为 `proof_hash` / `public_inputs_hash` 登记在链上。
+
+**服务：** `services/brevis-zk-prover/`
+
+```
+池 checkpoint 变更
+  → 链下审计（max-loss / 参数边界）
+  → mock: 本地 SHA-256
+  → live: Brevis RPC（BREVIS_RPC_URL）→ 失败回退本地
+  → submit_proof → verify_proof_with_policy
+```
+
+**Testnet 初始化：**
+
+```powershell
+.\scripts\init-zk-verifier-policy.ps1 -PackageId 0x... -VerifierAddress 0x...
+.\scripts\bootstrap-services-env.ps1
+cd services/brevis-zk-prover && npm install && npm start
+```
+
+| 变量 | 默认 | 说明 |
+| --- | --- | --- |
+| `ZK_PROVER_MODE` | `mock` | `live` 时尝试 Brevis RPC |
+| `ZK_PROVER_DRY_RUN` | `true` | `false` 才实际上链 |
+| `ZK_VERIFIER_POLICY_ID` | — | `init_verifier_policy` 共享对象 |
+| `BREVIS_RPC_URL` | 空 | Brevis Prover HTTP 端点 |
+
+健康检查：`GET http://localhost:8794/health`
+
+---
+
+## 5. Slash 机制（链上）
+
+模块：`x_market::slash`
+
+### 5.1 执行 Slash
+
+- 入口：`slash_pool(config, cap, pool, amount_usdc, reason_code, recipient, clock)`
+- 行为：
+  - 从 `MarketPool.vault` 扣减 `amount_usdc`
+  - 转账到 `recipient`
+  - 自动将市场 `paused = true`
+  - 设置治理恢复 timelock（当前 1800 秒）
+  - 单次 slash 上限：当前 slash 周期基准抵押的 30%
+  - 周期累计 slash 上限：当前 slash 周期基准抵押的 50%
+  - 生成共享对象 `SlashRecord`
+
+### 5.1.1 多签执行通道（可选）
+
+- 初始化治理对象：`init_slash_governance(config, cap, signers, threshold, ctx)`
+- 提案：`propose_slash_request(gov, pool, amount_usdc, reason_code, recipient, clock, ctx)`
+- 批准：`approve_slash_request(gov, request, clock, ctx)`
+- 达阈值执行：`execute_slash_request(gov, pool, request, clock, ctx)`
+- 说明：
+  - 每个提案带有效期（当前 86400 秒）
+  - 只统计当前 signer 集合中的有效批准
+  - 保留 `slash_pool(...)` 作为管理员应急单签路径
+
+### 5.2 恢复市场
+
+- 入口：`unslash_resume_pool(config, cap, pool, clock)`
+- 行为：
+  - 仅管理员可调用
+  - 必须达到 timelock 截止时间后才可恢复
+  - 恢复后将 `paused = false` 并重置本轮 slash 状态
+
+---
+
+## 6. 持仓与风险观测
+
+- `/positions` 页面已支持新票据类型标签展示：
+  - Variance Swap
+  - Structured Note
+  - Range Note
+  - Barrier Note
+- Cross-Margin VaR 前端估算已覆盖这些新产品。
+
+---
+
+## 7. 常见排查
+
+### 7.1 `Function not found`
+
+说明仍在调用旧 `Package ID`。检查前端 env 与钱包交互目标包。
+
+### 7.2 Structured / Range 参数报错
+
+- Structured Note：需要 `C > K`
+- Range Note：需要 `U >= L`
+
+### 7.3 `insufficient_equity`（slash）
+
+Slash 扣减金额超过池子可用 collateral。降低 `amount_usdc` 后重试。
+
+---
+
+## 8. 与后续主网阶段的关系
+
+Phase 3 已补齐核心协议能力接口与产品形态；主网前仍建议继续完成：
+
+- 审计与安全演练
+- 风险参数基线（各票据的默认 K/C/L/U/B）
+- 自动化告警与治理流程（配合 `SlashRecord` 与 `ZkVerification`）
+- 执行主网上线前清单：`docs/mainnet-readiness-checklist.md`
