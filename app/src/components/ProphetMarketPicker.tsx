@@ -18,28 +18,25 @@ import {
 import {
   marketMatchesSearch,
   marketMatchesTagFilter,
-  tagLabel,
   topLevelThemeFilters,
 } from "@/lib/market-tags";
 import { MarketTagList } from "@/components/MarketTagList";
 import { VirtualScrollList } from "@/components/VirtualScrollList";
 import {
   assessProphetMarketEligibility,
-  formatRemainingTime,
   parsePoolSnapshotFromFields,
   prophetStatusClass,
-  prophetStatusLabel,
   sortProphetPoolOptions,
   type ProphetPoolOption,
 } from "@/lib/prophet-market-eligibility";
-
-const KIND_FILTERS: { value: "all" | MarketKind; label: string }[] = [
-  { value: "all", label: "全部" },
-  { value: "poisson", label: "Poisson" },
-  { value: "dirichlet", label: "Dirichlet" },
-  { value: "normal", label: "Normal" },
-  { value: "beta", label: "Beta" },
-];
+import {
+  localizedProphetEligibilityReason,
+  localizedProphetPoolStatus,
+  localizedRemainingTime,
+} from "@/i18n/domain";
+import { useLocalizedTagLabel } from "@/i18n/markets";
+import { useT } from "@/i18n/context";
+import type { Translator } from "@/i18n/core";
 
 const KIND_LABELS: Record<MarketKind, string> = {
   poisson: "Poisson",
@@ -71,10 +68,12 @@ function ProphetMarketRow({
   option,
   active,
   onSelect,
+  t,
 }: {
   option: ProphetPoolOption;
   active: boolean;
   onSelect: () => void;
+  t: Translator;
 }) {
   return (
     <button
@@ -92,23 +91,31 @@ function ProphetMarketRow({
         </span>
         <MarketTagList tags={option.market.tags} max={3} />
         <span className={prophetStatusClass(option.eligibility.status)}>
-          {prophetStatusLabel(option.eligibility.status)}
+          {localizedProphetPoolStatus(option.eligibility.status, t)}
         </span>
       </div>
       <strong className="oracle-market-row-title">{option.market.title}</strong>
       <p className="oracle-market-row-desc">{option.market.description}</p>
       <div className="prophet-market-item-foot">
-        <span>剩余 {formatRemainingTime(option.eligibility.remainingSecs)}</span>
+        <span>
+          {t("prophet.pickerRemaining", {
+            time: localizedRemainingTime(option.eligibility.remainingSecs, t),
+          })}
+        </span>
         <code className="mono">{option.poolId.slice(0, 10)}…</code>
       </div>
       {!option.eligibility.canCommit && (
-        <span className="prophet-market-item-reason">{option.eligibility.reason}</span>
+        <span className="prophet-market-item-reason">
+          {localizedProphetEligibilityReason(option.eligibility, t)}
+        </span>
       )}
     </button>
   );
 }
 
 export function ProphetMarketPicker({ poolId, nowSec, onSelect }: Props) {
+  const t = useT();
+  const tagLabel = useLocalizedTagLabel();
   const client = useSuiClient();
   const [markets, setMarkets] = useState<SeedMarket[]>(() =>
     mergeMarkets(SEED_MARKETS, loadUserMarkets(), []),
@@ -129,6 +136,17 @@ export function ProphetMarketPicker({ poolId, nowSec, onSelect }: Props) {
   const [loadingSnapshots, setLoadingSnapshots] = useState(false);
   const loadingMoreRef = useRef(false);
   const fetchedSnapshotsRef = useRef(new Set<string>());
+
+  const kindFilters = useMemo(
+    (): { value: "all" | MarketKind; label: string }[] => [
+      { value: "all", label: t("markets.kindAll") },
+      { value: "poisson", label: "Poisson" },
+      { value: "dirichlet", label: "Dirichlet" },
+      { value: "normal", label: "Normal" },
+      { value: "beta", label: "Beta" },
+    ],
+    [t],
+  );
 
   useEffect(() => {
     const id = setTimeout(() => setDebouncedQuery(query.trim()), 300);
@@ -309,8 +327,8 @@ export function ProphetMarketPicker({ poolId, nowSec, onSelect }: Props) {
   return (
     <div className="prophet-market-picker">
       <div className="prophet-market-picker-toolbar">
-        <div className="prophet-kind-tabs" role="tablist" aria-label="分布类型">
-          {KIND_FILTERS.map((f) => (
+        <div className="prophet-kind-tabs" role="tablist" aria-label={t("markets.kindTabAria")}>
+          {kindFilters.map((f) => (
             <button
               key={f.value}
               type="button"
@@ -324,8 +342,8 @@ export function ProphetMarketPicker({ poolId, nowSec, onSelect }: Props) {
           ))}
         </div>
         <div className="prophet-filter-group">
-          <span className="prophet-filter-label">主题</span>
-          <div className="prophet-kind-tabs" role="tablist" aria-label="主题筛选">
+          <span className="prophet-filter-label">{t("markets.themeLabel")}</span>
+          <div className="prophet-kind-tabs" role="tablist" aria-label={t("markets.themeTabAria")}>
             <button
               type="button"
               role="tab"
@@ -333,18 +351,18 @@ export function ProphetMarketPicker({ poolId, nowSec, onSelect }: Props) {
               className={themeFilter === "all" ? "active" : undefined}
               onClick={() => setThemeFilter("all")}
             >
-              全部
+              {t("markets.themeAll")}
             </button>
-            {themeTabs.map((t) => (
+            {themeTabs.map((tab) => (
               <button
-                key={t.slug}
+                key={tab.slug}
                 type="button"
                 role="tab"
-                aria-selected={themeFilter === t.slug}
-                className={themeFilter === t.slug ? "active" : undefined}
-                onClick={() => setThemeFilter(t.slug)}
+                aria-selected={themeFilter === tab.slug}
+                className={themeFilter === tab.slug ? "active" : undefined}
+                onClick={() => setThemeFilter(tab.slug)}
               >
-                {t.label}
+                {tagLabel(tab.slug)}
               </button>
             ))}
           </div>
@@ -352,25 +370,34 @@ export function ProphetMarketPicker({ poolId, nowSec, onSelect }: Props) {
         <input
           type="search"
           className="prophet-market-search"
-          placeholder="搜索标题、描述、主题或 Pool ID…"
+          placeholder={t("markets.searchPlaceholder")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          aria-label="搜索市场"
+          aria-label={t("markets.searchAria")}
         />
       </div>
 
       <p className="hint prophet-market-picker-meta">
         {loading && filtered.length === 0 ? (
-          "正在加载市场…"
+          t("prophet.pickerMetaLoading")
         ) : (
           <>
             {indexerEnabled() && total > 0
-              ? `共 ${total} 个 · 已加载 ${filtered.length} 个 · ${openCount} 个可预测`
-              : `共 ${filtered.length} 个市场 · ${openCount} 个可预测`}
-            {themeFilter !== "all" && ` · 主题 ${tagLabel(themeFilter)}`}
-            {debouncedQuery.length >= 2 && ` · 搜索「${debouncedQuery}」`}
-            {loadingMore && " · 加载更多…"}
-            {loadingSnapshots && " · 同步链上状态…"}
+              ? t("prophet.pickerMetaTotal", {
+                  total,
+                  loaded: filtered.length,
+                  open: openCount,
+                })
+              : t("prophet.pickerMetaLocal", {
+                  count: filtered.length,
+                  open: openCount,
+                })}
+            {themeFilter !== "all" &&
+              t("prophet.pickerTheme", { tag: tagLabel(themeFilter) })}
+            {debouncedQuery.length >= 2 &&
+              t("prophet.pickerSearch", { q: debouncedQuery })}
+            {loadingMore && t("oracle.pickerLoadingMore")}
+            {loadingSnapshots && t("prophet.pickerSyncing")}
           </>
         )}
       </p>
@@ -388,11 +415,9 @@ export function ProphetMarketPicker({ poolId, nowSec, onSelect }: Props) {
         onSelectKey={handleSelectOption}
         empty={
           !loading ? (
-            <div className="prophet-market-empty">
-              无匹配市场，请调整筛选或搜索词
-            </div>
+            <div className="prophet-market-empty">{t("prophet.pickerEmpty")}</div>
           ) : (
-            <div className="prophet-market-empty">加载中…</div>
+            <div className="prophet-market-empty">{t("common.loading")}</div>
           )
         }
         renderItem={(o, _index, { active }) => (
@@ -400,31 +425,31 @@ export function ProphetMarketPicker({ poolId, nowSec, onSelect }: Props) {
             option={o}
             active={active || o.poolId === poolId}
             onSelect={() => onSelect(o)}
+            t={t}
           />
         )}
-        aria-label="选择市场"
+        aria-label={t("prophet.pickerListAria")}
       />
-      <p className="hint oracle-list-kbd-hint">
-        列表聚焦后可用 ↑↓ 浏览、Enter 选中；滚到底自动加载更多。
-      </p>
+      <p className="hint oracle-list-kbd-hint">{t("prophet.pickerKbdHint")}</p>
 
       {selected && (
         <div className="prophet-market-selected-hint">
           <p className="hint">
-            已选：<strong>{selected.market.title}</strong>
+            {t("prophet.pickerSelected")}{" "}
+            <strong>{selected.market.title}</strong>
             {selected.snapshot.maturityTs > 0 && (
               <>
                 {" "}
-                · 到期{" "}
+                {t("prophet.pickerMaturity")}{" "}
                 {new Date(selected.snapshot.maturityTs * 1000).toLocaleString()}
               </>
             )}
             {!selected.eligibility.canCommit && (
-              <> · {selected.eligibility.reason}</>
+              <> · {localizedProphetEligibilityReason(selected.eligibility, t)}</>
             )}
           </p>
           <Link href={`/markets/${selected.market.id}`} className="card-cta">
-            打开市场页 →
+            {t("prophet.pickerOpenMarket")}
           </Link>
         </div>
       )}

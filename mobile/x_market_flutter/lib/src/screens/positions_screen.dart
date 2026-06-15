@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:x_market_flutter/src/app/app_controller.dart';
+import 'package:x_market_flutter/src/l10n/l10n_ext.dart';
 import 'package:x_market_flutter/src/widgets/connect_banner.dart';
 import 'package:x_market_flutter/src/widgets/cross_margin_var_banner.dart';
 
@@ -10,6 +11,7 @@ class PositionsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return ListenableBuilder(
       listenable: app,
       builder: (context, _) {
@@ -28,8 +30,8 @@ class PositionsScreen extends StatelessWidget {
               SliverPadding(
                 padding: const EdgeInsets.all(16),
                 sliver: app.positions.isEmpty
-                    ? const SliverFillRemaining(
-                        child: Center(child: Text('暂无持仓')),
+                    ? SliverFillRemaining(
+                        child: Center(child: Text(l10n.noPositions)),
                       )
                     : SliverList.separated(
                         itemCount: app.positions.length,
@@ -74,9 +76,9 @@ class PositionsScreen extends StatelessWidget {
                                     'Stake ${AppController.formatUsdc(p.stakeUsdcMist)} USDC · [${p.intervalA}, ${p.intervalB}]',
                                   ),
                                   if (p.claimed)
-                                    const Text('已领取')
+                                    Text(l10n.claimed)
                                   else if (poolId == null || poolId.isEmpty)
-                                    const Text('无法关联 Pool ID（链上 market_id 缺失）')
+                                    Text(l10n.missingPoolId)
                                   else ...[
                                     const SizedBox(height: 8),
                                     FilledButton.tonal(
@@ -90,7 +92,7 @@ class PositionsScreen extends StatelessWidget {
                                                   positionId: p.objectId,
                                                 ),
                                               ),
-                                      child: const Text('领取赔付'),
+                                      child: Text(l10n.claimPayout),
                                     ),
                                   ],
                                 ],

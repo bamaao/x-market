@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:x_market_flutter/src/app/app_controller.dart';
+import 'package:x_market_flutter/src/l10n/l10n_ext.dart';
 import 'package:x_market_flutter/src/sui_config.dart';
 
 class WalletScreen extends StatelessWidget {
@@ -10,6 +11,7 @@ class WalletScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return ListenableBuilder(
       listenable: app,
       builder: (context, _) {
@@ -24,14 +26,14 @@ class WalletScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      'Phantom 钱包',
+                      l10n.phantomWallet,
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const SizedBox(height: 8),
                     Text(
                       w.isConnected
                           ? w.address ?? ''
-                          : '未连接 · Testnet',
+                          : l10n.notConnectedTestnet,
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                     if (app.walletSummary != null) ...[
@@ -45,7 +47,7 @@ class WalletScreen extends StatelessWidget {
                     if (w.isConnected)
                       OutlinedButton(
                         onPressed: w.busy ? null : app.disconnectWallet,
-                        child: const Text('断开连接'),
+                        child: Text(l10n.disconnect),
                       )
                     else
                       FilledButton(
@@ -58,12 +60,12 @@ class WalletScreen extends StatelessWidget {
                                   strokeWidth: 2,
                                 ),
                               )
-                            : const Text('连接 Phantom'),
+                            : Text(l10n.connectPhantom),
                       ),
                     const SizedBox(height: 8),
                     if (SuiConfig.network == 'testnet')
                       Text(
-                        '测试网 USDC 请从 Circle 水龙头领取或转入钱包',
+                        l10n.testnetUsdcHint,
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     const SizedBox(height: 8),
@@ -71,7 +73,7 @@ class WalletScreen extends StatelessWidget {
                       onPressed: w.isConnected && !w.busy
                           ? app.refreshWalletData
                           : null,
-                      child: const Text('刷新余额与资产'),
+                      child: Text(l10n.refreshBalanceAndAssets),
                     ),
                   ],
                 ),
@@ -90,12 +92,12 @@ class WalletScreen extends StatelessWidget {
             ],
             if (app.lastTxMessage != null) ...[
               const SizedBox(height: 8),
-              Text('最近: ${app.lastTxMessage}'),
+              Text(l10n.recentTx(app.lastTxMessage!)),
             ],
             if (kDebugMode) ...[
               const SizedBox(height: 24),
               Text(
-                'Testnet · ${DateTime.now().year}',
+                l10n.testnetYear(DateTime.now().year),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],

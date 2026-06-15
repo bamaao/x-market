@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:x_market_flutter/src/app/app_controller.dart';
+import 'package:x_market_flutter/src/l10n/l10n_ext.dart';
 import 'package:x_market_flutter/src/screens/lp_screen.dart';
 import 'package:x_market_flutter/src/screens/margin_screen.dart';
 import 'package:x_market_flutter/src/screens/markets_screen.dart';
@@ -21,6 +22,7 @@ class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final pages = [
       MarketsScreen(app: widget.app),
       PositionsScreen(app: widget.app),
@@ -31,7 +33,7 @@ class _AppShellState extends State<AppShell> {
     ];
     return Scaffold(
       appBar: AppBar(
-        title: const Text('X-Market'),
+        title: Text(l10n.appTitle),
         actions: [
           if (widget.app.wallet.busy)
             const Padding(
@@ -53,36 +55,36 @@ class _AppShellState extends State<AppShell> {
             widget.app.refreshWalletData();
           }
         },
-        destinations: const [
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.storefront_outlined),
-            selectedIcon: Icon(Icons.storefront),
-            label: '市场',
+            icon: const Icon(Icons.storefront_outlined),
+            selectedIcon: const Icon(Icons.storefront),
+            label: l10n.navMarkets,
           ),
           NavigationDestination(
-            icon: Icon(Icons.receipt_long_outlined),
-            selectedIcon: Icon(Icons.receipt_long),
-            label: '持仓',
+            icon: const Icon(Icons.receipt_long_outlined),
+            selectedIcon: const Icon(Icons.receipt_long),
+            label: l10n.navPositions,
           ),
           NavigationDestination(
-            icon: Icon(Icons.water_drop_outlined),
-            selectedIcon: Icon(Icons.water_drop),
-            label: 'LP',
+            icon: const Icon(Icons.water_drop_outlined),
+            selectedIcon: const Icon(Icons.water_drop),
+            label: l10n.navLp,
           ),
           NavigationDestination(
-            icon: Icon(Icons.auto_awesome_outlined),
-            selectedIcon: Icon(Icons.auto_awesome),
-            label: 'Prophet',
+            icon: const Icon(Icons.auto_awesome_outlined),
+            selectedIcon: const Icon(Icons.auto_awesome),
+            label: l10n.navProphet,
           ),
           NavigationDestination(
-            icon: Icon(Icons.security_outlined),
-            selectedIcon: Icon(Icons.security),
-            label: '保证金',
+            icon: const Icon(Icons.security_outlined),
+            selectedIcon: const Icon(Icons.security),
+            label: l10n.navMargin,
           ),
           NavigationDestination(
-            icon: Icon(Icons.wallet_outlined),
-            selectedIcon: Icon(Icons.wallet),
-            label: '钱包',
+            icon: const Icon(Icons.wallet_outlined),
+            selectedIcon: const Icon(Icons.wallet),
+            label: l10n.navWallet,
           ),
         ],
       ),

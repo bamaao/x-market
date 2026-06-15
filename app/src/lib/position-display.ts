@@ -178,7 +178,7 @@ export function seedMarketToRef(m: SeedMarket): MarketRef {
 export function contractKindLabel(kind: number): string {
   switch (kind) {
     case CONTRACT_DIGITAL:
-      return "数字期权";
+      return "Digital option";
     case CONTRACT_LINEAR_CALL:
       return "Linear Call";
     case CONTRACT_LINEAR_PUT:
@@ -194,11 +194,11 @@ export function contractKindLabel(kind: number): string {
     case CONTRACT_BARRIER_NOTE:
       return "Barrier Note";
     default:
-      return "区间合约";
+      return "Interval contract";
   }
 }
 
-const DIRICHLET_OUTCOMES = ["主胜", "平局", "客胜"];
+const DIRICHLET_OUTCOMES = ["Home win", "Draw", "Away win"];
 
 export function formatOutcomeDescription(
   position: PositionView,
@@ -209,21 +209,21 @@ export function formatOutcomeDescription(
   const kind = poolKind ?? poolKindFromMarketKind(marketKind);
 
   if (kind === POOL_KIND_DIRICHLET) {
-    const label = DIRICHLET_OUTCOMES[intervalA] ?? `结果 ${intervalA}`;
+    const label = DIRICHLET_OUTCOMES[intervalA] ?? `Outcome ${intervalA}`;
     return contractKind === CONTRACT_DIGITAL ? label : label;
   }
 
   if (kind === POOL_KIND_POISSON) {
     if (contractKind === CONTRACT_DIGITAL) {
-      return `恰好 ${intervalA} 球`;
+      return `Exactly ${intervalA} goals`;
     }
     return intervalA === intervalB
-      ? `${intervalA} 球`
-      : `进球 [${intervalA}, ${intervalB}]`;
+      ? `${intervalA} goals`
+      : `Goals [${intervalA}, ${intervalB}]`;
   }
 
   if (kind === POOL_KIND_BETA) {
-    return `得票率 ${(intervalA / 10).toFixed(1)}% – ${(intervalB / 10).toFixed(1)}%`;
+    return `Vote share ${(intervalA / 10).toFixed(1)}% – ${(intervalB / 10).toFixed(1)}%`;
   }
 
   if (kind === POOL_KIND_NORMAL) {
@@ -251,11 +251,11 @@ export function formatOutcomeDescription(
     if (contractKind === CONTRACT_BARRIER_NOTE) {
       return `Barrier ≥ ${formatNormalTenths(intervalA)}`;
     }
-    return `区间 [${formatNormalTenths(intervalA)}, ${formatNormalTenths(intervalB)}]`;
+    return `Range [${formatNormalTenths(intervalA)}, ${formatNormalTenths(intervalB)}]`;
   }
 
   if (contractKind === CONTRACT_DIGITAL) {
-    return `结果 ${intervalA}`;
+    return `Outcome ${intervalA}`;
   }
   return intervalA === intervalB
     ? `[${intervalA}]`
@@ -309,15 +309,15 @@ export function poolKindLabel(kind: number): string {
 }
 
 export function poolStatusLabel(pool: PoolView): string {
-  if (pool.paused) return "已暂停";
-  if (pool.resolved || pool.status === STATUS_SETTLED) return "已结算";
-  if (pool.status === STATUS_AUCTION) return "竞价中";
-  return "交易中";
+  if (pool.paused) return "Paused";
+  if (pool.resolved || pool.status === STATUS_SETTLED) return "Settled";
+  if (pool.status === STATUS_AUCTION) return "In auction";
+  return "Trading";
 }
 
-export function formatUnixTs(ts: number): string {
+export function formatUnixTs(ts: number, locale = "en-US"): string {
   if (!ts) return "—";
-  return new Date(ts * 1000).toLocaleString("zh-CN", {
+  return new Date(ts * 1000).toLocaleString(locale, {
     dateStyle: "medium",
     timeStyle: "short",
   });
@@ -441,20 +441,20 @@ export function getSettlementDisplay(
   pool: PoolView | undefined,
 ): SettlementDisplay {
   if (position.claimed) {
-    return { state: "claimed", label: "已领取赔付" };
+    return { state: "claimed", label: "Payout claimed" };
   }
   if (!pool?.resolved) {
-    const status = pool ? poolStatusLabel(pool) : "未知";
-    return { state: "pending", label: `待结算（池状态：${status}）` };
+    const status = pool ? poolStatusLabel(pool) : "Unknown";
+    return { state: "pending", label: `Pending settlement (pool: ${status})` };
   }
   const winner = isPositionWinner(position, pool);
   if (!winner) {
-    return { state: "miss", label: "未命中", payoutUsdc: 0n };
+    return { state: "miss", label: "Miss", payoutUsdc: 0n };
   }
   const payout = estimatePayoutUsdc(position, pool);
   return {
     state: "hit",
-    label: "已命中，可领取",
+    label: "Hit — claimable",
     payoutUsdc: payout,
   };
 }
@@ -476,11 +476,11 @@ export function effectiveSigmaTenths(pool: PoolView): number {
 export function formatPoolParameterLines(pool: PoolView): string[] {
   const lines: string[] = [
     `Vault: ${formatUsdcBaseUnits(pool.collateralUsdc)} USDC`,
-    `费率: ${pool.feeBps} bps（有效 ${effectiveFeeBps(pool)} bps）`,
+    `Fee: ${pool.feeBps} bps (effective ${effectiveFeeBps(pool)} bps)`,
   ];
 
   if (pool.kind === POOL_KIND_POISSON) {
-    lines.push(`λ = ${(pool.lambdaTenths / 10).toFixed(1)} 球/场`);
+    lines.push(`λ = ${(pool.lambdaTenths / 10).toFixed(1)} goals/match`);
   } else if (pool.kind === POOL_KIND_DIRICHLET) {
     const alphas =
       pool.dirichletAlphas.length > 0
@@ -501,15 +501,15 @@ export function formatPoolParameterLines(pool: PoolView): string[] {
 }
 
 export function formatTimeToMaturity(pool: PoolView, nowSec = Math.floor(Date.now() / 1000)): string {
-  if (pool.resolved) return "已到期并结算";
+  if (pool.resolved) return "Matured and settled";
   if (!pool.maturityTs) return "—";
   const delta = pool.maturityTs - nowSec;
-  if (delta <= 0) return "已到期待 Oracle 结算";
+  if (delta <= 0) return "Matured — awaiting Oracle";
   const days = Math.floor(delta / 86400);
   const hours = Math.floor((delta % 86400) / 3600);
-  if (days > 0) return `距到期 ${days} 天 ${hours} 小时`;
+  if (days > 0) return `Maturity in ${days}d ${hours}h`;
   const mins = Math.floor((delta % 3600) / 60);
-  return `距到期 ${hours} 小时 ${mins} 分`;
+  return `Maturity in ${hours}h ${mins}m`;
 }
 
 export function getPositionFilterState(

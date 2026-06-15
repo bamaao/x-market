@@ -10,12 +10,14 @@ import {
 } from "@/lib/indexer";
 import { DataTable } from "@/components/DataTable";
 import { PageHeader } from "@/components/PageHeader";
+import { useT } from "@/i18n/context";
 
 function formatUsdc(mist: string): string {
   return `${(Number(mist) / 1e6).toFixed(2)} USDC`;
 }
 
 export default function MetricsPage() {
+  const t = useT();
   const [daily, setDaily] = useState<IndexerProphetGmvDay[]>([]);
   const [totals, setTotals] = useState<IndexerProphetGmvTotals | null>(null);
   const [loading, setLoading] = useState(false);
@@ -23,9 +25,9 @@ export default function MetricsPage() {
   useEffect(() => {
     if (!indexerEnabled()) return;
     setLoading(true);
-    void fetchIndexerProphetGmv(30).then(({ daily: d, totals: t }) => {
+    void fetchIndexerProphetGmv(30).then(({ daily: d, totals: tot }) => {
       setDaily(d);
-      setTotals(t);
+      setTotals(tot);
       setLoading(false);
     });
   }, []);
@@ -33,52 +35,46 @@ export default function MetricsPage() {
   return (
     <div>
       <PageHeader
-        title="Prophet 运营指标"
-        subtitle={
-          <>
-            付费解锁 GMV 与审计量（Indexer <code>prophet_gmv_daily</code>）。
-          </>
-        }
+        title={t("metrics.title")}
+        subtitle={t("metrics.subtitle")}
       />
 
       {!indexerEnabled() && (
         <div className="card">
-          <p>
-            请配置 <code>NEXT_PUBLIC_INDEXER_URL</code> 后查看 GMV 指标。
-          </p>
+          <p>{t("metrics.indexerRequired")}</p>
         </div>
       )}
 
       {indexerEnabled() && (
         <div className="card">
-          <h2>近 30 日汇总</h2>
+          <h2>{t("metrics.summary30d")}</h2>
           {loading ? (
-            <p className="hint">加载中…</p>
+            <p className="hint">{t("common.loading")}</p>
           ) : totals ? (
             <dl className="meta">
-              <dt>解锁 GMV</dt>
+              <dt>{t("metrics.unlockGmv")}</dt>
               <dd>{formatUsdc(totals.total_gmv)}</dd>
-              <dt>解锁笔数</dt>
+              <dt>{t("metrics.unlockCount")}</dt>
               <dd>{totals.total_unlocks}</dd>
-              <dt>已审计预测</dt>
+              <dt>{t("metrics.audited")}</dt>
               <dd>{totals.total_audited}</dd>
             </dl>
           ) : (
-            <p className="hint">暂无数据。</p>
+            <p className="hint">{t("metrics.noData")}</p>
           )}
         </div>
       )}
 
       {indexerEnabled() && daily.length > 0 && (
         <div className="card">
-          <h2>日明细</h2>
+          <h2>{t("metrics.dailyTitle")}</h2>
           <DataTable>
             <thead>
               <tr>
-                <th>日期</th>
-                <th>解锁 GMV</th>
-                <th>笔数</th>
-                <th>审计</th>
+                <th>{t("metrics.colDate")}</th>
+                <th>{t("metrics.colGmv")}</th>
+                <th>{t("metrics.colCount")}</th>
+                <th>{t("metrics.colAudit")}</th>
               </tr>
             </thead>
             <tbody>
@@ -97,10 +93,10 @@ export default function MetricsPage() {
 
       <div className="btn-row">
         <Link href="/prophet" className="card" style={{ padding: "0.75rem 1rem" }}>
-          Prophet 主页
+          {t("metrics.prophetHome")}
         </Link>
         <Link href="/leaderboard" className="card" style={{ padding: "0.75rem 1rem" }}>
-          排行榜
+          {t("metrics.leaderboard")}
         </Link>
       </div>
     </div>

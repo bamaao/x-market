@@ -28,23 +28,16 @@ import {
   appendProposeData,
   appendProposeVerdict,
   appendRegisterDataFeedForPool,
-  assertionStatusLabel,
   bytesIdentifier,
-  claimedValueHint,
   decodeBytes,
   deriveOracleWorkflowStep,
   discoverArbitrationCaseForAssertion,
   discoverFeedForPool,
   extractCreatedObjectIdFromTx,
-  feedStatusLabel,
-  formatCountdown,
-  formatUnixTs,
   livenessRemainingSecs,
   marketKindFromPoolFields,
   normalizePoolObjectId,
   resolveFeedRegistryId,
-  verdictLabel,
-  workflowStepLabel,
 } from "@/lib/oracle";
 import { PACKAGE_ID, type MarketKind } from "@/lib/markets";
 import { usdcType } from "@/lib/usdc";
@@ -52,14 +45,24 @@ import { ArbitrationCasesPanel } from "@/components/ArbitrationCasesPanel";
 import { OracleMarketPicker } from "@/components/OracleMarketPicker";
 import { PageHeader } from "@/components/PageHeader";
 import { fetchIndexerMarket, fetchIndexerOracleQueue, indexerEnabled } from "@/lib/indexer";
+import {
+  localizedAssertionStatus,
+  localizedClaimedValueHint,
+  localizedCountdown,
+  localizedFeedStatus,
+  localizedFormatUnixTs,
+  localizedOracleWorkflowStep,
+  localizedVerdictLabel,
+} from "@/i18n/domain";
+import { useI18n, useT } from "@/i18n/context";
 
 const ARBITRATION_CASE_TYPE = `${PACKAGE_ID}::oracle_arbitrator::ArbitrationCase`;
 
 const FLOW_STEPS = [
-  { key: "propose", label: "1. 提议" },
-  { key: "liveness", label: "2. 争议窗口" },
-  { key: "settle", label: "3. 市场结算" },
-  { key: "claim", label: "4. 领取赔付" },
+  { key: "propose", labelKey: "oracle.flow.propose" },
+  { key: "liveness", labelKey: "oracle.flow.liveness" },
+  { key: "settle", labelKey: "oracle.flow.settle" },
+  { key: "claim", labelKey: "oracle.flow.claim" },
 ] as const;
 
 function flowStepIndex(
@@ -107,25 +110,30 @@ function initialPoolId(
   return "";
 }
 
+function OraclePageFallback() {
+  const t = useT();
+  return (
+    <>
+      <PageHeader
+        title={t("oracle.pageTitle")}
+        subtitle={t("oracle.pageSubtitle")}
+      />
+      <p className="hint">{t("common.loading")}</p>
+    </>
+  );
+}
+
 export default function OraclePage() {
   return (
-    <Suspense
-      fallback={
-        <>
-          <PageHeader
-            title="Oracle 结算"
-            subtitle="乐观预言机：提议 → 争议窗口 → 委员会终裁或 Finalize → 市场结算 → 领取"
-          />
-          <p className="hint">加载中…</p>
-        </>
-      }
-    >
+    <Suspense fallback={<OraclePageFallback />}>
       <OraclePageInner />
     </Suspense>
   );
 }
 
 function OraclePageInner() {
+  const t = useT();
+  const { locale } = useI18n();
   const account = useCurrentAccount();
   const client = useSuiClient();
   const router = useRouter();
@@ -163,7 +171,7 @@ function OraclePageInner() {
     (raw: string, updateUrl = true): boolean => {
       const normalized = normalizePoolObjectId(raw);
       if (!normalized) {
-        setPoolInputError("请输入有效的 Pool 对象 ID（0x + 64 位十六进制）");
+        setPoolInputError(t("oracle.invalidPoolId"));
         return false;
       }
       setPoolInputError(null);
@@ -176,7 +184,7 @@ function OraclePageInner() {
       }
       return true;
     },
-    [router, searchParams],
+    [router, searchParams, t],
   );
 
   useEffect(() => {
@@ -365,18 +373,18 @@ function OraclePageInner() {
           void refetchPool();
           void refetchCase();
         },
-        onError: (e) => setMsg(`失败: ${e.message}`),
+        onError: (e) => setMsg(t("trade.failed", { message: e.message })),
       },
     );
   };
 
   const splitUsdcBond = async (tx: Transaction, amount: bigint) => {
-    if (!account?.address) throw new Error("请先连接钱包");
+    if (!account?.address) throw new Error(t("oracle.errConnectWallet"));
     const coins = await client.getCoins({
       owner: account.address,
       coinType: usdcType(),
     });
-    if (!coins.data.length) throw new Error("钱包无 USDC");
+    if (!coins.data.length) throw new Error(t("oracle.errNoUsdc"));
     const [primary, ...rest] = coins.data;
     if (rest.length) {
       tx.mergeCoins(
@@ -391,7 +399,7 @@ function OraclePageInner() {
   };
 
   const propose = async () => {
-    if (!selectedFeedId || !poolId) return setMsg("请选择已注册的 Feed");
+    if (!selectedFeedId || !poolId) return setMsg(t("oracle.errSelectFeed"));
     try {
       const tx = new Transaction();
       const bond = await splitUsdcBond(tx, BigInt(bondMist));
@@ -407,14 +415,14 @@ function OraclePageInner() {
         { transaction: tx as any },
         {
           onSuccess: (r) => {
-            setMsg(`已提议: ${r.digest?.slice(0, 18)}…`);
+            setMsg(t("oracle.proposed", { digest: r.digest?.slice(0, 18) ?? "" }));
             void refetchFeed();
           },
-          onError: (e) => setMsg(`失败: ${e.message}`),
+          onError: (e) => setMsg(t("trade.failed", { message: e.message })),
         },
       );
     } catch (e) {
-      setMsg(`失败: ${e instanceof Error ? e.message : String(e)}`);
+      setMsg(t("trade.failed", { message: e instanceof Error ? e.message : String(e) }));
     }
   };
 
@@ -447,51 +455,51 @@ function OraclePageInner() {
   return (
     <>
       <PageHeader
-        title="Oracle 结算"
-        subtitle="乐观预言机：提议 → 争议窗口 → 委员会终裁或 Finalize → 市场结算 → 领取"
+        title={t("oracle.pageTitle")}
+        subtitle={t("oracle.pageSubtitle")}
       />
 
-      <div className="oracle-flow" aria-label="结算流程">
+      <div className="oracle-flow" aria-label={t("oracle.flowAria")}>
         {FLOW_STEPS.map((s, i) => {
           const done = i < activeFlowIdx;
           const active = i === activeFlowIdx;
           const settleHint =
             s.key === "settle" && workflowStep === "arbitration"
-              ? "（委员会）"
+              ? t("oracle.settleCommitteeHint")
               : s.key === "settle" && workflowStep === "finalize_or_dispute"
-                ? "（Finalize）"
+                ? t("oracle.settleFinalizeHint")
                 : "";
           return (
             <div
               key={s.key}
               className={`oracle-flow-step${active ? " active" : ""}${done ? " done" : ""}`}
             >
-              {s.label}
+              {t(s.labelKey)}
               {settleHint}
             </div>
           );
         })}
       </div>
       <p className="hint">
-        当前阶段：<strong>{workflowStepLabel(workflowStep)}</strong>
+        {t("oracle.currentStep", {
+          step: localizedOracleWorkflowStep(workflowStep, t),
+        })}
       </p>
 
-      {!account && <p className="hint">连接钱包后参与提议/争议/委员会投票。</p>}
+      {!account && <p className="hint">{t("oracle.connectHint")}</p>}
 
       {!ORACLE_CONFIG_ID && (
-        <p className="hint">
-          请配置 <code>NEXT_PUBLIC_ORACLE_CONFIG_ID</code>（含 FeedRegistry）。
-        </p>
+        <p className="hint">{t("oracle.configRequired")}</p>
       )}
 
       <div className="card panel">
-        <label htmlFor="oracle-pool-id">Pool 对象 ID</label>
+        <label htmlFor="oracle-pool-id">{t("oracle.poolIdLabel")}</label>
         <div className="oracle-pool-row">
           <input
             id="oracle-pool-id"
             className="mono"
             value={poolInput}
-            placeholder="0x… 粘贴 MarketPool 对象 ID"
+            placeholder={t("oracle.poolIdPlaceholder")}
             onChange={(e) => {
               setPoolInput(e.target.value);
               if (poolInputError) setPoolInputError(null);
@@ -505,19 +513,17 @@ function OraclePageInner() {
             className="secondary"
             onClick={() => applyPool(poolInput)}
           >
-            加载
+            {t("oracle.load")}
           </button>
         </div>
         {poolInputError && <p className="hint oracle-pool-error">{poolInputError}</p>}
-        <p className="hint">
-          支持 URL 深链 <code>/oracle?pool=0x…</code>；Feed 将按 Pool 链上自动发现。
-        </p>
+        <p className="hint">{t("oracle.deeplinkHint")}</p>
 
         <OracleMarketPicker poolId={poolId} onSelectPool={(id) => applyPool(id)} />
 
         {selectedPoolId && (
           <p className="hint">
-            当前 Pool: <code className="mono">{selectedPoolId}</code>
+            {t("oracle.currentPool")} <code className="mono">{selectedPoolId}</code>
             {marketMeta ? (
               <>
                 {" "}
@@ -529,25 +535,25 @@ function OraclePageInner() {
                 · <strong>{indexerMarketTitle}</strong>
               </>
             ) : poolObj?.data ? (
-              " · 链上 Pool"
+              t("oracle.onChainPool")
             ) : poolId ? (
-              " · 查询中…"
+              t("oracle.querying")
             ) : null}
           </p>
         )}
 
         <p className="hint">
-          Feed:{" "}
+          {t("oracle.feedLabel")}{" "}
           {feedDiscovering
-            ? "链上查询中…"
+            ? t("oracle.feedDiscovering")
             : selectedFeedId
               ? `${selectedFeedId.slice(0, 18)}…`
-              : "未注册（请用 create_*_with_feed 或下方补登记）"}
+              : t("oracle.feedNotRegistered")}
         </p>
 
         {!selectedFeedId && selectedPoolId && isPoolAuthority && registryId && (
           <>
-            <label>补登记 Feed（市场创建者）</label>
+            <label>{t("oracle.registerFeedLabel")}</label>
             <input
               value={feedIdentifier}
               onChange={(e) => setFeedIdentifier(e.target.value)}
@@ -578,44 +584,51 @@ function OraclePageInner() {
                   { transaction: tx as any },
                   {
                     onSuccess: (r) => {
-                      setMsg(`已注册 Feed: ${r.digest?.slice(0, 18)}…`);
+                      setMsg(t("oracle.feedRegistered", { digest: r.digest?.slice(0, 18) ?? "" }));
                       void refreshFeedDiscovery();
                     },
-                    onError: (e) => setMsg(`失败: ${e.message}`),
+                    onError: (e) => setMsg(t("trade.failed", { message: e.message })),
                   },
                 );
               }}
             >
-              注册结算 Feed
+              {t("oracle.registerFeedBtn")}
             </button>
           </>
         )}
 
         {feedSummary && (
           <div className="hint">
-            <p>标识: {feedSummary.identifier || "—"}</p>
-            <p>状态: {feedStatusLabel(feedSummary.status)}</p>
-            <p>事件时间: {formatUnixTs(feedSummary.eventTs)}</p>
-            <p>争议窗口: {feedSummary.livenessSecs / 3600}h</p>
-            <p>所需押金: {Number(feedSummary.bondRequired) / 1e6} USDC</p>
-            <p>固化值: {feedSummary.finalizedValue}</p>
-            <p>Pool 已结算: {poolResolved ? "是" : "否"}</p>
+            <p>{t("oracle.identifier")}: {feedSummary.identifier || t("common.dash")}</p>
+            <p>{t("oracle.status")}: {localizedFeedStatus(feedSummary.status, t)}</p>
+            <p>{t("oracle.eventTime")}: {localizedFormatUnixTs(feedSummary.eventTs, locale)}</p>
+            <p>{t("oracle.livenessWindow")}: {feedSummary.livenessSecs / 3600}h</p>
+            <p>{t("oracle.bondRequired")}: {Number(feedSummary.bondRequired) / 1e6} USDC</p>
+            <p>{t("oracle.finalizedValue")}: {feedSummary.finalizedValue}</p>
+            <p>
+              {t("oracle.poolSettledLabel")}:{" "}
+              {poolResolved ? t("oracle.yes") : t("oracle.no")}
+            </p>
             {activeAssertionId && (
               <p>
-                活跃 Assertion: <code>{activeAssertionId.slice(0, 16)}…</code>
+                {t("oracle.activeAssertion")}:{" "}
+                <code>{activeAssertionId.slice(0, 16)}…</code>
               </p>
             )}
           </div>
         )}
 
         <label>
-          提议结果
+          {t("oracle.proposeResult")}
           {effectiveMarketKind && (
-            <span className="hint"> — {claimedValueHint(effectiveMarketKind)}</span>
+            <span className="hint">
+              {" "}
+              — {localizedClaimedValueHint(effectiveMarketKind, t)}
+            </span>
           )}
         </label>
         <input value={claimedValue} onChange={(e) => setClaimedValue(e.target.value)} />
-        <label>提议押金 (USDC base units)</label>
+        <label>{t("oracle.proposeBond")}</label>
         <input value={bondMist} onChange={(e) => setBondMist(e.target.value)} />
 
         <div className="btn-row">
@@ -627,7 +640,7 @@ function OraclePageInner() {
             }
             onClick={() => void propose()}
           >
-            提议结果
+            {t("oracle.proposeBtn")}
           </button>
           <button
             type="button"
@@ -636,17 +649,17 @@ function OraclePageInner() {
             onClick={() =>
               void runTx(
                 (tx) => appendNullifyFeed(tx, selectedFeedId),
-                "已熔断 Feed",
+                t("oracle.nullifiedFeed"),
               )
             }
           >
-            熔断（72h 无提议）
+            {t("oracle.nullifyFeed")}
           </button>
         </div>
       </div>
 
       <div className="card panel">
-        <h2>争议 / Finalize</h2>
+        <h2>{t("oracle.disputeSection")}</h2>
         <label>Assertion ID</label>
         <input
           value={assertionId}
@@ -655,15 +668,24 @@ function OraclePageInner() {
         />
         {assertionFields && (
           <p className="hint">
-            状态: {assertionStatusLabel(assertionStatus)} · 提议值:{" "}
-            {String(assertionFields.claimed_value ?? "—")} · 截止:{" "}
-            {formatUnixTs(livenessEnd)}
-            {assertionStatus === 0 && (
-              <> · 剩余: {formatCountdown(livenessRemain)}</>
-            )}
-            {canFinalize && " · 可 finalize"}
-            {isInArbitration &&
-              (isUmaDvmAdapter ? " · 等待 UMA DVM Relayer 终裁" : " · 等待委员会终裁")}
+            {t("oracle.assertionLine", {
+              status: localizedAssertionStatus(assertionStatus, t),
+              value: String(assertionFields.claimed_value ?? t("common.dash")),
+              deadline: localizedFormatUnixTs(livenessEnd, locale),
+              extra: `${
+                assertionStatus === 0
+                  ? t("oracle.remaining", {
+                      countdown: localizedCountdown(livenessRemain, t),
+                    })
+                  : ""
+              }${canFinalize ? t("oracle.canFinalize") : ""}${
+                isInArbitration
+                  ? isUmaDvmAdapter
+                    ? t("oracle.waitingUma")
+                    : t("oracle.waitingCommittee")
+                  : ""
+              }`,
+            })}
           </p>
         )}
         <div className="btn-row">
@@ -709,22 +731,26 @@ function OraclePageInner() {
                       if (discovered) setCaseId(discovered);
                       setMsg(
                         discovered
-                          ? `已争议并立案，Case: ${discovered.slice(0, 18)}…`
-                          : `已争议并立案: ${r.digest?.slice(0, 18)}…（Case 自动发现中）`,
+                          ? t("oracle.disputedWithCase", {
+                              case: discovered.slice(0, 18),
+                            })
+                          : t("oracle.disputedDiscovering", {
+                              digest: r.digest?.slice(0, 18) ?? "",
+                            }),
                       );
                       void refetchAssertion();
                       void refetchFeed();
                       if (discovered) void refetchCase();
                     },
-                    onError: (e) => setMsg(`失败: ${e.message}`),
+                    onError: (e) => setMsg(t("trade.failed", { message: e.message })),
                   },
                 );
               } catch (e) {
-                setMsg(`失败: ${e instanceof Error ? e.message : String(e)}`);
+                setMsg(t("trade.failed", { message: e instanceof Error ? e.message : String(e) }));
               }
             }}
           >
-            争议并立案
+            {t("oracle.disputeBtn")}
           </button>
           <button
             type="button"
@@ -741,30 +767,28 @@ function OraclePageInner() {
                     poolId,
                     effectiveAssertionId,
                   ),
-                "已 finalize 并结算市场",
+                t("oracle.finalizedMarket"),
               )
             }
           >
-            Finalize（无争议）
+            {t("oracle.finalizeBtn")}
           </button>
         </div>
       </div>
 
       <div className="card panel">
-        <h2>{isUmaDvmAdapter ? "UMA DVM 终裁" : "委员会终裁"}</h2>
+        <h2>{isUmaDvmAdapter ? t("oracle.umaSection") : t("oracle.committeeSection")}</h2>
         <p className="hint">
-          {isUmaDvmAdapter
-            ? "争议已出站至 UMA DVM；allowlisted Relayer 在投票完成后调用 execute_uma_dvm_arbitration。委员多签按钮已禁用。"
-            : "委员多签投票 → 达阈值后执行回调。非 Admin 单方裁决。"}
+          {isUmaDvmAdapter ? t("oracle.umaHint") : t("oracle.committeeHint")}
         </p>
-        <label>ArbitrationCase ID</label>
+        <label>{t("oracle.caseIdLabel")}</label>
         <input
           value={caseId}
           onChange={(e) => setCaseId(e.target.value)}
           placeholder={
             isInArbitration
-              ? "争议后自动发现，也可手动粘贴"
-              : "争议交易返回的 Case 对象 ID"
+              ? t("oracle.casePlaceholderAuto")
+              : t("oracle.casePlaceholderManual")
           }
         />
         {isInArbitration && !caseId && (
@@ -779,25 +803,31 @@ function OraclePageInner() {
                 if (id) {
                   setCaseId(id);
                   void refetchCase();
-                } else setMsg("未找到 Case，请稍后重试或粘贴 ID");
+                } else setMsg(t("oracle.caseNotFound"));
               });
             }}
           >
-            按 Assertion 重新发现 Case
+            {t("oracle.rediscoverCase")}
           </button>
         )}
         {caseFields && (
           <p className="hint">
-            裁决: {verdictLabel(caseVerdict)} · 采纳值:{" "}
-            {String(caseFields.resolved_value ?? "—")} · 票数: {caseApprovals}/
-            {caseThreshold}
-            {caseExecuted ? " · 已执行" : ""}
+            {t("oracle.verdictLine", {
+              verdict: localizedVerdictLabel(caseVerdict, t),
+              value: String(caseFields.resolved_value ?? t("common.dash")),
+              approvals: caseApprovals,
+              threshold: caseThreshold,
+              executed: caseExecuted ? t("oracle.executed") : "",
+            })}
           </p>
         )}
         <label>
-          挑战者胜诉时的采纳值
+          {t("oracle.disputerValueLabel")}
           {effectiveMarketKind && (
-            <span className="hint"> — {claimedValueHint(effectiveMarketKind)}</span>
+            <span className="hint">
+              {" "}
+              — {localizedClaimedValueHint(effectiveMarketKind, t)}
+            </span>
           )}
         </label>
         <input
@@ -826,11 +856,11 @@ function OraclePageInner() {
                     VERDICT_PROPOSER_WINS,
                     0n,
                   ),
-                "委员：提议者胜诉",
+                t("oracle.proposeProposerWins"),
               )
             }
           >
-            提案·提议者胜
+            {t("oracle.proposeProposerWins")}
           </button>
           <button
             type="button"
@@ -853,11 +883,11 @@ function OraclePageInner() {
                     VERDICT_DISPUTER_WINS,
                     BigInt(arbitrationValue),
                   ),
-                "委员：挑战者胜诉",
+                t("oracle.proposeDisputerWins"),
               )
             }
           >
-            提案·挑战者胜
+            {t("oracle.proposeDisputerWins")}
           </button>
           <button
             type="button"
@@ -880,11 +910,11 @@ function OraclePageInner() {
                     VERDICT_UNRESOLVED,
                     0n,
                   ),
-                "委员：无法裁决",
+                t("oracle.proposeUnresolved"),
               )
             }
           >
-            提案·无法裁决
+            {t("oracle.proposeUnresolved")}
           </button>
           <button
             type="button"
@@ -900,11 +930,11 @@ function OraclePageInner() {
             onClick={() =>
               void runTx(
                 (tx) => appendApproveVerdict(tx, ORACLE_ARBITRATOR_ID, caseId),
-                "委员：附议",
+                t("oracle.approveVerdict"),
               )
             }
           >
-            附议
+            {t("oracle.approveVerdict")}
           </button>
           <button
             type="button"
@@ -932,11 +962,11 @@ function OraclePageInner() {
                     poolId,
                     effectiveAssertionId,
                   ),
-                "委员会终裁已上链",
+                t("oracle.committeeExecuted"),
               )
             }
           >
-            执行终裁
+            {t("oracle.executeArbitration")}
           </button>
         </div>
       </div>
@@ -944,29 +974,24 @@ function OraclePageInner() {
       {poolResolved && (
         <div className="oracle-claim-banner">
           <p>
-            市场已结算
+            {t("oracle.settledBanner")}
             {poolFields?.resolved_value != null && (
               <>
-                ，结果 slot/值:{" "}
+                {t("oracle.settledResult")}{" "}
                 <code>{String(poolFields.resolved_value)}</code>
               </>
             )}
-            。获胜方可前往持仓页领取赔付。
+            . {t("oracle.claimHint")}
           </p>
           <p style={{ marginTop: "0.75rem" }}>
-            <Link href="/positions">前往持仓领取 →</Link>
+            <Link href="/positions">{t("oracle.goClaim")}</Link>
           </p>
         </div>
       )}
 
       {msg && <p className="hint">{msg}</p>}
 
-      <p className="hint">
-        新产品路径：<code>create_*_pool_with_feed</code> 同一 PTB 自动注册；
-        旧池可由创建者 <code>register_data_feed_for_pool</code> 补登。
-        Feed 通过 <code>FeedRegistry</code> 按 <code>market_id</code> 链上发现，无需{" "}
-        <code>ORACLE_FEED_*</code> env。
-      </p>
+      <p className="hint">{t("oracle.productHint")}</p>
 
       <ArbitrationCasesPanel />
     </>

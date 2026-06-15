@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:x_market_flutter/src/app/app_controller.dart';
+import 'package:x_market_flutter/src/l10n/l10n_ext.dart';
+import 'package:x_market_flutter/src/l10n/l10n_helpers.dart';
 import 'package:x_market_flutter/src/models/sui_models.dart';
 import 'package:x_market_flutter/src/widgets/connect_banner.dart';
 import 'package:x_market_flutter/src/screens/market_detail_screen.dart';
@@ -64,13 +66,14 @@ class _IndexerSourceBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final colorScheme = Theme.of(context).colorScheme;
     final online = app.indexerReachable;
     final label = !online
-        ? 'Indexer 离线 · 使用种子池配置'
+        ? l10n.indexerOfflineUsingSeeds
         : app.marketSourceIsIndexer
-        ? 'Indexer API 实时同步'
-        : '种子池配置（Indexer 无匹配元数据）';
+        ? l10n.indexerApiLive
+        : l10n.seedsNoIndexerMetadata;
 
     return Row(
       children: [
@@ -99,6 +102,7 @@ class _MarketCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -109,7 +113,7 @@ class _MarketCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                market.label,
+                displayMarketLabel(l10n, market),
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               if (market.description != null && market.description!.isNotEmpty) ...[
@@ -140,7 +144,10 @@ class _MarketCard extends StatelessWidget {
                 ),
               ],
               Text(
-                '抵押 ${AppController.formatUsdc(market.collateralUsdc)} USDC · fee ${market.feeBps} bps',
+                l10n.collateralUsdcFee(
+                  AppController.formatUsdc(market.collateralUsdc),
+                  market.feeBps,
+                ),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],

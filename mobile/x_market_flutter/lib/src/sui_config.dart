@@ -18,10 +18,10 @@ class SuiConfig {
   static const String ipfsGatewayUrl = 'https://w3s.link';
 
   static const List<SeedPool> seedPools = [
-    SeedPool(id: '0xd06cc96ccceb7f974821613216388f1a63bee0c94af76946c7d405e62582bdfa', label: '足球总进球 · Poisson', kind: 'poisson'),
-    SeedPool(id: '0xe600bb7269c52205af6c4c10e0eac1ae57aac409ddecb3223297d47a587563bf', label: '胜平负 · Dirichlet', kind: 'dirichlet'),
-    SeedPool(id: '0x9b33a323620edfd2fca3328c59b34d99b4250d77f8322677faed7b91bcd60cdc', label: 'CPI 区间 · Normal', kind: 'normal'),
-    SeedPool(id: '0x4ef004ec7e21ce04c5a085ee45ac30309133b90f46e950a6a3dec3354c1018f6', label: '得票率 · Beta', kind: 'beta'),
+    SeedPool(id: '0xd06cc96ccceb7f974821613216388f1a63bee0c94af76946c7d405e62582bdfa', label: 'Total goals · Poisson', kind: 'poisson'),
+    SeedPool(id: '0xe600bb7269c52205af6c4c10e0eac1ae57aac409ddecb3223297d47a587563bf', label: 'Win / Draw / Loss · Dirichlet', kind: 'dirichlet'),
+    SeedPool(id: '0x9b33a323620edfd2fca3328c59b34d99b4250d77f8322677faed7b91bcd60cdc', label: 'CPI range · Normal', kind: 'normal'),
+    SeedPool(id: '0x4ef004ec7e21ce04c5a085ee45ac30309133b90f46e950a6a3dec3354c1018f6', label: 'Vote share · Beta', kind: 'beta'),
   ];
 }
 

@@ -10,12 +10,15 @@ import {
   type IndexerOracleQueueItem,
 } from "@/lib/indexer";
 import {
-  formatMaturityTs,
   ORACLE_QUEUE_FILTERS,
   oracleQueueStatusClass,
-  oracleQueueStatusLabel,
   type OracleQueueFilter,
+  type OracleQueueStatus,
 } from "@/lib/oracle-queue";
+import { localizedFormatUnixTs, localizedOracleQueueFilter, localizedOracleQueueStatus } from "@/i18n/domain";
+import { useI18n, useT } from "@/i18n/context";
+import type { Locale } from "@/i18n/types";
+import type { Translator } from "@/i18n/core";
 import { VirtualScrollList } from "@/components/VirtualScrollList";
 
 const KIND_LABELS: Record<string, string> = {
@@ -25,7 +28,6 @@ const KIND_LABELS: Record<string, string> = {
   beta: "Beta",
 };
 
-/** Fixed row height for virtual scroll (includes gap). */
 const ORACLE_MARKET_ROW_HEIGHT = 100;
 
 type Props = {
@@ -74,14 +76,24 @@ function mergeQueueItems(
   return merged;
 }
 
+function formatMaturityTs(ts: string | number, locale: Locale): string {
+  const n = Number(ts);
+  if (!n) return "—";
+  return localizedFormatUnixTs(n, locale);
+}
+
 function OracleMarketRow({
   item,
   active,
   onSelect,
+  t,
+  locale,
 }: {
   item: IndexerOracleQueueItem;
   active: boolean;
   onSelect: () => void;
+  t: Translator;
+  locale: Locale;
 }) {
   const kind = item.kind as MarketKind;
   return (
@@ -96,8 +108,8 @@ function OracleMarketRow({
         <span className={`badge badge-${kind}`}>
           {KIND_LABELS[kind] ?? item.kind}
         </span>
-        <span className={oracleQueueStatusClass(item.queue_status)}>
-          {oracleQueueStatusLabel(item.queue_status)}
+        <span className={oracleQueueStatusClass(item.queue_status as OracleQueueStatus)}>
+          {localizedOracleQueueStatus(item.queue_status as OracleQueueStatus, t)}
         </span>
       </div>
       <strong className="oracle-market-row-title">{item.title}</strong>
@@ -105,7 +117,9 @@ function OracleMarketRow({
         <p className="oracle-market-row-desc">{item.description}</p>
       )}
       <div className="prophet-market-item-foot">
-        <span>到期 {formatMaturityTs(item.maturity_ts)}</span>
+        <span>
+          {t("oracle.maturityLabel")} {formatMaturityTs(item.maturity_ts, locale)}
+        </span>
         <code className="mono">{item.pool_id.slice(0, 10)}…</code>
       </div>
     </button>
@@ -113,6 +127,8 @@ function OracleMarketRow({
 }
 
 export function OracleMarketPicker({ poolId, onSelectPool }: Props) {
+  const t = useT();
+  const { locale } = useI18n();
   const [queueFilter, setQueueFilter] = useState<OracleQueueFilter>("actionable");
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -163,7 +179,7 @@ export function OracleMarketPicker({ poolId, onSelectPool }: Props) {
         setHasMore(pagination?.has_more ?? false);
         setNextOffset(offset + rows.length);
       } catch {
-        setLoadError("加载市场列表失败");
+        setLoadError(t("oracle.pickerLoadFailed"));
         if (!append) {
           const fallback = seedFallbackItems(debouncedQuery);
           setItems(fallback);
@@ -180,7 +196,7 @@ export function OracleMarketPicker({ poolId, onSelectPool }: Props) {
         }
       }
     },
-    [debouncedQuery, queueFilter],
+    [debouncedQuery, queueFilter, t],
   );
 
   useEffect(() => {
@@ -193,13 +209,13 @@ export function OracleMarketPicker({ poolId, onSelectPool }: Props) {
   }, [loading, loadingMore, hasMore, nextOffset, loadPage]);
 
   const emptyMessage = debouncedQuery
-    ? "无匹配市场，请调整搜索词或使用 Pool ID 直达"
-    : "暂无待办市场（未到期或已全部结算）";
+    ? t("oracle.pickerEmptySearch")
+    : t("oracle.pickerEmpty");
 
   return (
     <div className="prophet-market-picker oracle-market-picker">
       <div className="prophet-market-picker-toolbar">
-        <div className="prophet-kind-tabs" role="tablist" aria-label="Oracle 待办筛选">
+        <div className="prophet-kind-tabs" role="tablist" aria-label={t("oracle.pickerFilterAria")}>
           {ORACLE_QUEUE_FILTERS.map((f) => (
             <button
               key={f.value}
@@ -210,32 +226,33 @@ export function OracleMarketPicker({ poolId, onSelectPool }: Props) {
               disabled={debouncedQuery.length >= 2}
               onClick={() => setQueueFilter(f.value)}
             >
-              {f.label}
+              {localizedOracleQueueFilter(f.value, t)}
             </button>
           ))}
         </div>
         <input
           type="search"
           className="prophet-market-search"
-          placeholder="搜索标题、slug 或 Pool ID…"
+          placeholder={t("markets.searchPlaceholder")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          aria-label="搜索市场"
+          aria-label={t("markets.searchAria")}
         />
       </div>
 
       <p className="hint prophet-market-picker-meta">
         {!indexerEnabled() ? (
-          "Indexer 未配置，显示种子市场本地列表"
+          t("oracle.pickerIndexerFallback")
         ) : loading && items.length === 0 ? (
-          "正在加载待办市场…"
+          t("oracle.pickerLoading")
         ) : (
           <>
             {indexerEnabled() && total > 0
-              ? `共 ${total} 个 · 已加载 ${items.length} 个`
-              : `结果 ${items.length} 个`}
-            {debouncedQuery.length >= 2 && ` · 搜索「${debouncedQuery}」`}
-            {loadingMore && " · 加载更多…"}
+              ? t("oracle.pickerMeta", { total, loaded: items.length })
+              : t("oracle.pickerResults", { count: items.length })}
+            {debouncedQuery.length >= 2 &&
+              t("oracle.pickerSearching", { q: debouncedQuery })}
+            {loadingMore && t("oracle.pickerLoadingMore")}
             {loadError && ` · ${loadError}`}
           </>
         )}
@@ -252,7 +269,7 @@ export function OracleMarketPicker({ poolId, onSelectPool }: Props) {
           !loading ? (
             <div className="prophet-market-empty">{emptyMessage}</div>
           ) : (
-            <div className="prophet-market-empty">加载中…</div>
+            <div className="prophet-market-empty">{t("common.loading")}</div>
           )
         }
         renderItem={(item, _index, { active }) => (
@@ -260,17 +277,17 @@ export function OracleMarketPicker({ poolId, onSelectPool }: Props) {
             item={item}
             active={active || item.pool_id === poolId}
             onSelect={() => onSelectPool(item.pool_id)}
+            t={t}
+            locale={locale}
           />
         )}
         scrollToKey={poolId || null}
         selectedKey={poolId || null}
         keyboardNav
         onSelectKey={onSelectPool}
-        aria-label="Oracle 市场待办"
+        aria-label={t("oracle.pickerAria")}
       />
-      <p className="hint oracle-list-kbd-hint">
-        列表聚焦后可用 ↑↓ 浏览、Enter 选中；滚到底自动加载更多。
-      </p>
+      <p className="hint oracle-list-kbd-hint">{t("prophet.pickerKbdHint")}</p>
     </div>
   );
 }

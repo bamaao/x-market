@@ -144,6 +144,6 @@ export function eventRootStatusLabel(status: number): string {
     case 4:
       return "Nullified";
     default:
-      return `未知(${status})`;
+      return `Unknown(${status})`;
   }
 }

@@ -45,38 +45,38 @@ export function textToBytes(text: string): number[] {
 }
 
 export function validateCreateMarketParams(p: CreateMarketParams): string | null {
-  if (!p.title.trim()) return "请填写市场标题";
-  if (!p.slug.trim()) return "请填写 slug";
+  if (!p.title.trim()) return "createMarket.validation.titleRequired";
+  if (!p.slug.trim()) return "createMarket.validation.slugRequired";
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(p.slug)) {
-    return "slug 仅允许小写字母、数字与连字符";
+    return "createMarket.validation.slugFormat";
   }
   if (!Number.isFinite(p.maturityTs) || p.maturityTs <= 0) {
-    return "请填写有效的到期时间";
+    return "createMarket.validation.maturityRequired";
   }
   if (p.maturityTs <= Math.floor(Date.now() / 1000) + 3600) {
-    return "到期时间须至少 1 小时后（链上按 UTC Unix 秒存储）";
+    return "createMarket.validation.maturityMinHour";
   }
-  if (p.feeBps < 0 || p.feeBps > 500) return "费率须在 0–500 bps";
-  if (!p.feedIdentifier.trim()) return "请填写 Oracle Feed 标识";
-  if (!ORACLE_CONFIG_ID) return "未配置 NEXT_PUBLIC_ORACLE_CONFIG_ID";
+  if (p.feeBps < 0 || p.feeBps > 500) return "createMarket.validation.feeRange";
+  if (!p.feedIdentifier.trim()) return "createMarket.validation.feedRequired";
+  if (!ORACLE_CONFIG_ID) return "createMarket.validation.oracleConfigMissing";
 
   switch (p.kind) {
     case "poisson":
       if ((p.lambdaTenths ?? 0) <= 0 || (p.lambdaTenths ?? 0) > 80) {
-        return "Poisson λ（tenths）须在 1–80";
+        return "createMarket.validation.poissonLambda";
       }
       break;
     case "dirichlet":
       if ([p.alpha0, p.alpha1, p.alpha2].some((v) => (v ?? 0) <= 0)) {
-        return "Dirichlet α 须为正整数";
+        return "createMarket.validation.dirichletAlpha";
       }
       break;
     case "normal":
-      if ((p.sigmaTenths ?? 0) <= 0) return "Normal σ（tenths）须 > 0";
+      if ((p.sigmaTenths ?? 0) <= 0) return "createMarket.validation.normalSigma";
       break;
     case "beta":
       if ((p.betaAlpha ?? 0) <= 0 || (p.betaBeta ?? 0) <= 0) {
-        return "Beta α/β 须为正整数";
+        return "createMarket.validation.betaParams";
       }
       break;
   }

@@ -9,10 +9,12 @@ import {
   indexerEnabled,
   type IndexerIvPoint,
 } from "@/lib/indexer";
+import { useT } from "@/i18n/context";
 
 type Props = { market: SeedMarket };
 
 export function IvPanel({ market }: Props) {
+  const t = useT();
   const [poolId, setPoolId] = useState(() => defaultPoolId(market));
   const { data, isPending, refetch } = useSuiClientQuery(
     "getObject",
@@ -44,27 +46,27 @@ export function IvPanel({ market }: Props) {
 
   return (
     <div className="card panel">
-      <h2>IV / LP Guard 面板</h2>
-      <label>Pool ID</label>
+      <h2>{t("iv.title")}</h2>
+      <label>{t("iv.poolId")}</label>
       <input value={poolId} onChange={(e) => setPoolId(e.target.value)} />
       <button type="button" className="secondary" onClick={() => refetch()}>
-        刷新
+        {t("common.refresh")}
       </button>
-      {isPending && <p className="hint">加载中…</p>}
+      {isPending && <p className="hint">{t("common.loading")}</p>}
       {!isPending && fields && (
         <ul className="pos-meta">
-          <li>基础 sigma: {sigmaBase}</li>
-          <li>虚拟 sigma: +{sigmaVirtual}</li>
-          <li>有效 sigma: {sigmaBase + sigmaVirtual}</li>
-          <li>基础费率: {feeBase} bps</li>
-          <li>费率乘数: +{feeMult} bps</li>
-          <li>有效费率: {feeEff} bps</li>
+          <li>{t("iv.sigmaBase")}: {sigmaBase}</li>
+          <li>{t("iv.sigmaVirtual")}: +{sigmaVirtual}</li>
+          <li>{t("iv.sigmaEffective")}: {sigmaBase + sigmaVirtual}</li>
+          <li>{t("iv.feeBase")}: {feeBase} bps</li>
+          <li>{t("iv.feeMult")}: +{feeMult} bps</li>
+          <li>{t("iv.feeEffective")}: {feeEff} bps</li>
         </ul>
       )}
       {indexerEnabled() && ivHistory.length > 0 && (
         <div style={{ marginTop: "1rem" }}>
-          <h3 style={{ fontSize: "0.9rem" }}>Vol Crush 曲线（Indexer）</h3>
-          <p className="hint">τ→0 时 vol_crush_bps 收敛；最近 {ivHistory.length} 个采样点</p>
+          <h3 style={{ fontSize: "0.9rem" }}>{t("iv.volCrushTitle")}</h3>
+          <p className="hint">{t("iv.volCrushHint", { count: ivHistory.length })}</p>
           <div
             style={{
               display: "flex",
@@ -92,9 +94,9 @@ export function IvPanel({ market }: Props) {
             })}
           </div>
           <ul className="pos-meta" style={{ marginTop: 8 }}>
-            <li>最新 IV tenths: {ivHistory[0]?.iv_tenths ?? "—"}</li>
-            <li>最新 τ: {((ivHistory[0]?.tau_bps ?? 0) / 100).toFixed(1)}%</li>
-            <li>最新 Vol Crush: {ivHistory[0]?.vol_crush_bps ?? "—"} bps</li>
+            <li>{t("iv.latestIv")}: {ivHistory[0]?.iv_tenths ?? t("common.dash")}</li>
+            <li>{t("iv.latestTau")}: {((ivHistory[0]?.tau_bps ?? 0) / 100).toFixed(1)}%</li>
+            <li>{t("iv.latestVolCrush")}: {ivHistory[0]?.vol_crush_bps ?? t("common.dash")} bps</li>
           </ul>
         </div>
       )}

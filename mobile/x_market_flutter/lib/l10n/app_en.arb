@@ -1,0 +1,376 @@
+{
+  "@@locale": "en",
+  "appTitle": "X-Market",
+  "navMarkets": "Markets",
+  "navPositions": "Positions",
+  "navLp": "LP",
+  "navProphet": "Prophet",
+  "navMargin": "Margin",
+  "navWallet": "Wallet",
+  "indexerOfflineUsingSeeds": "Indexer offline · using seed pool config",
+  "indexerApiLive": "Indexer API live sync",
+  "seedsNoIndexerMetadata": "Seed pool config (no Indexer metadata match)",
+  "collateralUsdcFee": "Collateral {amount} USDC · fee {feeBps} bps",
+  "@collateralUsdcFee": {
+    "placeholders": {
+      "amount": {"type": "String"},
+      "feeBps": {"type": "int"}
+    }
+  },
+  "connectPhantomToTrade": "Connect Phantom wallet to trade",
+  "connect": "Connect",
+  "noPositions": "No positions yet",
+  "claimed": "Claimed",
+  "missingPoolId": "Cannot link pool ID (on-chain market_id missing)",
+  "claimPayout": "Claim payout",
+  "noLpShares": "No LP shares yet",
+  "lpShares": "Shares {amount}",
+  "@lpShares": {
+    "placeholders": {
+      "amount": {"type": "String"}
+    }
+  },
+  "redeemLp": "Redeem LP",
+  "phantomWallet": "Phantom Wallet",
+  "notConnectedTestnet": "Not connected · Testnet",
+  "disconnect": "Disconnect",
+  "connectPhantom": "Connect Phantom",
+  "testnetUsdcHint": "Get testnet USDC from the Circle faucet or transfer to your wallet",
+  "refreshBalanceAndAssets": "Refresh balance & assets",
+  "recentTx": "Recent: {message}",
+  "@recentTx": {
+    "placeholders": {
+      "message": {"type": "String"}
+    }
+  },
+  "testnetYear": "Testnet · {year}",
+  "@testnetYear": {
+    "placeholders": {
+      "year": {"type": "int"}
+    }
+  },
+  "crossMarginVarTitle": "Cross-Margin VaR (estimate)",
+  "crossMarginVarWithPositions": "Aggregated worst-case across {count} positions, 15 outcome slots",
+  "@crossMarginVarWithPositions": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "crossMarginVarDefault": "Aggregated worst-case across 15 outcome slots",
+  "marginVarSubtitle": "Wallet portfolio estimate; on-chain liability applies after registration",
+  "marketForOpenAccount": "Market (open account)",
+  "openMarginAccount": "Open margin account",
+  "marginAccountIdHint": "Tap an account card below to auto-fill",
+  "positionSamePool": "Position (same pool)",
+  "registerPosition": "Register position",
+  "unregisterPosition": "Unregister",
+  "marginAccountSummary": "Positions {count} · Gross {gross} USDC · Worst {worst} USDC\n{id}",
+  "@marginAccountSummary": {
+    "placeholders": {
+      "count": {"type": "int"},
+      "gross": {"type": "String"},
+      "worst": {"type": "String"},
+      "id": {"type": "String"}
+    }
+  },
+  "tabTrade": "Trade",
+  "tabAuction": "Auction",
+  "gasStationEnabled": "Gas Station enabled: sponsor pays gas (USDC still from your wallet)",
+  "gasStationOffline": "Gas Station offline: gas deducted from wallet SUI",
+  "outcome012": "Outcome 0/1/2",
+  "contractType": "Contract type",
+  "stakeUsdc": "Stake (USDC)",
+  "lowerBoundPermille": "Lower bound ‰",
+  "upperBoundPermille": "Upper bound ‰",
+  "lowerBound": "Lower bound",
+  "upperBound": "Upper bound",
+  "threshold": "Threshold",
+  "strikeK": "Strike K",
+  "barrierB": "Barrier B",
+  "subscribeUsdc": "Subscribe USDC",
+  "lpSubscribe": "LP subscribe",
+  "auctionNotSupported": "Opening Auction not supported for this market",
+  "bucketIndex": "Bucket index",
+  "bidUsdc": "Bid USDC",
+  "auctionBid": "Place auction bid",
+  "finalizeAuction": "Finalize auction",
+  "quoteBetaUnsupported": "Quote preview: Beta / exotic contracts not supported by Pricing Engine",
+  "quoteUnavailable": "Quote preview unavailable (Pricing Engine offline or not configured)",
+  "quoteTitle": "Quote preview (off-chain estimate)",
+  "quoteWinProb": "Win probability ~ {percent}%",
+  "@quoteWinProb": {
+    "placeholders": {
+      "percent": {"type": "String"}
+    }
+  },
+  "quotePayout": "Payout if hit ~ {amount} USDC",
+  "@quotePayout": {
+    "placeholders": {
+      "amount": {"type": "String"}
+    }
+  },
+  "quoteImpliedRoi": "Implied ROI {roi}%",
+  "@quoteImpliedRoi": {
+    "placeholders": {
+      "roi": {"type": "String"}
+    }
+  },
+  "buyWithGasSponsor": "Sign with Phantom & buy (gas sponsored)",
+  "buyWithPhantom": "Sign with Phantom & buy",
+  "contractInterval": "Interval",
+  "contractDigital": "Digital option",
+  "contractLinearCall": "Linear Call",
+  "contractLinearPut": "Linear Put",
+  "tabPublish": "Publish",
+  "tabLeaderboard": "Leaderboard",
+  "selectMarket": "Please select a market",
+  "cannotSubmit": "Cannot submit",
+  "fillAnalysis": "Please enter analysis content",
+  "predictedValueMustBeInt": "Predicted value must be an integer",
+  "committingProphecy": "Uploading to Indexer → on-chain Commit…",
+  "myStats": "My record: {wins}W {losses}L · Score {score} · Audited {audited}",
+  "@myStats": {
+    "placeholders": {
+      "wins": {"type": "int"},
+      "losses": {"type": "int"},
+      "score": {"type": "String"},
+      "audited": {"type": "int"}
+    }
+  },
+  "targetMarket": "Target market",
+  "predictedValue": "Predicted value",
+  "predictedValueHelper": "Same settlement unit as {kind} distribution",
+  "@predictedValueHelper": {
+    "placeholders": {
+      "kind": {"type": "String"}
+    }
+  },
+  "exclusiveAnalysis": "Exclusive analysis (plaintext)",
+  "mobileP3Hint": "Mobile P3: public practice only (unlock_price=0). Paid Seal predictions use Web /prophet.",
+  "processing": "Processing…",
+  "commitPublicProphecy": "Indexer plaintext → Commit public prediction",
+  "poolProphecies": "Predictions for this market",
+  "noProphecies": "No predictions yet",
+  "selectProphecy": "Select prediction",
+  "prophecyStatus": "Status: {status}",
+  "@prophecyStatus": {
+    "placeholders": {
+      "status": {"type": "String"}
+    }
+  },
+  "prophecyValue": "Predicted value: {value}",
+  "@prophecyValue": {
+    "placeholders": {
+      "value": {"type": "String"}
+    }
+  },
+  "prophecyPublicReadable": "Publicly readable",
+  "prophecyPrivateWeb": "Private (unlock via Web / Seal)",
+  "analysisContent": "Analysis content",
+  "leaderboardEmpty": "Indexer offline or no leaderboard data",
+  "leaderboardMe": "Me ({address}…)",
+  "@leaderboardMe": {
+    "placeholders": {
+      "address": {"type": "String"}
+    }
+  },
+  "leaderboardRow": "{wins}W {losses}L · Score {score}{paid}",
+  "@leaderboardRow": {
+    "placeholders": {
+      "wins": {"type": "int"},
+      "losses": {"type": "int"},
+      "score": {"type": "String"},
+      "paid": {"type": "String"}
+    }
+  },
+  "paidUnlockEnabled": " · Paid unlock enabled",
+  "prophecyStatusOpen": "Open",
+  "prophecyStatusWin": "Audited · Win",
+  "prophecyStatusLoss": "Audited · Loss",
+  "prophecyStatusCheat": "Cheat",
+  "prophecyStatusUnknown": "Unknown ({status})",
+  "@prophecyStatusUnknown": {
+    "placeholders": {
+      "status": {"type": "int"}
+    }
+  },
+  "paidUnlockHintNew": "New prophets must publish free predictions (unlock_price=0), complete ≥{minAudited} audits with Score ≥ {minScore} before paid unlock",
+  "@paidUnlockHintNew": {
+    "placeholders": {
+      "minAudited": {"type": "int"},
+      "minScore": {"type": "String"}
+    }
+  },
+  "paidUnlockHintCheat": "Cheat record found; paid unlock unavailable",
+  "paidUnlockHintProgress": "Audited {audited}/{required}; keep publishing free predictions to build record",
+  "@paidUnlockHintProgress": {
+    "placeholders": {
+      "audited": {"type": "int"},
+      "required": {"type": "int"}
+    }
+  },
+  "paidUnlockHintScore": "Prophet Score {score}, need ≥ {minScore} for paid unlock",
+  "@paidUnlockHintScore": {
+    "placeholders": {
+      "score": {"type": "String"},
+      "minScore": {"type": "String"}
+    }
+  },
+  "paidUnlockHintEligible": "Eligible for paid unlock (unlock_price > 0). Use Web App for Seal encrypted predictions on Mobile",
+  "eligibilityNoPoolId": "Pool ID not configured",
+  "eligibilityMarketResolved": "Market settled; predictions closed",
+  "eligibilityMarketPaused": "Market paused",
+  "eligibilityExpired": "Past maturity; predictions closed",
+  "eligibilityTooClose": "Less than {minutes} min to maturity; predictions closed",
+  "@eligibilityTooClose": {
+    "placeholders": {
+      "minutes": {"type": "int"}
+    }
+  },
+  "eligibilityCanCommit": "Public prediction allowed (unlock_price=0)",
+  "connectWalletFirst": "Please connect wallet first",
+  "gasSponsorFallback": "Gas sponsor unavailable, paying gas yourself: {error}",
+  "@gasSponsorFallback": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "unknownMarket": "Unknown market",
+  "walletSessionRestored": "Phantom session restored",
+  "openingPhantom": "Opening Phantom…",
+  "connectPhantomFailed": "Failed to connect Phantom: {error}",
+  "@connectPhantomFailed": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "connectPhantomWalletFirst": "Please connect Phantom wallet first",
+  "waitingPhantomConfirm": "Waiting for Phantom: {description}",
+  "@waitingPhantomConfirm": {
+    "placeholders": {
+      "description": {"type": "String"}
+    }
+  },
+  "submitTxFailed": "Failed to submit transaction: {error}",
+  "@submitTxFailed": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "callbackFailed": "Failed to handle callback: {error}",
+  "@callbackFailed": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "walletDisconnected": "Wallet disconnected",
+  "phantomConnected": "Phantom connected: {address}",
+  "@phantomConnected": {
+    "placeholders": {
+      "address": {"type": "String"}
+    }
+  },
+  "txSuccess": "Transaction success: {digest}",
+  "@txSuccess": {
+    "placeholders": {
+      "digest": {"type": "String"}
+    }
+  },
+  "phantomBroadcastNoDigest": "Phantom broadcast (no digest returned)",
+  "missingPendingTx": "Missing pending transaction",
+  "cannotOpenPhantom": "Cannot open Phantom; confirm the wallet app is installed",
+  "txClaimPosition": "Claim position",
+  "txLpDeposit": "LP deposit",
+  "txLpWithdraw": "LP withdraw",
+  "txAuctionBid": "Auction bid",
+  "txFinalizeAuction": "Finalize auction",
+  "txOpenMarginAccount": "Open margin account",
+  "txRegisterPosition": "Register position",
+  "txUnregisterPosition": "Unregister position",
+  "txCommitProphecy": "Commit public prediction",
+  "errInvalidAmount": "Invalid amount",
+  "errMaxDecimals": "At most {decimals} decimal places",
+  "@errMaxDecimals": {
+    "placeholders": {
+      "decimals": {"type": "int"}
+    }
+  },
+  "errAmountMustBePositive": "Amount must be greater than 0",
+  "errNoUsdcInWallet": "No USDC in wallet — transfer or claim testnet USDC first",
+  "errInsufficientUsdc": "Insufficient USDC: need {need}, have {have}",
+  "@errInsufficientUsdc": {
+    "placeholders": {
+      "need": {"type": "String"},
+      "have": {"type": "String"}
+    }
+  },
+  "errStructuredNoteCap": "Structured Note requires C > K",
+  "errRangeNoteBounds": "Range Note requires U >= L",
+  "errUnsupportedMarketKind": "Unsupported market type: {kind}",
+  "@errUnsupportedMarketKind": {
+    "placeholders": {
+      "kind": {"type": "String"}
+    }
+  },
+  "errNoDigest": "Transaction succeeded but no digest returned",
+  "errProphetRegistryNotConfigured": "ProphetRegistry not configured",
+  "errIndexerNotConfigured": "Indexer is not configured",
+  "errEmptyPoolId": "pool_id is empty",
+  "errEmptyBlob": "Empty blob",
+  "errBlobTooLarge": "Blob exceeds 512KB limit",
+  "errIndexerUploadFailed": "Indexer upload failed ({status}): {body}",
+  "@errIndexerUploadFailed": {
+    "placeholders": {
+      "status": {"type": "int"},
+      "body": {"type": "String"}
+    }
+  },
+  "errInvalidIndexerResponse": "Invalid Indexer response",
+  "errMissingBlobId": "Indexer response missing blob_id",
+  "errIndexerBlobReadFailed": "Indexer blob read failed ({status})",
+  "@errIndexerBlobReadFailed": {
+    "placeholders": {
+      "status": {"type": "int"}
+    }
+  },
+  "errIpfsReadFailed": "IPFS read failed ({status})",
+  "@errIpfsReadFailed": {
+    "placeholders": {
+      "status": {"type": "int"}
+    }
+  },
+  "errUnsupportedBlobId": "Unsupported blob_id (need idx: or ipfs:)",
+  "errGasStationNotConfigured": "Gas Station is not configured",
+  "errGasStationHttpError": "Gas Station error: {error}",
+  "@errGasStationHttpError": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "errGasStationInvalidResponse": "Invalid Gas Station response",
+  "errInvalidAddress": "Invalid address (expected 0x hex)",
+  "errRpcHttpFailed": "RPC request failed: HTTP {status}",
+  "@errRpcHttpFailed": {
+    "placeholders": {
+      "status": {"type": "int"}
+    }
+  },
+  "errRpcError": "RPC error: {error}",
+  "@errRpcError": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "errRpcInvalidResponse": "Invalid RPC response",
+  "errRpcMissingField": "Missing RPC field: {field}",
+  "@errRpcMissingField": {
+    "placeholders": {
+      "field": {"type": "String"}
+    }
+  },
+  "errCallbackMissingSigOrTx": "Callback missing signature or transaction",
+  "seedPoissonGoalsTitle": "Total goals · Poisson",
+  "seedDirichletWdlTitle": "Win / Draw / Loss · Dirichlet",
+  "seedNormalCpiTitle": "CPI range · Normal",
+  "seedBetaVoteTitle": "Vote share · Beta"
+}

@@ -2,6 +2,7 @@
 
 import { useCurrentAccount } from "@mysten/dapp-kit";
 import { NETWORK } from "@/lib/markets";
+import { useT } from "@/i18n/context";
 
 const TESTNET_USDC_FAUCET_URL =
   "https://developers.circle.com/stablecoins/quickstart-setup-transfer-usdc-sui";
@@ -11,17 +12,18 @@ type Props = { onMinted?: () => void };
 /** Testnet: link to Circle USDC faucet. Mainnet: no mint (use real USDC). */
 export function MintUsdcButton(_props: Props) {
   const account = useCurrentAccount();
+  const t = useT();
 
   if (!account || NETWORK === "mainnet") return null;
 
   return (
     <div className="mint-row">
       <p className="hint">
-        测试网 USDC 可从{" "}
+        {t("wallet.testnetHint")}{" "}
         <a href={TESTNET_USDC_FAUCET_URL} target="_blank" rel="noreferrer">
-          Circle 测试网水龙头
+          {t("wallet.circleFaucet")}
         </a>
-        领取，或从已有地址转入钱包。
+        {t("wallet.orTransfer")}
       </p>
     </div>
   );

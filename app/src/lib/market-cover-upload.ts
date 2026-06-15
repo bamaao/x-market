@@ -17,14 +17,14 @@ export async function uploadMarketCover(
   | { ok: false; error: string }
 > {
   if (!INDEXER_URL) {
-    return { ok: false, error: "Indexer 未配置（NEXT_PUBLIC_INDEXER_URL）" };
+    return { ok: false, error: "errors.indexerNotConfigured" };
   }
   if (file.size > MAX_COVER_BYTES) {
-    return { ok: false, error: "封面超过 2MB 限制" };
+    return { ok: false, error: "errors.coverTooLarge" };
   }
   const contentType = file.type || "application/octet-stream";
   if (!ALLOWED_COVER_TYPES.has(contentType)) {
-    return { ok: false, error: "仅支持 PNG / JPEG / WebP / SVG" };
+    return { ok: false, error: "errors.coverMime" };
   }
 
   const headers: Record<string, string> = {
@@ -52,7 +52,7 @@ export async function uploadMarketCover(
       cid?: string | null;
     };
     if (!body.image_url) {
-      return { ok: false, error: "Indexer 响应缺少 image_url" };
+      return { ok: false, error: "errors.missingImageUrl" };
     }
     return {
       ok: true,

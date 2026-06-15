@@ -1,3 +1,4 @@
+import { LocalizedError } from "@/i18n/core";
 import { blake2b } from "@noble/hashes/blake2b";
 import { Transaction } from "@mysten/sui/transactions";
 import type { XMarketRpc } from "./rpc";
@@ -30,9 +31,9 @@ export type ProphetWorkflowStep =
 export const PROPHET_FLOW_STEPS: { id: ProphetWorkflowStep; label: string }[] =
   [
     { id: "commit", label: "1. Seal → Indexer → Commit" },
-    { id: "unlock", label: "2. 解锁" },
-    { id: "decrypt", label: "3. Seal 解密" },
-    { id: "audit", label: "4. 审计 → 战绩 → 分账" },
+    { id: "unlock", label: "2. Unlock" },
+    { id: "decrypt", label: "3. Seal decrypt" },
+    { id: "audit", label: "4. Audit → record → payout" },
   ];
 
 export const PROPHECY_STATUS_OPEN = 0;
@@ -304,30 +305,30 @@ export function deriveProphetWorkflowStep(params: {
 export function workflowStepLabel(step: ProphetWorkflowStep): string {
   switch (step) {
     case "commit":
-      return "等待订阅或发布";
+      return "Await subscribe or publish";
     case "unlock":
-      return "可付费解锁";
+      return "Paid unlock available";
     case "decrypt":
-      return "可 Seal 解密";
+      return "Seal decrypt available";
     case "audit":
-      return "等待 Oracle 审计";
+      return "Await Oracle audit";
     case "done":
-      return "已审计结算";
+      return "Audited and settled";
   }
 }
 
 export function prophecyStatusLabel(status: number): string {
   switch (status) {
     case PROPHECY_STATUS_OPEN:
-      return "开放";
+      return "Open";
     case PROPHECY_STATUS_WIN:
-      return "审计·胜";
+      return "Audit · win";
     case PROPHECY_STATUS_LOSS:
-      return "审计·负";
+      return "Audit · loss";
     case PROPHECY_STATUS_CHEAT:
-      return "作弊";
+      return "Cheat";
     default:
-      return `未知(${status})`;
+      return `Unknown(${status})`;
   }
 }
 
@@ -380,14 +381,14 @@ export function buildSettlementPreview(
 export function verifyProphecyPlaintextHash(
   plaintextJson: string,
   prophecy: ProphecyView,
-): { ok: boolean; reason?: string } {
+): { ok: boolean; reasonKey?: string } {
   const payload = parseProphecyPayloadJson(plaintextJson);
   if (!payload) {
-    return { ok: false, reason: "JSON 缺少 market_id / predicted_value" };
+    return { ok: false, reasonKey: "prophet.hashMissingFields" };
   }
   const computed = bytesToHex(hashProphecyPlaintext(payload));
   if (computed !== prophecy.plaintextHashHex) {
-    return { ok: false, reason: "blake2b256 与链上 plaintext_hash 不匹配" };
+    return { ok: false, reasonKey: "prophet.hashMismatch" };
   }
   return { ok: true };
 }
@@ -400,15 +401,15 @@ export function previewAuditOutcome(
 ): {
   outcome: AuditPreviewOutcome;
   hashOk: boolean;
-  reason?: string;
+  reasonKey?: string;
   precisionBps?: number;
 } {
   const hashCheck = verifyProphecyPlaintextHash(plaintextJson, prophecy);
   if (!hashCheck.ok) {
-    return { outcome: "cheat", hashOk: false, reason: hashCheck.reason };
+    return { outcome: "cheat", hashOk: false, reasonKey: hashCheck.reasonKey };
   }
   if (resolvedValue === null) {
-    return { outcome: "loss", hashOk: true, reason: "Pool 尚无 resolved_value" };
+    return { outcome: "loss", hashOk: true, reasonKey: "prophet.noResolvedValue" };
   }
   const won = prophecyResolvedWon(resolvedValue, prophecy, poolKind);
   const width = won ? prophecyIntervalWidth(prophecy) : 0;
@@ -438,16 +439,16 @@ export function paidUnlockEligibilityHint(
   stats: ProphetStatsView | null | undefined,
 ): string {
   if (!stats) {
-    return `新预言家须先发布免费预测（unlock_price = 0），完成 ≥${MIN_AUDITED_FOR_PAID} 场审计且 Score ≥ ${MIN_SCORE_BPS_FOR_PAID / 100} 后方可开通付费`;
+    return `New prophets must publish free predictions (unlock_price = 0), complete ≥${MIN_AUDITED_FOR_PAID} audits with Score ≥ ${MIN_SCORE_BPS_FOR_PAID / 100} before paid unlock`;
   }
-  if (stats.cheats > 0) return "存在作弊记录，暂不可开通付费解锁";
+  if (stats.cheats > 0) return "Cheat record — paid unlock unavailable";
   if (stats.totalAudited < MIN_AUDITED_FOR_PAID) {
-    return `已审计 ${stats.totalAudited}/${MIN_AUDITED_FOR_PAID} 场，继续免费练手预测以积累战绩`;
+    return `Audited ${stats.totalAudited}/${MIN_AUDITED_FOR_PAID} — keep free predictions to build record`;
   }
   if (stats.scoreBps < MIN_SCORE_BPS_FOR_PAID) {
-    return `Prophet Score ${formatScorePercent(stats.scoreBps)}，需 ≥ ${MIN_SCORE_BPS_FOR_PAID / 100} 方可开通付费`;
+    return `Prophet Score ${formatScorePercent(stats.scoreBps)} — need ≥ ${MIN_SCORE_BPS_FOR_PAID / 100} for paid unlock`;
   }
-  return "已满足付费开通条件，可设置 unlock_price > 0";
+  return "Eligible for paid unlock — set unlock_price > 0";
 }
 
 export function formatAccuracyPercent(stats: ProphetStatsView): string {
@@ -459,11 +460,11 @@ export function formatAccuracyPercent(stats: ProphetStatsView): string {
 export function auditOutcomeLabel(outcome: AuditPreviewOutcome): string {
   switch (outcome) {
     case "win":
-      return "预测正确 → 战绩 +1 胜";
+      return "Correct prediction → +1 win";
     case "loss":
-      return "预测错误 → 战绩 +1 负";
+      return "Wrong prediction → +1 loss";
     case "cheat":
-      return "Hash 不匹配 → 作弊，退款买家";
+      return "Hash mismatch → cheat, refund buyers";
   }
 }
 
@@ -965,9 +966,7 @@ export async function decryptProphecyContent(
   nowSec: number = Math.floor(Date.now() / 1000),
 ): Promise<DecryptedProphecyContent> {
   if (!canReadProphecyContent(prophecy, accountAddress, nowSec)) {
-    throw new Error(
-      "尚未满足阅读条件：公开预测可直接读取；私密预测须 unlock 或等待 lock_time",
-    );
+    throw new LocalizedError("prophet.readCondition");
   }
   if (isPublicProphecy(prophecy) && prophecy.sealIdHex.length === 0) {
     return readPublicProphecyContent(prophecy);

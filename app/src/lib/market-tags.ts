@@ -7,16 +7,16 @@ export interface MarketTag {
 }
 
 export const MARKET_TAG_CATALOG: MarketTag[] = [
-  { slug: "sports", label: "体育" },
-  { slug: "football", label: "足球", parentSlug: "sports" },
-  { slug: "world-cup", label: "世界杯", parentSlug: "football" },
-  { slug: "macro", label: "宏观" },
-  { slug: "economy", label: "经济", parentSlug: "macro" },
+  { slug: "sports", label: "Sports" },
+  { slug: "football", label: "Football", parentSlug: "sports" },
+  { slug: "world-cup", label: "World Cup", parentSlug: "football" },
+  { slug: "macro", label: "Macro" },
+  { slug: "economy", label: "Economy", parentSlug: "macro" },
   { slug: "cpi", label: "CPI", parentSlug: "economy" },
-  { slug: "politics", label: "政治" },
-  { slug: "election", label: "选举", parentSlug: "politics" },
-  { slug: "crypto", label: "加密" },
-  { slug: "other", label: "其他" },
+  { slug: "politics", label: "Politics" },
+  { slug: "election", label: "Election", parentSlug: "politics" },
+  { slug: "crypto", label: "Crypto" },
+  { slug: "other", label: "Other" },
 ];
 
 export const SEED_MARKET_TAGS: Record<string, string[]> = {

@@ -10,12 +10,14 @@ import {
   parseZonedDatetimeInput,
   timezoneLabel,
 } from "@/lib/market-maturity-time";
+import { useT } from "@/i18n/context";
 
 type Props = {
   onChange: (unixSec: number) => void;
 };
 
 export function MaturityTimeField({ onChange }: Props) {
+  const t = useT();
   const userTz = useMemo(() => detectUserTimezone(), []);
   const timezoneOptions = useMemo(() => buildTimezoneOptions(userTz), [userTz]);
 
@@ -43,7 +45,7 @@ export function MaturityTimeField({ onChange }: Props) {
 
   return (
     <div className="maturity-time-field">
-      <label htmlFor="maturity-tz">时区</label>
+      <label htmlFor="maturity-tz">{t("createMarket.maturity.timezone")}</label>
       <select
         id="maturity-tz"
         value={timeZone}
@@ -56,7 +58,7 @@ export function MaturityTimeField({ onChange }: Props) {
         ))}
       </select>
 
-      <label htmlFor="maturity">到期时间</label>
+      <label htmlFor="maturity">{t("createMarket.maturity.maturity")}</label>
       <input
         id="maturity"
         type="datetime-local"
@@ -64,19 +66,19 @@ export function MaturityTimeField({ onChange }: Props) {
         onChange={(e) => setLocalValue(e.target.value)}
       />
 
-      <p className="hint">
-        上方时间为所选时区的<strong>本地墙钟时间</strong>；链上统一写入{" "}
-        <strong>UTC 标准时间</strong>（Unix 秒，与 Oracle / Prophet 对齐）。
-      </p>
+      <p className="hint">{t("createMarket.maturity.hint")}</p>
 
       {valid && (
         <div className="maturity-time-ref">
           <p className="hint" style={{ marginTop: "0.35rem" }}>
-            链上 UTC 标准时间：<code className="mono">{formatUtcDisplay(unixSec)}</code>
+            {t("createMarket.maturity.chainUtc")}{" "}
+            <code className="mono">{formatUtcDisplay(unixSec)}</code>
           </p>
           {userTz !== timeZone && (
             <p className="hint" style={{ marginTop: "0.35rem" }}>
-              您的系统时区（{timezoneLabel(userTz, new Date(unixSec * 1000))}）：{" "}
+              {t("createMarket.maturity.yourTz", {
+                label: timezoneLabel(userTz, new Date(unixSec * 1000)),
+              })}{" "}
               <code className="mono">{formatZonedDatetimeInput(unixSec, userTz).replace("T", " ")}</code>
             </p>
           )}

@@ -3,6 +3,8 @@
  * Set NEXT_PUBLIC_INDEXER_URL (e.g. http://localhost:8800).
  */
 
+import { LocalizedError } from "@/i18n/core";
+
 export const INDEXER_URL =
   process.env.NEXT_PUBLIC_INDEXER_URL?.replace(/\/$/, "") ?? "";
 
@@ -37,7 +39,7 @@ async function fetchIndexerJson<T>(path: string): Promise<T | null> {
 }
 
 async function fetchIndexerJsonOrThrow<T>(path: string): Promise<T> {
-  if (!INDEXER_URL) throw new Error("Indexer 未配置");
+  if (!INDEXER_URL) throw new LocalizedError("errors.indexerNotConfigured");
   const res = await fetch(`${INDEXER_URL}${path}`, { cache: "no-store" });
   const body = (await res.json().catch(() => ({}))) as T & { error?: string };
   if (!res.ok) {
@@ -245,7 +247,7 @@ export async function registerMarketMetadata(
   payload: RegisterMarketPayload,
 ): Promise<{ ok: boolean; error?: string }> {
   if (!INDEXER_URL) {
-    return { ok: false, error: "Indexer 未配置" };
+    return { ok: false, error: "errors.indexerNotConfigured" };
   }
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -492,7 +494,7 @@ async function mutateIndexerJson<T>(
   method: "POST" | "DELETE",
   body?: Record<string, string>,
 ): Promise<T> {
-  if (!INDEXER_URL) throw new Error("Indexer 未配置");
+  if (!INDEXER_URL) throw new LocalizedError("errors.indexerNotConfigured");
   const init: RequestInit = {
     method,
     headers: { "Content-Type": "application/json" },

@@ -4,6 +4,7 @@ import 'package:sui/builder/transaction.dart';
 import 'package:sui/sui_client.dart';
 import 'package:sui/types/framework.dart';
 import 'package:sui/types/transactions.dart';
+import 'package:x_market_flutter/src/l10n/app_exception.dart';
 import 'package:x_market_flutter/src/services/gas_station_service.dart';
 import 'package:x_market_flutter/src/sui_config.dart';
 
@@ -53,10 +54,10 @@ enum ContractMode {
 
 extension ContractModeLabel on ContractMode {
   String get label => switch (this) {
-    ContractMode.interval => '区间合约',
-    ContractMode.digital => '数字期权',
-    ContractMode.linearCall => '线性 Call',
-    ContractMode.linearPut => '线性 Put',
+    ContractMode.interval => 'Interval',
+    ContractMode.digital => 'Digital option',
+    ContractMode.linearCall => 'Linear Call',
+    ContractMode.linearPut => 'Linear Put',
     ContractMode.straddle => 'Straddle',
     ContractMode.varianceSwap => 'Variance Swap',
     ContractMode.structuredNote => 'Structured Note',
@@ -119,12 +120,12 @@ class BuyParams {
   void validate() {
     if (marketKind == 'normal' && mode == ContractMode.structuredNote) {
       if (normalCap <= normalStrike) {
-        throw Exception('Structured Note 需要 C > K');
+        throw AppException(AppErrorCodes.structuredNoteCap);
       }
     }
     if (marketKind == 'normal' && mode == ContractMode.rangeNote) {
       if (normalUpper < normalLower) {
-        throw Exception('Range Note 需要 U >= L');
+        throw AppException(AppErrorCodes.rangeNoteBounds);
       }
     }
   }
@@ -159,13 +160,16 @@ class ChainTransactionService {
   int parseUsdcAmount(String input) {
     final trimmed = input.trim();
     if (!RegExp(r'^\d+(\.\d+)?$').hasMatch(trimmed)) {
-      throw Exception('无效金额');
+      throw AppException(AppErrorCodes.invalidAmount);
     }
     final parts = trimmed.split('.');
     final whole = parts[0];
     final frac = parts.length > 1 ? parts[1] : '';
     if (frac.length > usdcDecimals) {
-      throw Exception('最多 $usdcDecimals 位小数');
+      throw AppException(
+        AppErrorCodes.maxDecimals,
+        args: {'decimals': usdcDecimals},
+      );
     }
     final padded = frac.padRight(usdcDecimals, '0');
     return int.parse('$whole$padded');
@@ -220,12 +224,12 @@ class ChainTransactionService {
   }) async {
     params.validate();
     if (stakeUsdcMist <= 0) {
-      throw Exception('金额须大于 0');
+      throw AppException(AppErrorCodes.amountMustBePositive);
     }
 
     final coins = await listUsdcCoins(sender);
     if (coins.isEmpty) {
-      throw Exception('钱包中没有 USDC，请先转入或领取测试网 USDC');
+      throw AppException(AppErrorCodes.noUsdcInWallet);
     }
 
     final total = coins.fold<BigInt>(
@@ -234,8 +238,12 @@ class ChainTransactionService {
     );
     final stake = BigInt.from(stakeUsdcMist);
     if (total < stake) {
-      throw Exception(
-        'USDC 不足：需要 $stakeUsdcMist mist，持有 ${total.toInt()} mist',
+      throw AppException(
+        AppErrorCodes.insufficientUsdc,
+        args: {
+          'need': _formatUsdcMist(stakeUsdcMist),
+          'have': _formatUsdcMist(total.toInt()),
+        },
       );
     }
 
@@ -315,7 +323,10 @@ class ChainTransactionService {
       case 'normal':
         _appendNormalBuyMoveCall(tx, pool, payment, clock, params);
       default:
-        throw Exception('不支持的市场类型: ${params.marketKind}');
+        throw AppException(
+          AppErrorCodes.unsupportedMarketKind,
+          args: {'kind': params.marketKind},
+        );
     }
   }
 
@@ -450,7 +461,7 @@ class ChainTransactionService {
       options: SuiTransactionBlockResponseOptions(showEffects: true),
     );
     if (result.digest.isEmpty) {
-      throw Exception('执行成功但未返回 digest');
+      throw AppException(AppErrorCodes.noDigest);
     }
     return result.digest;
   }
@@ -475,7 +486,7 @@ class ChainTransactionService {
       options: SuiTransactionBlockResponseOptions(showEffects: true),
     );
     if (result.digest.isEmpty) {
-      throw Exception('执行成功但未返回 digest');
+      throw AppException(AppErrorCodes.noDigest);
     }
     return result.digest;
   }
@@ -487,7 +498,7 @@ class ChainTransactionService {
   }) {
     return _buildSimple(
       sender: sender,
-      description: '领取 Position',
+      description: 'Claim position',
       build: (tx) {
         tx.moveCall(
           '${SuiConfig.packageId}::settlement::claim_position',
@@ -505,7 +516,7 @@ class ChainTransactionService {
     return _buildWithUsdcPayment(
       sender: sender,
       amountMist: amountUsdcMist,
-      description: 'LP 申购',
+      description: 'LP deposit',
       build: (tx, payment) {
         tx.moveCall(
           '${SuiConfig.packageId}::pool::deposit_liquidity',
@@ -526,7 +537,7 @@ class ChainTransactionService {
   }) {
     return _buildSimple(
       sender: sender,
-      description: 'LP 赎回',
+      description: 'LP withdraw',
       build: (tx) {
         tx.moveCall(
           '${SuiConfig.packageId}::pool::withdraw_liquidity',
@@ -549,7 +560,7 @@ class ChainTransactionService {
     return _buildWithUsdcPayment(
       sender: sender,
       amountMist: amountUsdcMist,
-      description: '拍卖出价',
+      description: 'Auction bid',
       build: (tx, payment) {
         tx.moveCall(
           '${SuiConfig.packageId}::pool::auction_bid',
@@ -576,7 +587,7 @@ class ChainTransactionService {
     };
     return _buildSimple(
       sender: sender,
-      description: '拍卖定标',
+      description: 'Finalize auction',
       build: (tx) {
         tx.moveCall(
           target,
@@ -592,7 +603,7 @@ class ChainTransactionService {
   }) {
     return _buildSimple(
       sender: sender,
-      description: '开设保证金账户',
+      description: 'Open margin account',
       build: (tx) {
         tx.moveCall(
           '${SuiConfig.packageId}::cross_margin::open_account',
@@ -610,7 +621,7 @@ class ChainTransactionService {
   }) {
     return _buildSimple(
       sender: sender,
-      description: '登记持仓',
+      description: 'Register position',
       build: (tx) {
         tx.moveCall(
           '${SuiConfig.packageId}::cross_margin::register_position',
@@ -632,7 +643,7 @@ class ChainTransactionService {
   }) {
     return _buildSimple(
       sender: sender,
-      description: '取消登记',
+      description: 'Unregister position',
       build: (tx) {
         tx.moveCall(
           '${SuiConfig.packageId}::cross_margin::unregister_position',
@@ -673,11 +684,11 @@ class ChainTransactionService {
     required void Function(Transaction tx, TransactionResult payment) build,
   }) async {
     if (amountMist <= 0) {
-      throw Exception('金额须大于 0');
+      throw AppException(AppErrorCodes.amountMustBePositive);
     }
     final coins = await listUsdcCoins(sender);
     if (coins.isEmpty) {
-      throw Exception('钱包中没有 USDC');
+      throw AppException(AppErrorCodes.noUsdcInWallet);
     }
     final total = coins.fold<BigInt>(
       BigInt.zero,
@@ -685,7 +696,13 @@ class ChainTransactionService {
     );
     final stake = BigInt.from(amountMist);
     if (total < stake) {
-      throw Exception('USDC 不足');
+      throw AppException(
+        AppErrorCodes.insufficientUsdc,
+        args: {
+          'need': _formatUsdcMist(amountMist),
+          'have': _formatUsdcMist(total.toInt()),
+        },
+      );
     }
     final sorted = [...coins]
       ..sort((a, b) => b.balance.compareTo(a.balance));
@@ -712,6 +729,13 @@ class ChainTransactionService {
       transactionKindBase64: base64Encode(kindBytes),
       description: description,
     );
+  }
+
+  static String _formatUsdcMist(int mist) {
+    final major = mist ~/ 1000000;
+    final minor = (mist % 1000000).toString().padLeft(6, '0');
+    final trimmed = minor.replaceFirst(RegExp(r'0+$'), '');
+    return trimmed.isEmpty ? '$major USDC' : '$major.$trimmed USDC';
   }
 }
 

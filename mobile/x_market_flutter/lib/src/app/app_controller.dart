@@ -1,4 +1,7 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
+import 'package:x_market_flutter/src/l10n/l10n_ext.dart';
+import 'package:x_market_flutter/src/l10n/app_exception.dart';
+import 'package:x_market_flutter/src/l10n/l10n_helpers.dart';
 import 'package:x_market_flutter/src/models/indexer_models.dart';
 import 'package:x_market_flutter/src/models/owned_models.dart';
 import 'package:x_market_flutter/src/models/sui_models.dart';
@@ -24,6 +27,7 @@ class AppController extends ChangeNotifier {
     GasStationService? gasStation,
     PricingService? pricing,
     ProphetService? prophet,
+    Locale? initialLocale,
   }) : wallet = wallet ?? PhantomWalletController(),
        rpc = rpc ?? SuiRpcService(),
        tx = tx ?? ChainTransactionService(),
@@ -31,7 +35,12 @@ class AppController extends ChangeNotifier {
        indexer = indexer ?? IndexerService(),
        gasStation = gasStation ?? GasStationService(),
        pricing = pricing ?? PricingService(),
-       prophet = prophet ?? ProphetService();
+       prophet = prophet ?? ProphetService(),
+       locale = resolveAppLocale(
+         initialLocale ?? WidgetsBinding.instance.platformDispatcher.locale,
+       ) {
+    this.wallet.l10nProvider = () => l10n;
+  }
 
   final PhantomWalletController wallet;
   final SuiRpcService rpc;
@@ -41,6 +50,17 @@ class AppController extends ChangeNotifier {
   final GasStationService gasStation;
   final PricingService pricing;
   final ProphetService prophet;
+
+  Locale locale;
+
+  AppLocalizations get l10n => lookupAppLocalizations(locale);
+
+  void setLocale(Locale value) {
+    final next = resolveAppLocale(value);
+    if (next == locale) return;
+    locale = next;
+    notifyListeners();
+  }
 
   List<MarketPoolSnapshot> markets = const [];
   Map<String, MarketRef> marketRefsByPoolId = const {};
@@ -172,7 +192,7 @@ class AppController extends ChangeNotifier {
   }) async {
     final address = wallet.address;
     if (address == null) {
-      wallet.errorMessage = '请先连接钱包';
+      wallet.errorMessage = l10n.connectWalletFirst;
       notifyListeners();
       return;
     }
@@ -192,7 +212,7 @@ class AppController extends ChangeNotifier {
           pending = pending.withSponsor(sponsor);
           submitMode = PhantomSubmitMode.signOnly;
         } catch (e) {
-          lastTxMessage = 'Gas 赞助不可用，改用自付 Gas：$e';
+          lastTxMessage = l10n.gasSponsorFallback(localizeError(l10n, e));
         }
       }
 
@@ -201,13 +221,13 @@ class AppController extends ChangeNotifier {
         sender: address,
         mode: submitMode,
         onSuccess: (_) async {
-          lastTxMessage = pending.description;
+          lastTxMessage = localizeTxDescription(l10n, pending.description);
           await refreshWalletData();
           notifyListeners();
         },
       );
     } catch (e) {
-      wallet.errorMessage = '$e';
+      wallet.errorMessage = localizeError(l10n, e);
       notifyListeners();
     }
   }
@@ -229,11 +249,11 @@ class AppController extends ChangeNotifier {
       return ref.title;
     }
     if (poolId == null || poolId.isEmpty) {
-      return '未知市场';
+      return l10n.unknownMarket;
     }
     for (final market in markets) {
       if (poolIdsMatch(market.poolId, poolId)) {
-        return market.label;
+        return displayMarketLabel(l10n, market);
       }
     }
     return '${poolId.substring(0, poolId.length.clamp(0, 10))}…';

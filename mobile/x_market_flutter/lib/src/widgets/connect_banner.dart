@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:x_market_flutter/src/app/app_controller.dart';
+import 'package:x_market_flutter/src/l10n/l10n_ext.dart';
 
 class ConnectBanner extends StatelessWidget {
   const ConnectBanner({super.key, required this.app});
@@ -8,6 +9,7 @@ class ConnectBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     if (app.wallet.isConnected) {
       final usdc = app.walletSummary != null
           ? AppController.formatUsdc(app.walletSummary!.totalUsdcMist)
@@ -45,13 +47,13 @@ class ConnectBanner extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                '连接 Phantom 钱包以交易',
+                l10n.connectPhantomToTrade,
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
             ),
             FilledButton(
               onPressed: app.wallet.busy ? null : app.connectWallet,
-              child: const Text('连接'),
+              child: Text(l10n.connect),
             ),
           ],
         ),

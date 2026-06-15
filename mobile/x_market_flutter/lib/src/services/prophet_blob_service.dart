@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:x_market_flutter/src/l10n/app_exception.dart';
 import 'package:x_market_flutter/src/services/indexer_service.dart';
 import 'package:x_market_flutter/src/sui_config.dart';
 
@@ -32,16 +33,16 @@ class ProphetBlobService {
 
   Future<String> uploadBlob(String poolId, Uint8List data) async {
     if (!IndexerService.enabled) {
-      throw Exception('Indexer 未配置');
+      throw AppException(AppErrorCodes.indexerNotConfigured);
     }
     if (poolId.isEmpty) {
-      throw Exception('pool_id 为空');
+      throw AppException(AppErrorCodes.emptyPoolId);
     }
     if (data.isEmpty) {
-      throw Exception('空 blob');
+      throw AppException(AppErrorCodes.emptyBlob);
     }
     if (data.length > 512 * 1024) {
-      throw Exception('blob 超过 512KB');
+      throw AppException(AppErrorCodes.blobTooLarge);
     }
 
     final uri = Uri.parse(
@@ -53,15 +54,18 @@ class ProphetBlobService {
     final response = await request.close();
     final body = await utf8.decoder.bind(response).join();
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception('Indexer 上传失败 (${response.statusCode}): $body');
+      throw AppException(
+        AppErrorCodes.indexerUploadFailed,
+        args: {'status': response.statusCode, 'body': body},
+      );
     }
     final parsed = jsonDecode(body);
     if (parsed is! Map<String, dynamic>) {
-      throw Exception('Indexer 响应无效');
+      throw AppException(AppErrorCodes.invalidIndexerResponse);
     }
     final blobId = parsed['blob_id']?.toString().trim() ?? '';
     if (blobId.isEmpty) {
-      throw Exception('Indexer 响应缺少 blob_id');
+      throw AppException(AppErrorCodes.missingBlobId);
     }
     return blobId;
   }
@@ -69,7 +73,7 @@ class ProphetBlobService {
   Future<Uint8List> readBlob(String blobId) async {
     if (blobId.startsWith('idx:')) {
       if (!IndexerService.enabled) {
-        throw Exception('Indexer 未配置');
+        throw AppException(AppErrorCodes.indexerNotConfigured);
       }
       final filename = blobId.substring(4);
       final uri = Uri.parse(
@@ -78,7 +82,10 @@ class ProphetBlobService {
       final request = await _client.getUrl(uri);
       final response = await request.close();
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw Exception('Indexer blob 读取失败 (${response.statusCode})');
+        throw AppException(
+          AppErrorCodes.indexerBlobReadFailed,
+          args: {'status': response.statusCode},
+        );
       }
       final bytes = await response.fold<BytesBuilder>(
         BytesBuilder(copy: false),
@@ -97,7 +104,10 @@ class ProphetBlobService {
       final request = await _client.getUrl(uri);
       final response = await request.close();
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw Exception('IPFS 读取失败 (${response.statusCode})');
+        throw AppException(
+          AppErrorCodes.ipfsReadFailed,
+          args: {'status': response.statusCode},
+        );
       }
       final bytes = await response.fold<BytesBuilder>(
         BytesBuilder(copy: false),
@@ -109,6 +119,6 @@ class ProphetBlobService {
       return bytes.takeBytes();
     }
 
-    throw Exception('不支持的 blob_id（需 idx: 或 ipfs:）');
+    throw AppException(AppErrorCodes.unsupportedBlobId);
   }
 }

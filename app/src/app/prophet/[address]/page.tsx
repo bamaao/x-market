@@ -18,8 +18,6 @@ import {
   isPublicProphecy,
   isValidSuiAddress,
   normalizeSuiAddress,
-  paidUnlockEligibilityHint,
-  prophecyStatusLabel,
   shortAddress,
   type LeaderboardEntry,
   type ProphecyView,
@@ -35,6 +33,11 @@ import {
 import { DataTable } from "@/components/DataTable";
 import { FollowButton } from "@/components/FollowButton";
 import { PageHeader } from "@/components/PageHeader";
+import {
+  localizedPaidUnlockEligibilityHint,
+  localizedProphecyStatus,
+} from "@/i18n/domain";
+import { useT } from "@/i18n/context";
 
 function indexerStatsToEntry(
   stats: NonNullable<Awaited<ReturnType<typeof fetchIndexerProphetStats>>>,
@@ -88,13 +91,8 @@ function prophecyRowFromChain(p: ProphecyView): IndexerProphecyRow {
   };
 }
 
-function unlockPriceLabel(unlockPrice: string): string {
-  const n = BigInt(unlockPrice || "0");
-  if (n === 0n) return "免费";
-  return formatUsdcBaseUnits(n);
-}
-
 export default function ProphetProfilePage() {
+  const t = useT();
   const params = useParams<{ address: string }>();
   const account = useCurrentAccount();
   const client = useSuiClient();
@@ -188,16 +186,23 @@ export default function ProphetProfilePage() {
     };
   }, [addressValid, client, prophetAddress]);
 
+  const unlockPriceLabel = (unlockPrice: string) => {
+    const n = BigInt(unlockPrice || "0");
+    if (n === 0n) return t("prophetProfile.free");
+    return formatUsdcBaseUnits(n);
+  };
+
   if (!addressValid) {
     return (
       <div>
-        <PageHeader title="预言家主页" subtitle="无效的 Sui 地址。" />
+        <PageHeader
+          title={t("prophetProfile.invalidTitle")}
+          subtitle={t("prophetProfile.invalidSubtitle")}
+        />
         <div className="card">
-          <p>
-            地址格式应为 <code>0x</code> 加 64 位十六进制字符。
-          </p>
+          <p>{t("prophetProfile.invalidHint")}</p>
           <Link href="/leaderboard" className="hero-link secondary">
-            返回排行榜
+            {t("prophetProfile.backLeaderboard")}
           </Link>
         </div>
       </div>
@@ -207,10 +212,10 @@ export default function ProphetProfilePage() {
   return (
     <div>
       <PageHeader
-        title={isSelf ? "预言家主页（你）" : "预言家主页"}
+        title={isSelf ? t("prophetProfile.titleSelf") : t("prophetProfile.title")}
         subtitle={
           <>
-            链上战绩与预测记录 ·{" "}
+            {t("prophetProfile.subtitle")}{" "}
             <code className="mono">{shortAddress(prophetAddress, 8, 6)}</code>
           </>
         }
@@ -222,20 +227,20 @@ export default function ProphetProfilePage() {
 
       <div className="btn-row" style={{ marginBottom: "1rem" }}>
         <Link href="/leaderboard" className="hero-link secondary">
-          ← 排行榜
+          {t("prophetProfile.backLeaderboard")}
         </Link>
         {isSelf ? (
           <Link href="/prophet" className="hero-link">
-            发布 / 管理预测 →
+            {t("prophetProfile.manageProphecies")}
           </Link>
         ) : (
           <Link href="/prophet" className="hero-link">
-            解锁预测 →
+            {t("prophetProfile.unlockProphecies")}
           </Link>
         )}
         {isSelf && (
           <Link href="/following" className="hero-link secondary">
-            我的关注 →
+            {t("prophetProfile.myFollowing")}
           </Link>
         )}
       </div>
@@ -247,58 +252,59 @@ export default function ProphetProfilePage() {
       )}
 
       <div className="card">
-        <h2>战绩摘要</h2>
+        <h2>{t("prophetProfile.statsSummary")}</h2>
         {loading ? (
-          <p className="hint">加载战绩…</p>
+          <p className="hint">{t("prophetProfile.loadingStats")}</p>
         ) : !stats ? (
           <p className="hint">
-            尚无链上战绩。
-            {isSelf && (
-              <>
-                {" "}
-                前往 <Link href="/prophet">Prophet</Link>{" "}
-                发布免费练手预测（unlock_price = 0）。
-              </>
-            )}
+            {t("prophetProfile.noStats")}
+            {isSelf && <> {t("prophetProfile.noStatsSelf")}</>}
           </p>
         ) : (
           <>
             <dl className="meta">
-              <dt>排名</dt>
-              <dd>{stats.rank > 0 ? `#${stats.rank}` : "—"}</dd>
-              <dt>胜 / 负 / 作弊</dt>
+              <dt>{t("prophetProfile.rank")}</dt>
+              <dd>{stats.rank > 0 ? `#${stats.rank}` : t("common.dash")}</dd>
+              <dt>{t("prophetProfile.wlCheats")}</dt>
               <dd>
                 {stats.wins} / {stats.losses} / {stats.cheats}
               </dd>
-              <dt>胜率</dt>
+              <dt>{t("leaderboard.winRate")}</dt>
               <dd>{formatAccuracyPercent(stats)}</dd>
-              <dt>审计场次</dt>
+              <dt>{t("prophetProfile.audited")}</dt>
               <dd>{stats.totalAudited}</dd>
-              <dt>连红</dt>
+              <dt>{t("prophetProfile.streak")}</dt>
               <dd>
-                {stats.currentStreak}（最高 {stats.maxStreak}）
+                {stats.currentStreak} ({stats.maxStreak})
               </dd>
               <dt>Prophet Score</dt>
               <dd>{formatScorePercent(stats.scoreBps)} / 100</dd>
-              <dt>解锁收入</dt>
+              <dt>{t("prophetProfile.unlockRevenue")}</dt>
               <dd>{formatUsdcBaseUnits(stats.totalUnlockRevenue)}</dd>
-              <dt>付费开通</dt>
+              <dt>{t("prophetProfile.paidUnlock")}</dt>
               <dd>
-                {isPaidUnlockEligible(stats) ? "已开通" : "未开通"}
+                {isPaidUnlockEligible(stats)
+                  ? t("prophetProfile.paidEnabled")
+                  : t("prophetProfile.paidDisabled")}
                 {!isPaidUnlockEligible(stats) && (
-                  <span className="hint"> — {paidUnlockEligibilityHint(stats)}</span>
+                  <span className="hint">
+                    {" "}
+                    — {localizedPaidUnlockEligibilityHint(stats, t)}
+                  </span>
                 )}
               </dd>
-              <dt>数据来源</dt>
+              <dt>{t("prophetProfile.dataSource")}</dt>
               <dd>
                 {statsSource === "indexer"
-                  ? "Indexer 缓存（链上 ProphetStats 为真相源）"
-                  : "链上 ProphetRegistry 动态字段"}
+                  ? t("prophetProfile.sourceIndexer")
+                  : t("prophetProfile.sourceChain")}
               </dd>
             </dl>
             <p className="hint">
-              付费门槛：≥ {MIN_AUDITED_FOR_PAID} 场审计 · Score ≥{" "}
-              {MIN_SCORE_BPS_FOR_PAID / 100} · 零作弊
+              {t("prophetProfile.paidThreshold", {
+                min: MIN_AUDITED_FOR_PAID,
+                score: MIN_SCORE_BPS_FOR_PAID / 100,
+              })}
             </p>
           </>
         )}
@@ -306,15 +312,17 @@ export default function ProphetProfilePage() {
 
       {history.length > 0 && (
         <div className="card">
-          <h2>Score 历史</h2>
-          <p className="hint">Indexer 快照，最近 {history.length} 条</p>
+          <h2>{t("prophetProfile.scoreHistory")}</h2>
+          <p className="hint">
+            {t("prophetProfile.scoreHistoryHint", { count: history.length })}
+          </p>
           <DataTable>
             <thead>
               <tr>
-                <th>时间</th>
+                <th>{t("prophetProfile.colTime")}</th>
                 <th>Score</th>
-                <th>排名</th>
-                <th>胜/负</th>
+                <th>{t("prophetProfile.colRank")}</th>
+                <th>{t("prophetProfile.colWl")}</th>
               </tr>
             </thead>
             <tbody>
@@ -322,7 +330,7 @@ export default function ProphetProfilePage() {
                 <tr key={point.snapshot_at}>
                   <td>{formatTimestamp(point.snapshot_at)}</td>
                   <td>{formatScorePercent(point.score_bps)}</td>
-                  <td>{point.rank != null ? `#${point.rank}` : "—"}</td>
+                  <td>{point.rank != null ? `#${point.rank}` : t("common.dash")}</td>
                   <td>
                     {point.wins}/{point.losses}
                   </td>
@@ -334,22 +342,22 @@ export default function ProphetProfilePage() {
       )}
 
       <div className="card">
-        <h2>预测记录</h2>
+        <h2>{t("prophetProfile.prophecies")}</h2>
         {loading ? (
-          <p className="hint">加载预测列表…</p>
+          <p className="hint">{t("prophetProfile.loadingProphecies")}</p>
         ) : prophecies.length === 0 ? (
-          <p className="hint">暂无预测记录。</p>
+          <p className="hint">{t("prophetProfile.noProphecies")}</p>
         ) : (
           <DataTable>
             <thead>
               <tr>
-                <th>预测 ID</th>
-                <th>市场</th>
-                <th>预测值</th>
-                <th>解锁价</th>
-                <th>状态</th>
-                <th>解锁次数</th>
-                <th>锁定时间</th>
+                <th>{t("prophetProfile.colProphecyId")}</th>
+                <th>{t("prophetProfile.colMarket")}</th>
+                <th>{t("prophetProfile.colPredicted")}</th>
+                <th>{t("prophetProfile.colUnlockPrice")}</th>
+                <th>{t("prophetProfile.colStatus")}</th>
+                <th>{t("prophetProfile.colUnlockCount")}</th>
+                <th>{t("prophetProfile.colLockTime")}</th>
               </tr>
             </thead>
             <tbody>
@@ -363,9 +371,9 @@ export default function ProphetProfilePage() {
                       <code>{shortAddress(row.pool_id, 8, 4)}</code>
                     </Link>
                   </td>
-                  <td>{row.predicted_value ?? "—"}</td>
+                  <td>{row.predicted_value ?? t("common.dash")}</td>
                   <td>{unlockPriceLabel(row.unlock_price)}</td>
-                  <td>{prophecyStatusLabel(row.status)}</td>
+                  <td>{localizedProphecyStatus(row.status, t)}</td>
                   <td>{row.unlock_count}</td>
                   <td>{formatTimestamp(row.lock_time)}</td>
                 </tr>
@@ -374,7 +382,8 @@ export default function ProphetProfilePage() {
           </DataTable>
         )}
         <p className="hint" style={{ marginTop: "1rem" }}>
-          付费预测需在 <Link href="/prophet">Prophet</Link> 页解锁后阅读全文；结算后公开预测可审计。
+          {t("prophetProfile.footerHint")}{" "}
+          <Link href="/prophet">Prophet</Link>
         </p>
       </div>
     </div>

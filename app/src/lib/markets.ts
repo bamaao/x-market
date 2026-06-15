@@ -2,7 +2,7 @@ import { MARKET_COVER_BY_ID, resolveMarketImageUrl } from "./market-media";
 import { tagsForSeedMarket } from "./market-tags";
 import type { MarketRef } from "./position-display";
 
-/** Testnet 种子市场（PRD §6） */
+/** Testnet seed markets (PRD §6) */
 export type MarketKind = "poisson" | "dirichlet" | "normal" | "beta";
 
 export interface SeedMarket {
@@ -14,7 +14,7 @@ export interface SeedMarket {
   imageUrl?: string;
   /** Off-chain theme tags (P4) */
   tags?: string[];
-  /** `create_*` 参数说明 */
+  /** `create_*` parameter notes */
   params: Record<string, string | number>;
 }
 
@@ -26,8 +26,8 @@ const poolBeta = process.env.NEXT_PUBLIC_POOL_BETA ?? "";
 export const SEED_MARKETS: SeedMarket[] = [
   {
     id: "poisson-goals",
-    title: "足球总进球 · Poisson",
-    description: "λ≈2.5，区间 [2,3] 与大球尾部；链上 Tier-1 Poisson PMF。",
+    title: "Total goals · Poisson",
+    description: "λ≈2.5, interval [2,3] and over tail; on-chain Tier-1 Poisson PMF.",
     kind: "poisson",
     imageUrl: MARKET_COVER_BY_ID["poisson-goals"],
     tags: tagsForSeedMarket("poisson-goals"),
@@ -39,8 +39,8 @@ export const SEED_MARKETS: SeedMarket[] = [
   },
   {
     id: "dirichlet-wdl",
-    title: "胜平负 · Dirichlet",
-    description: "三分类先验 α=[10,10,10]；买入主胜/平局/客胜。",
+    title: "Win / Draw / Loss · Dirichlet",
+    description: "Three-way prior α=[10,10,10]; buy home / draw / away.",
     kind: "dirichlet",
     imageUrl: MARKET_COVER_BY_ID["dirichlet-wdl"],
     tags: tagsForSeedMarket("dirichlet-wdl"),
@@ -54,8 +54,8 @@ export const SEED_MARKETS: SeedMarket[] = [
   },
   {
     id: "normal-cpi",
-    title: "CPI 区间 · Normal",
-    description: "μ=2.5%、σ=0.4%（tenths）；宏观区间与数字期权。",
+    title: "CPI range · Normal",
+    description: "μ=2.5%, σ=0.4% (tenths); macro interval and digital options.",
     kind: "normal",
     imageUrl: MARKET_COVER_BY_ID["normal-cpi"],
     tags: tagsForSeedMarket("normal-cpi"),
@@ -68,8 +68,8 @@ export const SEED_MARKETS: SeedMarket[] = [
   },
   {
     id: "beta-vote",
-    title: "得票率 · Beta",
-    description: "α=β=10 先验；链上 Beta CDF 区间买入（如 35%–40%）。",
+    title: "Vote share · Beta",
+    description: "α=β=10 prior; on-chain Beta CDF interval (e.g. 35%–40%).",
     kind: "beta",
     imageUrl: MARKET_COVER_BY_ID["beta-vote"],
     tags: tagsForSeedMarket("beta-vote"),

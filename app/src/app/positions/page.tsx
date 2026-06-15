@@ -18,6 +18,7 @@ import {
 import { PageHeader } from "@/components/PageHeader";
 import { MarketPositionsGroup } from "@/components/MarketPositionsGroup";
 import { formatUsdcBaseUnits } from "@/lib/usdc";
+import { useT } from "@/i18n/context";
 
 const LINEAR_CALL_KIND = 2;
 const LINEAR_PUT_KIND = 3;
@@ -28,11 +29,11 @@ const RANGE_NOTE_KIND = 7;
 const BARRIER_NOTE_KIND = 8;
 const OUTCOME_SLOTS = 15;
 
-const FILTER_OPTIONS: { id: PositionFilter; label: string }[] = [
-  { id: "all", label: "全部" },
-  { id: "pending", label: "待结算" },
-  { id: "claimable", label: "可领取" },
-  { id: "closed", label: "已结束" },
+const FILTER_OPTIONS = [
+  { id: "all" as const, key: "positions.filterAll" },
+  { id: "pending" as const, key: "positions.filterPending" },
+  { id: "claimable" as const, key: "positions.filterClaimable" },
+  { id: "closed" as const, key: "positions.filterClosed" },
 ];
 
 function estimateCrossMargin(
@@ -86,6 +87,7 @@ function estimateCrossMargin(
 }
 
 export default function PositionsPage() {
+  const t = useT();
   const account = useCurrentAccount();
   const [indexerMarkets, setIndexerMarkets] = useState<MarketRef[]>([]);
   const [filter, setFilter] = useState<PositionFilter>("all");
@@ -205,59 +207,59 @@ export default function PositionsPage() {
   return (
     <>
       <PageHeader
-        title="持仓"
-        subtitle="按预测市场分组；展示池参数、IV 与可领取汇总"
+        title={t("positions.title")}
+        subtitle={t("positions.subtitle")}
       />
 
-      {!account && <p className="hint">连接钱包后查看。</p>}
+      {!account && <p className="hint">{t("positions.connectHint")}</p>}
 
       {account && (
         <>
           <div className="positions-summary">
             <div className="stat-card">
-              <div className="label">持仓数</div>
+              <div className="label">{t("positions.statCount")}</div>
               <div className="value accent">{portfolio.totalCount}</div>
             </div>
             <div className="stat-card">
-              <div className="label">总成本</div>
+              <div className="label">{t("positions.statCost")}</div>
               <div className="value">
                 {formatUsdcBaseUnits(portfolio.totalStake)} USDC
               </div>
             </div>
             <div className="stat-card">
-              <div className="label">待结算成本</div>
+              <div className="label">{t("positions.statPending")}</div>
               <div className="value">
                 {formatUsdcBaseUnits(portfolio.pendingStake)} USDC
               </div>
             </div>
             <div className="stat-card">
-              <div className="label">可领取</div>
+              <div className="label">{t("positions.statClaimable")}</div>
               <div className="value accent">
                 {formatUsdcBaseUnits(portfolio.claimableUsdc)} USDC
               </div>
               <div className="hint" style={{ marginTop: "0.25rem" }}>
-                {portfolio.claimableCount} 笔
+                {t("positions.claimableCount", { count: portfolio.claimableCount })}
               </div>
             </div>
             <div className="stat-card">
-              <div className="label">未命中成本</div>
+              <div className="label">{t("positions.statUnhit")}</div>
               <div className="value">
                 {formatUsdcBaseUnits(portfolio.lostStake)} USDC
               </div>
             </div>
             <div className="stat-card">
-              <div className="label">Cross-Margin VaR</div>
+              <div className="label">{t("positions.crossMargin")}</div>
               <div className="value">
                 {formatUsdcBaseUnits(crossMarginVar)} USDC
               </div>
             </div>
             <button type="button" className="secondary" onClick={refreshAll}>
-              刷新
+              {t("common.refresh")}
             </button>
           </div>
 
-          <div className="positions-filters" role="tablist" aria-label="持仓筛选">
-            {FILTER_OPTIONS.map(({ id, label }) => (
+          <div className="positions-filters" role="tablist" aria-label={t("positions.title")}>
+            {FILTER_OPTIONS.map(({ id, key }) => (
               <button
                 key={id}
                 type="button"
@@ -266,14 +268,14 @@ export default function PositionsPage() {
                 className={filter === id ? "filter-chip active" : "filter-chip"}
                 onClick={() => setFilter(id)}
               >
-                {label}
+                {t(key)}
               </button>
             ))}
           </div>
         </>
       )}
 
-      {isPending && account && <p className="hint">加载中…</p>}
+      {isPending && account && <p className="hint">{t("positions.loading")}</p>}
 
       {grouped.map(([poolId, items]) => {
         const market =
@@ -295,11 +297,11 @@ export default function PositionsPage() {
         filteredRows.length === 0 &&
         allRows.length > 0 &&
         !isPending && (
-          <p className="hint">当前筛选下无持仓，请切换其他标签。</p>
+          <p className="hint">{t("positions.filterEmpty")}</p>
         )}
 
       {account && allRows.length === 0 && !isPending && (
-        <p className="hint">暂无 Position，去市场页用 USDC 买入。</p>
+        <p className="hint">{t("positions.emptyBuy")}</p>
       )}
     </>
   );

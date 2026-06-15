@@ -1,6 +1,10 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
+import 'package:x_market_flutter/l10n/app_localizations.dart';
+import 'package:x_market_flutter/src/l10n/app_exception.dart';
+import 'package:x_market_flutter/src/l10n/l10n_helpers.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:x_market_flutter/src/rust/api/phantom.dart';
 import 'package:x_market_flutter/src/sui_config.dart';
@@ -25,6 +29,11 @@ class PhantomWalletController extends ChangeNotifier {
   final WalletDeepLinkService _deepLinkService;
   final WalletCallbackService _callbackService;
   final ChainTransactionService _tx = ChainTransactionService();
+
+  AppLocalizations Function()? l10nProvider;
+
+  AppLocalizations get _l10n =>
+      l10nProvider?.call() ?? lookupAppLocalizations(const Locale('en'));
 
   WalletSession? session;
   String? phantomDappSecretKeyB58;
@@ -62,7 +71,7 @@ class PhantomWalletController extends ChangeNotifier {
     session = saved;
     phantomDappSecretKeyB58 = saved.phantomDappSecretKeyB58;
     phantomDappPublicKeyB58 = saved.phantomDappPublicKeyB58;
-    statusMessage = '已恢复 Phantom 会话';
+    statusMessage = _l10n.walletSessionRestored;
     notifyListeners();
   }
 
@@ -86,11 +95,11 @@ class PhantomWalletController extends ChangeNotifier {
         network: SuiConfig.network,
         extras: {'phantom_key': pubkey},
       );
-      statusMessage = '正在打开 Phantom…';
+      statusMessage = _l10n.openingPhantom;
       notifyListeners();
       await _openExternal(deeplink);
     } catch (e) {
-      errorMessage = '连接 Phantom 失败: $e';
+      errorMessage = _l10n.connectPhantomFailed(localizeError(_l10n, e));
     } finally {
       busy = false;
       notifyListeners();
@@ -108,7 +117,7 @@ class PhantomWalletController extends ChangeNotifier {
         s.phantomSessionToken == null ||
         s.phantomWalletPubkeyB58 == null ||
         s.phantomDappSecretKeyB58 == null) {
-      errorMessage = '请先连接 Phantom 钱包';
+      errorMessage = _l10n.connectPhantomWalletFirst;
       notifyListeners();
       return;
     }
@@ -149,11 +158,11 @@ class PhantomWalletController extends ChangeNotifier {
       _expectingBuySign = true;
       _expectingSignAndSend =
           mode == PhantomSubmitMode.signAndSend && !pending.isSponsored;
-      statusMessage = '等待 Phantom 确认: ${pending.description} (${_pendingDescription ?? pending.description})';
+      statusMessage = _l10n.waitingPhantomConfirm(pending.description);
       notifyListeners();
       await _openExternal(deeplink);
     } catch (e) {
-      errorMessage = '提交交易失败: $e';
+      errorMessage = _l10n.submitTxFailed(localizeError(_l10n, e));
       _clearPending();
     } finally {
       busy = false;
@@ -175,7 +184,7 @@ class PhantomWalletController extends ChangeNotifier {
         await _handlePhantomPayload(result);
       }
     } catch (e) {
-      errorMessage = '处理回调失败: $e';
+      errorMessage = _l10n.callbackFailed(localizeError(_l10n, e));
     } finally {
       busy = false;
       notifyListeners();
@@ -188,7 +197,7 @@ class PhantomWalletController extends ChangeNotifier {
     phantomDappSecretKeyB58 = null;
     phantomDappPublicKeyB58 = null;
     _clearPending();
-    statusMessage = '已断开钱包';
+    statusMessage = _l10n.walletDisconnected;
     notifyListeners();
   }
 
@@ -231,7 +240,7 @@ class PhantomWalletController extends ChangeNotifier {
       );
       session = next;
       await _sessionStore.save(next);
-      statusMessage = 'Phantom 已连接: ${_shortAddress(address)}';
+      statusMessage = _l10n.phantomConnected(_shortAddress(address));
       return;
     }
 
@@ -246,8 +255,8 @@ class PhantomWalletController extends ChangeNotifier {
     if (_expectingSignAndSend) {
       final digest = _extractDigest(map, signature, signedTxB58);
       statusMessage = digest != null
-          ? '交易成功: ${_shortDigest(digest)}'
-          : 'Phantom 已广播（未返回 digest）';
+          ? _l10n.txSuccess(_shortDigest(digest))
+          : _l10n.phantomBroadcastNoDigest;
       await _onSuccess?.call(digest ?? 'ok');
       _clearPending();
       return;
@@ -255,7 +264,7 @@ class PhantomWalletController extends ChangeNotifier {
 
     final pending = _pendingTxBytesBase64;
     if (pending == null) {
-      errorMessage = '缺少 pending 交易';
+      errorMessage = _l10n.missingPendingTx;
       return;
     }
     String digest;
@@ -279,9 +288,9 @@ class PhantomWalletController extends ChangeNotifier {
       final signedBytesB64 = base58ToBase64(inputB58: signedTxB58);
       digest = await _tx.executeSignedBlock(txBytesBase64: signedBytesB64);
     } else {
-      throw Exception('回调缺少 signature 或 transaction');
+      throw AppException(AppErrorCodes.callbackMissingSigOrTx);
     }
-    statusMessage = '交易成功: ${_shortDigest(digest)}';
+    statusMessage = _l10n.txSuccess(_shortDigest(digest));
     await _onSuccess?.call(digest);
     _clearPending();
   }
@@ -315,7 +324,7 @@ class PhantomWalletController extends ChangeNotifier {
     final uri = Uri.parse(url);
     final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!ok) {
-      throw Exception('无法打开 Phantom，请确认已安装钱包');
+      throw Exception(_l10n.cannotOpenPhantom);
     }
   }
 

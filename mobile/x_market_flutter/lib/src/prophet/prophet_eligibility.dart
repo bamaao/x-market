@@ -4,6 +4,15 @@ const prophetUnlockCutoffSecs = 300;
 
 enum ProphetMarketStatus { open, closing, expired, resolved, paused, noPool }
 
+enum ProphetEligibilityReason {
+  noPoolId,
+  marketResolved,
+  marketPaused,
+  expired,
+  tooCloseToMaturity,
+  canCommitPublic,
+}
+
 class ProphetMarketEligibility {
   const ProphetMarketEligibility({
     required this.status,
@@ -14,7 +23,7 @@ class ProphetMarketEligibility {
 
   final ProphetMarketStatus status;
   final bool canCommit;
-  final String reason;
+  final ProphetEligibilityReason reason;
   final int? remainingSecs;
 }
 
@@ -30,21 +39,21 @@ ProphetMarketEligibility assessProphetMarketEligibility({
     return const ProphetMarketEligibility(
       status: ProphetMarketStatus.noPool,
       canCommit: false,
-      reason: '未配置 Pool ID',
+      reason: ProphetEligibilityReason.noPoolId,
     );
   }
   if (resolved || market.status == 2) {
     return const ProphetMarketEligibility(
       status: ProphetMarketStatus.resolved,
       canCommit: false,
-      reason: '市场已结算，不可再提交预测',
+      reason: ProphetEligibilityReason.marketResolved,
     );
   }
   if (market.paused) {
     return ProphetMarketEligibility(
       status: ProphetMarketStatus.paused,
       canCommit: false,
-      reason: '市场已暂停',
+      reason: ProphetEligibilityReason.marketPaused,
       remainingSecs: maturityTs > nowSec ? maturityTs - nowSec : 0,
     );
   }
@@ -52,7 +61,7 @@ ProphetMarketEligibility assessProphetMarketEligibility({
     return const ProphetMarketEligibility(
       status: ProphetMarketStatus.expired,
       canCommit: false,
-      reason: '已过到期时间，不可提交预测',
+      reason: ProphetEligibilityReason.expired,
       remainingSecs: 0,
     );
   }
@@ -61,14 +70,14 @@ ProphetMarketEligibility assessProphetMarketEligibility({
     return ProphetMarketEligibility(
       status: ProphetMarketStatus.closing,
       canCommit: false,
-      reason: '距到期不足 ${prophetUnlockCutoffSecs ~/ 60} 分钟，不可提交预测',
+      reason: ProphetEligibilityReason.tooCloseToMaturity,
       remainingSecs: remaining,
     );
   }
   return ProphetMarketEligibility(
     status: ProphetMarketStatus.open,
     canCommit: true,
-    reason: '可提交公开预测（unlock_price=0）',
+    reason: ProphetEligibilityReason.canCommitPublic,
     remainingSecs: remaining,
   );
 }

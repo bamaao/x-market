@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:x_market_flutter/src/l10n/app_exception.dart';
 import 'package:x_market_flutter/src/sui_config.dart';
 
 class SponsorResponse {
@@ -61,7 +62,7 @@ class GasStationService {
     required String sender,
   }) async {
     if (!enabled) {
-      throw Exception('Gas Station 未配置');
+      throw AppException(AppErrorCodes.gasStationNotConfigured);
     }
     final uri = Uri.parse('$baseUrl/v1/sponsor');
     final request = await _client.postUrl(uri);
@@ -77,10 +78,13 @@ class GasStationService {
     final parsed = jsonDecode(body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final error = parsed is Map ? parsed['error']?.toString() : null;
-      throw Exception(error ?? 'Gas Station HTTP ${response.statusCode}');
+      throw AppException(
+        AppErrorCodes.gasStationHttpError,
+        args: {'error': error ?? 'HTTP ${response.statusCode}'},
+      );
     }
     if (parsed is! Map<String, dynamic>) {
-      throw Exception('Gas Station 响应格式异常');
+      throw AppException(AppErrorCodes.gasStationInvalidResponse);
     }
     return SponsorResponse.fromJson(parsed);
   }

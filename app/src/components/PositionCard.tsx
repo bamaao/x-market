@@ -9,16 +9,20 @@ import {
 import { Transaction } from "@mysten/sui/transactions";
 import { PACKAGE_ID } from "@/lib/markets";
 import {
-  contractKindLabel,
   formatEntryProbability,
-  formatOutcomeDescription,
   formatUsdcAmount,
-  getSettlementDisplay,
   poolKindLabel,
   type MarketRef,
   type PoolView,
   type PositionView,
 } from "@/lib/position-display";
+import {
+  localizedContractKind,
+  localizedFormatOutcomeDescription,
+  localizedSettlementDisplay,
+} from "@/i18n/domain";
+import { useT } from "@/i18n/context";
+import { formatCaughtError } from "@/i18n/core";
 
 type Props = {
   objectId: string;
@@ -38,14 +42,15 @@ export function PositionCard({
   onClaimSuccess,
 }: Props) {
   const account = useCurrentAccount();
+  const t = useT();
   const { mutate: signAndExecute, isPending } = useSignAndExecuteTransaction();
   const [msg, setMsg] = useState<string | null>(null);
 
   const poolId = position.marketId;
-  const settlement = getSettlementDisplay(position, pool);
-  const maxPayout = estimateDisplayMaxPayout(position, pool, settlement);
+  const settlement = localizedSettlementDisplay(position, pool, t);
+  const maxPayout = estimateDisplayMaxPayout(position, pool, settlement, t);
   const marketKind = market?.kind;
-  const outcome = formatOutcomeDescription(position, marketKind, pool?.kind);
+  const outcome = localizedFormatOutcomeDescription(position, marketKind, pool?.kind, t);
   const canClaim =
     account &&
     !position.claimed &&
@@ -54,7 +59,7 @@ export function PositionCard({
 
   const claim = () => {
     if (!poolId) {
-      setMsg("缺少 MarketPool ID");
+      setMsg(t("positions.missingPoolId"));
       return;
     }
     const tx = new Transaction();
@@ -67,10 +72,10 @@ export function PositionCard({
       { transaction: tx as any },
       {
         onSuccess: (r) => {
-          setMsg(`已领取: ${r.digest?.slice(0, 16)}…`);
+          setMsg(t("positions.claimSuccess", { digest: r.digest?.slice(0, 16) ?? "" }));
           onClaimSuccess?.();
         },
-        onError: (e) => setMsg(e.message),
+        onError: (e) => setMsg(formatCaughtError(e, t)),
       },
     );
   };
@@ -85,7 +90,7 @@ export function PositionCard({
                 <h3>{market.title}</h3>
               </Link>
             ) : (
-              <h3 className="position-market-unknown">未知市场</h3>
+              <h3 className="position-market-unknown">{t("positions.unknownMarket")}</h3>
             )}
             <p className="hint position-market-desc">
               {market?.description ?? `Pool ${poolId.slice(0, 10)}…`}
@@ -93,16 +98,16 @@ export function PositionCard({
           </div>
           <div className="position-badges">
             <span className={`badge badge-${marketKind ?? "poisson"}`}>
-              {pool ? poolKindLabel(pool.kind) : marketKind ?? "—"}
+              {pool ? poolKindLabel(pool.kind) : marketKind ?? t("common.dash")}
             </span>
-            <span className="badge">{contractKindLabel(position.contractKind)}</span>
+            <span className="badge">{localizedContractKind(position.contractKind, t)}</span>
           </div>
         </div>
       )}
 
       {!showMarketHeader && (
         <div className="position-card-head position-card-head--compact">
-          <span className="badge">{contractKindLabel(position.contractKind)}</span>
+          <span className="badge">{localizedContractKind(position.contractKind, t)}</span>
           <span className="hint">{outcome}</span>
         </div>
       )}
@@ -110,20 +115,20 @@ export function PositionCard({
       <dl className="position-facts">
         {showMarketHeader && (
           <div className="position-facts-full">
-            <dt>预测方向</dt>
+            <dt>{t("positions.direction")}</dt>
             <dd>{outcome}</dd>
           </div>
         )}
         <div>
-          <dt>成本</dt>
+          <dt>{t("positions.cost")}</dt>
           <dd>{formatUsdcAmount(position.stakeUsdc)}</dd>
         </div>
         <div>
-          <dt>买入概率</dt>
+          <dt>{t("positions.entryProb")}</dt>
           <dd>{formatEntryProbability(position.entryProbPpb)}</dd>
         </div>
         <div>
-          <dt>{pool?.resolved ? "兑付" : "潜在兑付"}</dt>
+          <dt>{pool?.resolved ? t("positions.payout") : t("positions.potentialPayout")}</dt>
           <dd>{maxPayout}</dd>
         </div>
       </dl>
@@ -144,12 +149,12 @@ export function PositionCard({
           disabled={isPending}
           onClick={claim}
         >
-          {isPending ? "领取中…" : "领取赔付"}
+          {isPending ? t("positions.claiming") : t("positions.claim")}
         </button>
       )}
 
       {settlement.state === "miss" && !position.claimed && (
-        <p className="hint">结算结果未覆盖本头寸区间，无需 claim。</p>
+        <p className="hint">{t("positions.missHint")}</p>
       )}
 
       <p className="mono position-object-id">{objectId}</p>
@@ -161,7 +166,8 @@ export function PositionCard({
 function estimateDisplayMaxPayout(
   position: PositionView,
   pool: PoolView | undefined,
-  settlement: ReturnType<typeof getSettlementDisplay>,
+  settlement: ReturnType<typeof localizedSettlementDisplay>,
+  t: ReturnType<typeof useT>,
 ): string {
   if (settlement.state === "hit" && settlement.payoutUsdc != null) {
     return formatUsdcAmount(settlement.payoutUsdc);
@@ -170,9 +176,9 @@ function estimateDisplayMaxPayout(
     return "0 USDC";
   }
   if (position.contractKind >= 2) {
-    return "衍生品 · 依结算值";
+    return t("positions.derivativePayout");
   }
-  if (position.entryProbPpb <= 0n) return "—";
+  if (position.entryProbPpb <= 0n) return t("common.dash");
   const est = (position.stakeUsdc * 1_000_000_000n) / position.entryProbPpb;
   return `≈ ${formatUsdcAmount(est)}`;
 }

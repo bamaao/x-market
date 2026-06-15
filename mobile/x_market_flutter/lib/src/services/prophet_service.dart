@@ -6,6 +6,7 @@ import 'package:sui/sui_client.dart';
 import 'package:sui/types/objects.dart';
 import 'package:sui/types/transactions.dart';
 import 'package:x_market_flutter/src/models/prophet_models.dart';
+import 'package:x_market_flutter/src/l10n/app_exception.dart';
 import 'package:x_market_flutter/src/prophet/prophecy_codec.dart';
 import 'package:x_market_flutter/src/services/indexer_service.dart';
 import 'package:x_market_flutter/src/services/prophet_blob_service.dart';
@@ -157,7 +158,7 @@ class ProphetService {
     required int lockTime,
   }) async {
     if (registryId.isEmpty) {
-      throw Exception('未配置 ProphetRegistry');
+      throw AppException(AppErrorCodes.prophetRegistryNotConfigured);
     }
     final payload = buildProphecyPayload(
       marketId: poolId,
@@ -194,7 +195,7 @@ class ProphetService {
       txJson: tx.toJson(),
       txBytesBase64: base64Encode(bytes),
       transactionKindBase64: base64Encode(kindBytes),
-      description: 'Commit 公开预测',
+      description: 'Commit public prediction',
     );
   }
 

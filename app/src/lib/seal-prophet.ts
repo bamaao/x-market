@@ -1,4 +1,5 @@
 import { SealClient, SessionKey } from "@mysten/seal";
+import { LocalizedError } from "@/i18n/core";
 import {
   SuiJsonRpcClient,
   getJsonRpcFullnodeUrl,
@@ -49,7 +50,7 @@ export function getSealClient(): SealClient {
     const network = NETWORK === "mainnet" ? "mainnet" : "testnet";
     const ids = SEAL_KEY_SERVERS[network];
     if (!ids.length) {
-      throw new Error(`未配置 ${network} Seal 密钥服务器`);
+      throw new LocalizedError("errors.sealKeyServerNotConfigured", { network });
     }
     sealClientSingleton = new SealClient({
       suiClient,

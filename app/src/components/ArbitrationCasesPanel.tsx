@@ -7,8 +7,10 @@ import {
   indexerEnabled,
   type IndexerArbitrationCase,
 } from "@/lib/indexer";
+import { useT } from "@/i18n/context";
 
 export function ArbitrationCasesPanel() {
+  const t = useT();
   const [cases, setCases] = useState<IndexerArbitrationCase[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -25,11 +27,11 @@ export function ArbitrationCasesPanel() {
 
   return (
     <div className="card" style={{ marginTop: "1.5rem" }}>
-      <h2>争议案件（Indexer）</h2>
-      <p className="hint">来自链上 ArbitrationCaseOpened 事件 + 对象刷新</p>
-      {loading && <p className="hint">加载中…</p>}
+      <h2>{t("oracle.arbitration.title")}</h2>
+      <p className="hint">{t("oracle.arbitration.subtitle")}</p>
+      {loading && <p className="hint">{t("common.loading")}</p>}
       {!loading && cases.length === 0 && (
-        <p className="hint">暂无争议案件</p>
+        <p className="hint">{t("oracle.arbitration.empty")}</p>
       )}
       {!loading && cases.length > 0 && (
         <table style={{ width: "100%", fontSize: "0.8rem", borderCollapse: "collapse" }}>

@@ -35,11 +35,11 @@ export type OracleWorkflowStep =
   | "idle";
 
 export const ORACLE_WORKFLOW_STEPS: { id: OracleWorkflowStep; label: string }[] = [
-  { id: "propose", label: "1. 提议" },
-  { id: "liveness", label: "2. 争议窗口" },
-  { id: "finalize_or_dispute", label: "3. 结算" },
-  { id: "arbitration", label: "3. 委员会终裁" },
-  { id: "settled", label: "4. 领取" },
+  { id: "propose", label: "1. Propose" },
+  { id: "liveness", label: "2. Liveness" },
+  { id: "finalize_or_dispute", label: "3. Settle" },
+  { id: "arbitration", label: "3. Arbitration" },
+  { id: "settled", label: "4. Claim" },
 ];
 
 export interface OracleMarketRef {
@@ -226,32 +226,32 @@ export function assertionStatusLabel(code: number): string {
 export function verdictLabel(code: number): string {
   switch (code) {
     case VERDICT_PROPOSER_WINS:
-      return "提议者胜诉";
+      return "Proposer wins";
     case VERDICT_DISPUTER_WINS:
-      return "挑战者胜诉";
+      return "Disputer wins";
     case VERDICT_UNRESOLVED:
-      return "无法裁决";
+      return "Unresolved";
     default:
-      return "待提案";
+      return "Pending proposal";
   }
 }
 
 export function claimedValueHint(kind: MarketKind): string {
   switch (kind) {
     case "poisson":
-      return "总进球 slot 0–14";
+      return "Total goals slot 0–14";
     case "dirichlet":
-      return "胜出 bucket 0=主胜 1=平 2=客胜";
+      return "Winning bucket 0=home 1=draw 2=away";
     case "normal":
-      return "宏观数值（tenths，如 CPI 2.8% → 28）";
+      return "Macro value (tenths, e.g. CPI 2.8% → 28)";
     case "beta":
-      return "得票率整数百分比 0–100（如 38% → 38）";
+      return "Vote share integer percent 0–100 (e.g. 38% → 38)";
   }
 }
 
 export function formatUnixTs(ts: number): string {
   if (!ts) return "—";
-  return new Date(ts * 1000).toLocaleString("zh-CN");
+  return new Date(ts * 1000).toLocaleString("en-US");
 }
 
 export function livenessRemainingSecs(livenessEndAt: number, nowSec: number): number {
@@ -259,7 +259,7 @@ export function livenessRemainingSecs(livenessEndAt: number, nowSec: number): nu
 }
 
 export function formatCountdown(secs: number): string {
-  if (secs <= 0) return "已结束";
+  if (secs <= 0) return "Ended";
   const h = Math.floor(secs / 3600);
   const m = Math.floor((secs % 3600) / 60);
   const s = secs % 60;
@@ -297,17 +297,17 @@ export function deriveOracleWorkflowStep(params: {
 export function workflowStepLabel(step: OracleWorkflowStep): string {
   switch (step) {
     case "register_feed":
-      return "注册 Feed";
+      return "Register Feed";
     case "propose":
-      return "等待提议";
+      return "Await proposal";
     case "liveness":
-      return "争议窗口";
+      return "Liveness window";
     case "finalize_or_dispute":
-      return "可 Finalize 或争议";
+      return "Finalize or dispute";
     case "arbitration":
-      return "委员会终裁";
+      return "Arbitration";
     case "settled":
-      return "已结算 · 去领取";
+      return "Settled · claim";
     case "idle":
       return "—";
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { AuctionPanel } from "@/components/AuctionPanel";
 import { CommentPanel } from "@/components/CommentPanel";
@@ -11,6 +11,8 @@ import { MarketCover } from "@/components/MarketCover";
 import { MarketTagList } from "@/components/MarketTagList";
 import { resolveMarketById } from "@/lib/market-catalog";
 import type { SeedMarket } from "@/lib/markets";
+import { useI18n, useT } from "@/i18n/context";
+import { localizeSeedMarket } from "@/i18n/markets";
 
 const KIND_LABELS: Record<string, string> = {
   poisson: "Poisson",
@@ -22,6 +24,8 @@ const KIND_LABELS: Record<string, string> = {
 type Props = { id: string };
 
 export function MarketDetailView({ id }: Props) {
+  const t = useT();
+  const { locale } = useI18n();
   const [market, setMarket] = useState<SeedMarket | null | undefined>(undefined);
 
   useEffect(() => {
@@ -34,17 +38,24 @@ export function MarketDetailView({ id }: Props) {
     };
   }, [id]);
 
+  const displayMarket = useMemo(
+    () => (market ? localizeSeedMarket(market, locale, t) : null),
+    [market, locale, t],
+  );
+
   if (market === undefined) {
-    return <p className="hint">加载市场中…</p>;
+    return <p className="hint">{t("markets.loading")}</p>;
   }
 
-  if (!market) {
+  if (!market || !displayMarket) {
     return (
       <div className="panel">
-        <h1>市场不存在</h1>
-        <p className="sub">未找到 ID 为 <code className="mono">{id}</code> 的市场。</p>
+        <h1>{t("markets.notFound")}</h1>
+        <p className="sub">
+          {t("markets.notFoundSub", { id })}
+        </p>
         <Link href="/" className="hero-link secondary">
-          返回市场列表
+          {t("common.backToMarkets")}
         </Link>
       </div>
     );
@@ -53,35 +64,35 @@ export function MarketDetailView({ id }: Props) {
   return (
     <>
       <MarketCover
-        id={market.id}
-        imageUrl={market.imageUrl}
-        title={market.title}
-        kind={market.kind}
+        id={displayMarket.id}
+        imageUrl={displayMarket.imageUrl}
+        title={displayMarket.title}
+        kind={displayMarket.kind}
         variant="hero"
         priority
       />
       <div className="market-header">
-        <span className={`badge badge-${market.kind}`}>
-          {KIND_LABELS[market.kind] ?? market.kind}
+        <span className={`badge badge-${displayMarket.kind}`}>
+          {KIND_LABELS[displayMarket.kind] ?? displayMarket.kind}
         </span>
-        <MarketTagList tags={market.tags} className="market-header-tags" />
-        <h1>{market.title}</h1>
+        <MarketTagList tags={displayMarket.tags} className="market-header-tags" />
+        <h1>{displayMarket.title}</h1>
         <p className="sub" style={{ marginBottom: 0 }}>
-          {market.description}
+          {displayMarket.description}
         </p>
-        {market.params.poolId ? (
+        {displayMarket.params.poolId ? (
           <p className="hint" style={{ marginTop: "0.75rem" }}>
             Pool ID:{" "}
-            <code className="mono">{String(market.params.poolId)}</code>
+            <code className="mono">{String(displayMarket.params.poolId)}</code>
           </p>
         ) : null}
       </div>
       <div className="market-panels">
-        <TradePanel market={market} />
-        <LpDepositPanel market={market} />
-        <AuctionPanel market={market} />
-        <IvPanel market={market} />
-        <CommentPanel market={market} />
+        <TradePanel market={displayMarket} />
+        <LpDepositPanel market={displayMarket} />
+        <AuctionPanel market={displayMarket} />
+        <IvPanel market={displayMarket} />
+        <CommentPanel market={displayMarket} />
       </div>
     </>
   );

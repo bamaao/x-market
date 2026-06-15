@@ -18,6 +18,7 @@ import {
 } from "@/lib/prophet";
 import { DataTable } from "@/components/DataTable";
 import { PageHeader } from "@/components/PageHeader";
+import { useT } from "@/i18n/context";
 
 function followRowToStats(row: IndexerFollowRow): ProphetStatsView | null {
   if (row.wins == null || row.losses == null || row.score_bps == null) return null;
@@ -42,6 +43,7 @@ function formatFollowedAt(value: string | null | undefined): string {
 }
 
 export default function FollowingPage() {
+  const t = useT();
   const account = useCurrentAccount();
   const [rows, setRows] = useState<IndexerFollowRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -64,7 +66,7 @@ export default function FollowingPage() {
       .catch((e) => {
         if (!cancelled) {
           setRows([]);
-          setError(e instanceof Error ? e.message : "加载关注列表失败");
+          setError(e instanceof Error ? e.message : t("following.errLoad"));
         }
       })
       .finally(() => {
@@ -73,54 +75,52 @@ export default function FollowingPage() {
     return () => {
       cancelled = true;
     };
-  }, [account?.address]);
+  }, [account?.address, t]);
 
   return (
     <div>
       <PageHeader
-        title="我的关注"
-        subtitle="Indexer 存储的关注关系；战绩仍以链上 ProphetStats 为准。"
+        title={t("following.title")}
+        subtitle={t("following.subtitle")}
       />
 
       {!indexerEnabled() && (
         <div className="card">
-          <p>
-            请配置 <code>NEXT_PUBLIC_INDEXER_URL</code> 后使用关注功能。
-          </p>
+          <p>{t("following.indexerRequired")}</p>
         </div>
       )}
 
       {!account && indexerEnabled() && (
         <div className="card">
-          <p className="hint">连接钱包后查看你关注的预言家。</p>
+          <p className="hint">{t("following.connectHint")}</p>
         </div>
       )}
 
       {account && indexerEnabled() && (
         <div className="card">
-          <h2>关注列表</h2>
+          <h2>{t("following.listTitle")}</h2>
           {loading ? (
-            <p className="hint">加载中…</p>
+            <p className="hint">{t("common.loading")}</p>
           ) : error ? (
             <p className="hint" style={{ color: "var(--danger)" }}>
               {error}
             </p>
           ) : rows.length === 0 ? (
             <p className="hint">
-              尚未关注任何预言家。前往{" "}
-              <Link href="/leaderboard">排行榜</Link> 发现并关注。
+              {t("following.empty")}{" "}
+              <Link href="/leaderboard">{t("following.emptyLeaderboard")}</Link>.
             </p>
           ) : (
             <DataTable>
               <thead>
                 <tr>
-                  <th>预言家</th>
-                  <th>排名</th>
-                  <th>胜/负</th>
-                  <th>胜率</th>
-                  <th>Score</th>
-                  <th>付费</th>
-                  <th>关注于</th>
+                  <th>{t("following.colProphet")}</th>
+                  <th>{t("following.colRank")}</th>
+                  <th>{t("following.colWl")}</th>
+                  <th>{t("following.colWinRate")}</th>
+                  <th>{t("following.colScore")}</th>
+                  <th>{t("following.colPaid")}</th>
+                  <th>{t("following.colFollowedAt")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -164,7 +164,7 @@ export default function FollowingPage() {
 
       <div className="btn-row">
         <Link href="/leaderboard" className="hero-link secondary">
-          ← 排行榜
+          {t("following.backLeaderboard")}
         </Link>
       </div>
     </div>

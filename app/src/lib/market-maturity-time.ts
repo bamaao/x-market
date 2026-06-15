@@ -55,8 +55,8 @@ export function timezoneLabel(timeZone: string, at: Date = new Date()): string {
   const oh = Math.floor(abs / 60);
   const om = abs % 60;
   const offset = `UTC${sign}${pad2(oh)}:${pad2(om)}`;
-  if (timeZone === "UTC") return `UTC（协调世界时 · ${offset}）`;
-  return `${timeZone}（${offset}）`;
+  if (timeZone === "UTC") return `UTC · ${offset}`;
+  return `${timeZone} · ${offset}`;
 }
 
 export function buildTimezoneOptions(preferredTz: string): { value: string; label: string }[] {

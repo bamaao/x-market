@@ -1,4 +1,5 @@
 import type { Transaction } from "@mysten/sui/transactions";
+import { LocalizedError } from "@/i18n/core";
 import { NETWORK } from "./markets";
 
 type CoinPage = {
@@ -36,11 +37,11 @@ export function usdcType(): string {
 export function parseUsdcAmount(input: string): bigint {
   const trimmed = input.trim();
   if (!/^\d+(\.\d+)?$/.test(trimmed)) {
-    throw new Error("无效金额");
+    throw new LocalizedError("errors.invalidAmount");
   }
   const [whole, frac = ""] = trimmed.split(".");
   if (frac.length > USDC_DECIMALS) {
-    throw new Error(`最多 ${USDC_DECIMALS} 位小数`);
+    throw new LocalizedError("errors.maxDecimals", { decimals: USDC_DECIMALS });
   }
   const padded = frac.padEnd(USDC_DECIMALS, "0");
   return BigInt(whole + padded);
@@ -94,17 +95,18 @@ export async function prepareUsdcPayment(
   coinType: string = usdcType(),
 ) {
   if (amount <= 0n) {
-    throw new Error("金额须大于 0");
+    throw new LocalizedError("errors.amountMustBePositive");
   }
   const coins = await listUsdcCoins(client, owner, coinType);
   if (coins.length === 0) {
-    throw new Error("钱包中没有 USDC，请先转入或领取测试网 USDC");
+    throw new LocalizedError("errors.noUsdcInWallet");
   }
   const total = coins.reduce((s, c) => s + c.balance, 0n);
   if (total < amount) {
-    throw new Error(
-      `USDC 不足：需要 ${formatUsdcBaseUnits(amount)}，持有 ${formatUsdcBaseUnits(total)}`,
-    );
+    throw new LocalizedError("errors.insufficientUsdc", {
+      need: formatUsdcBaseUnits(amount),
+      have: formatUsdcBaseUnits(total),
+    });
   }
 
   const sorted = [...coins].sort((a, b) =>

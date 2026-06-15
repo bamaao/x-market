@@ -2,18 +2,32 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useT } from "@/i18n/context";
 
-const NAV_ITEMS = [
-  { href: "/", label: "市场" },
-  { href: "/markets/create", label: "创建市场" },
-  { href: "/positions", label: "持仓" },
-  { href: "/lp", label: "LP" },
-  { href: "/oracle", label: "Oracle" },
-  { href: "/prophet", label: "Prophet" },
-  { href: "/leaderboard", label: "排行榜" },
-  { href: "/following", label: "我的关注" },
-  { href: "/roi", label: "跟单 ROI" },
-  { href: "/metrics", label: "GMV" },
+const NAV_HREFS = [
+  "/",
+  "/markets/create",
+  "/positions",
+  "/lp",
+  "/oracle",
+  "/prophet",
+  "/leaderboard",
+  "/following",
+  "/roi",
+  "/metrics",
+] as const;
+
+const NAV_KEYS = [
+  "nav.markets",
+  "nav.createMarket",
+  "nav.positions",
+  "nav.lp",
+  "nav.oracle",
+  "nav.prophet",
+  "nav.leaderboard",
+  "nav.following",
+  "nav.roi",
+  "nav.metrics",
 ] as const;
 
 function isActive(pathname: string, href: string): boolean {
@@ -23,16 +37,17 @@ function isActive(pathname: string, href: string): boolean {
 
 export function SiteNav() {
   const pathname = usePathname();
+  const t = useT();
 
   return (
-    <nav className="site-nav" aria-label="主导航">
-      {NAV_ITEMS.map(({ href, label }) => (
+    <nav className="site-nav" aria-label={t("nav.aria")}>
+      {NAV_HREFS.map((href, index) => (
         <Link
           key={href}
           href={href}
           className={isActive(pathname, href) ? "active" : undefined}
         >
-          {label}
+          {t(NAV_KEYS[index])}
         </Link>
       ))}
     </nav>

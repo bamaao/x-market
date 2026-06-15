@@ -11,6 +11,7 @@ import { defaultPoolId } from "@/lib/markets";
 import type { SeedMarket } from "@/lib/markets";
 import { appendDepositLiquidity } from "@/lib/lp";
 import { parseUsdcAmount } from "@/lib/usdc";
+import { useT } from "@/i18n/context";
 import { MintUsdcButton } from "./MintUsdcButton";
 import { UsdcBalance } from "./UsdcBalance";
 
@@ -19,6 +20,7 @@ type Props = { market: SeedMarket };
 export function LpDepositPanel({ market }: Props) {
   const account = useCurrentAccount();
   const client = useSuiClient();
+  const t = useT();
   const { mutate: signAndExecute, isPending } = useSignAndExecuteTransaction();
   const [poolId, setPoolId] = useState(() => defaultPoolId(market));
   const [amount, setAmount] = useState("100");
@@ -27,11 +29,11 @@ export function LpDepositPanel({ market }: Props) {
 
   const deposit = async () => {
     if (!account?.address) {
-      setStatus("请先连接钱包");
+      setStatus(t("common.connectWallet"));
       return;
     }
     if (!poolId) {
-      setStatus("请填写 Pool ID");
+      setStatus(t("common.fillPoolId"));
       return;
     }
     try {
@@ -43,32 +45,30 @@ export function LpDepositPanel({ market }: Props) {
         { transaction: tx as any },
         {
           onSuccess: (r) => {
-            setStatus(`LP 份额已铸造: ${r.digest?.slice(0, 18)}…`);
+            setStatus(t("lp.depositSuccess", { digest: r.digest?.slice(0, 18) ?? "" }));
             setBalanceKey((k) => k + 1);
           },
-          onError: (e) => setStatus(`失败: ${e.message}`),
+          onError: (e) => setStatus(t("trade.failed", { message: e.message })),
         },
       );
     } catch (e) {
-      setStatus(e instanceof Error ? e.message : "交易失败");
+      setStatus(e instanceof Error ? e.message : t("common.txFailed"));
     }
   };
 
   return (
     <div className="card panel">
-      <h2>LP 申购</h2>
-      <p className="hint">
-        按 NAV 铸造 LpShare；Dirichlet 池会等比放大 α，概率形状不变。
-      </p>
+      <h2>{t("lp.deposit")}</h2>
+      <p className="hint">{t("lp.subtitle")}</p>
       {account && (
         <>
           <UsdcBalance key={balanceKey} />
           <MintUsdcButton onMinted={() => setBalanceKey((k) => k + 1)} />
         </>
       )}
-      <label>MarketPool ID</label>
+      <label>{t("lp.poolIdLabel")}</label>
       <input value={poolId} onChange={(e) => setPoolId(e.target.value)} />
-      <label>注入 USDC</label>
+      <label>{t("lp.subscribeUsdc")}</label>
       <input value={amount} onChange={(e) => setAmount(e.target.value)} />
       <button
         type="button"
@@ -76,7 +76,7 @@ export function LpDepositPanel({ market }: Props) {
         disabled={!account || isPending}
         onClick={() => void deposit()}
       >
-        {isPending ? "签名中…" : "deposit_liquidity"}
+        {isPending ? t("trade.signing") : "deposit_liquidity"}
       </button>
       {status && <p className="hint">{status}</p>}
     </div>

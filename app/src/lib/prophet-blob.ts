@@ -1,3 +1,4 @@
+import { LocalizedError } from "@/i18n/core";
 import { INDEXER_URL } from "./indexer";
 import { ipfsCidToGatewayUrl, parseIpfsCid } from "./ipfs";
 
@@ -15,16 +16,16 @@ export function isProphecyBlobId(blobId: string): boolean {
 
 async function readIdxBlob(blobId: string): Promise<Uint8Array> {
   if (!INDEXER_URL) {
-    throw new Error("Indexer 未配置，无法读取 idx: blob");
+    throw new LocalizedError("errors.indexerNotConfigured");
   }
   const filename = parseIdxBlobFilename(blobId);
   if (!filename) {
-    throw new Error("无效的 idx: blob_id");
+    throw new LocalizedError("errors.invalidIdxBlobId");
   }
   const url = `${INDEXER_URL}/v1/prophecies/blobs/${encodeURIComponent(filename)}`;
   const res = await fetch(url);
   if (!res.ok) {
-    throw new Error(`Indexer blob 读取失败 (${res.status})`);
+    throw new LocalizedError("errors.indexerBlobReadFailed", { status: res.status });
   }
   return new Uint8Array(await res.arrayBuffer());
 }
@@ -32,12 +33,12 @@ async function readIdxBlob(blobId: string): Promise<Uint8Array> {
 async function readIpfsBlob(blobId: string): Promise<Uint8Array> {
   const cid = parseIpfsCid(blobId);
   if (!cid) {
-    throw new Error("无效的 ipfs: blob_id");
+    throw new LocalizedError("errors.invalidIpfsBlobId");
   }
   const url = ipfsCidToGatewayUrl(cid);
   const res = await fetch(url);
   if (!res.ok) {
-    throw new Error(`IPFS 读取失败 (${res.status})`);
+    throw new LocalizedError("errors.ipfsReadFailed", { status: res.status });
   }
   return new Uint8Array(await res.arrayBuffer());
 }
@@ -50,5 +51,7 @@ export async function readProphecyBlob(blobId: string): Promise<Uint8Array> {
   if (parseIpfsCid(blobId)) {
     return readIpfsBlob(blobId);
   }
-  throw new Error(`不支持的 blob_id（需 idx: 或 ipfs: 前缀）: ${blobId.slice(0, 32)}…`);
+  throw new LocalizedError("errors.unsupportedBlobId", {
+    id: blobId.slice(0, 32),
+  });
 }

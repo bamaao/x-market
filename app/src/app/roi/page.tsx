@@ -12,6 +12,7 @@ import {
 } from "@/lib/indexer";
 import { DataTable } from "@/components/DataTable";
 import { PageHeader } from "@/components/PageHeader";
+import { useT } from "@/i18n/context";
 
 function formatUsdc(mist: string | number | null | undefined): string {
   if (mist == null || mist === "") return "—";
@@ -33,6 +34,7 @@ function shortId(value: string | null | undefined, len = 10): string {
 }
 
 export default function RoiPage() {
+  const t = useT();
   const account = useCurrentAccount();
   const [summary, setSummary] = useState<IndexerBuyerRoiSummary | null>(null);
   const [rows, setRows] = useState<IndexerBuyerRoi[]>([]);
@@ -63,7 +65,7 @@ export default function RoiPage() {
         if (cancelled) return;
         setSummary(null);
         setRows([]);
-        setError(e instanceof Error ? e.message : "加载跟单数据失败");
+        setError(e instanceof Error ? e.message : t("roi.errLoad"));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -71,30 +73,28 @@ export default function RoiPage() {
     return () => {
       cancelled = true;
     };
-  }, [account?.address]);
+  }, [account?.address, t]);
 
   return (
     <div>
       <PageHeader
-        title="跟单 ROI"
+        title={t("roi.title")}
         subtitle={
           <>
-            订阅者解锁 Prophet 预测后的收益聚合（Indexer <code>buyer_roi</code>）。
+            {t("roi.subtitle")}
           </>
         }
       />
 
       {!indexerEnabled() && (
         <div className="card">
-          <p>
-            请配置 <code>NEXT_PUBLIC_INDEXER_URL</code> 后查看跟单收益。
-          </p>
+          <p>{t("roi.indexerRequired")}</p>
         </div>
       )}
 
       {!account && indexerEnabled() && (
         <div className="card">
-          <p>连接钱包以查看您的跟单记录。</p>
+          <p>{t("roi.connectHint")}</p>
         </div>
       )}
 
@@ -103,52 +103,51 @@ export default function RoiPage() {
           {error && (
             <div className="card">
               <p className="hint oracle-pool-error">{error}</p>
-              <p className="hint">
-                请确认 Indexer 已启动且已执行迁移（含 <code>buyer_roi_summary</code> 表）。
-              </p>
+              <p className="hint">{t("roi.migrationHint")}</p>
             </div>
           )}
 
           <div className="card">
-            <h2>汇总</h2>
+            <h2>{t("roi.summaryTitle")}</h2>
             {loading ? (
-              <p className="hint">加载中…</p>
+              <p className="hint">{t("common.loading")}</p>
             ) : summary ? (
               <dl className="meta">
-                <dt>总解锁成本</dt>
+                <dt>{t("roi.totalCost")}</dt>
                 <dd>{formatUsdc(summary.total_unlock_cost)}</dd>
-                <dt>跟单笔数</dt>
+                <dt>{t("roi.positionCount")}</dt>
                 <dd>{summary.total_positions ?? 0}</dd>
-                <dt>胜 / 负 / 作弊 / 待审计</dt>
+                <dt>{t("roi.wlcp")}</dt>
                 <dd>
                   {summary.wins ?? 0} / {summary.losses ?? 0} / {summary.cheats ?? 0} /{" "}
                   {summary.pending ?? 0}
                 </dd>
-                <dt>平均 ROI</dt>
+                <dt>{t("roi.avgRoi")}</dt>
                 <dd>{roiLabel(summary.aggregate_roi_bps)}</dd>
               </dl>
             ) : (
               <p className="hint">
-                尚无跟单记录。前往 <Link href="/prophet">Prophet</Link> 解锁预测。
+                {t("roi.empty")}{" "}
+                <Link href="/prophet">Prophet</Link>.
               </p>
             )}
           </div>
 
           <div className="card">
-            <h2>明细</h2>
+            <h2>{t("roi.detailTitle")}</h2>
             {loading ? (
-              <p className="hint">加载中…</p>
+              <p className="hint">{t("common.loading")}</p>
             ) : rows.length === 0 ? (
-              <p className="hint">无明细</p>
+              <p className="hint">{t("roi.noDetail")}</p>
             ) : (
               <DataTable>
                 <thead>
                   <tr>
-                    <th>预言</th>
-                    <th>预言家</th>
-                    <th>成本</th>
-                    <th>结果</th>
-                    <th>ROI</th>
+                    <th>{t("roi.colProphecy")}</th>
+                    <th>{t("roi.colProphet")}</th>
+                    <th>{t("roi.colCost")}</th>
+                    <th>{t("roi.colOutcome")}</th>
+                    <th>{t("roi.colRoi")}</th>
                   </tr>
                 </thead>
                 <tbody>

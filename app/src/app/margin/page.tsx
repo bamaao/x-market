@@ -14,6 +14,7 @@ import {
   appendUnregisterPosition,
 } from "@/lib/margin";
 import { formatUsdcBaseUnits } from "@/lib/usdc";
+import { useT } from "@/i18n/context";
 
 function parseFields(content: unknown): Record<string, unknown> | undefined {
   if (!content || typeof content !== "object") return undefined;
@@ -23,6 +24,7 @@ function parseFields(content: unknown): Record<string, unknown> | undefined {
 }
 
 export default function MarginPage() {
+  const t = useT();
   const account = useCurrentAccount();
   const { mutate: signAndExecute, isPending } = useSignAndExecuteTransaction();
   const [poolId, setPoolId] = useState("");
@@ -51,51 +53,51 @@ export default function MarginPage() {
           setMsg(`${ok}: ${r.digest?.slice(0, 16)}…`);
           void refetch();
         },
-        onError: (e) => setMsg(`失败: ${e.message}`),
+        onError: (e) => setMsg(t("trade.failed", { message: e.message })),
       },
     );
   };
 
   const openAccount = () => {
-    if (!poolId) return setMsg("请先填写 Pool ID");
+    if (!poolId) return setMsg(t("margin.errFillPool"));
     const tx = new Transaction();
     appendOpenMarginAccount(tx, poolId);
-    runTx(tx, "已创建保证金账户");
+    runTx(tx, t("margin.okOpen"));
   };
 
   const register = () => {
     if (!marginAccountId || !poolId || !positionId) {
-      return setMsg("请填写 MarginAccount / Pool / Position ID");
+      return setMsg(t("margin.errFillAll"));
     }
     const tx = new Transaction();
     appendRegisterPosition(tx, marginAccountId, poolId, positionId);
-    runTx(tx, "已登记持仓到保证金账户");
+    runTx(tx, t("margin.okRegister"));
   };
 
   const unregister = () => {
     if (!marginAccountId || !poolId || !positionId) {
-      return setMsg("请填写 MarginAccount / Pool / Position ID");
+      return setMsg(t("margin.errFillAll"));
     }
     const tx = new Transaction();
     appendUnregisterPosition(tx, marginAccountId, poolId, positionId);
-    runTx(tx, "已取消登记持仓");
+    runTx(tx, t("margin.okUnregister"));
   };
 
   return (
     <>
-      <h1>Cross-Margin</h1>
-      <p className="sub">链上保证金账户与持仓责任登记</p>
-      {!account && <p className="hint">连接钱包后使用。</p>}
+      <h1>{t("margin.title")}</h1>
+      <p className="sub">{t("margin.subtitle")}</p>
+      {!account && <p className="hint">{t("margin.connectHint")}</p>}
 
       <div className="card panel">
-        <label>Pool ID</label>
+        <label>{t("margin.poolId")}</label>
         <input value={poolId} onChange={(e) => setPoolId(e.target.value)} />
-        <label>MarginAccount ID</label>
+        <label>{t("margin.marginAccountId")}</label>
         <input
           value={marginAccountId}
           onChange={(e) => setMarginAccountId(e.target.value)}
         />
-        <label>Position ID</label>
+        <label>{t("margin.positionId")}</label>
         <input value={positionId} onChange={(e) => setPositionId(e.target.value)} />
         <div className="btn-row">
           <button
@@ -104,7 +106,7 @@ export default function MarginPage() {
             disabled={!account || isPending}
             onClick={openAccount}
           >
-            新建保证金账户
+            {t("margin.openAccount")}
           </button>
           <button
             type="button"
@@ -112,7 +114,7 @@ export default function MarginPage() {
             disabled={!account || isPending}
             onClick={register}
           >
-            登记持仓
+            {t("margin.register")}
           </button>
           <button
             type="button"
@@ -120,14 +122,14 @@ export default function MarginPage() {
             disabled={!account || isPending}
             onClick={unregister}
           >
-            取消登记
+            {t("margin.unregister")}
           </button>
         </div>
         {msg && <p className="hint">{msg}</p>}
       </div>
 
-      <h2>我的保证金账户</h2>
-      {loading && account && <p className="hint">加载中…</p>}
+      <h2>{t("margin.myAccounts")}</h2>
+      {loading && account && <p className="hint">{t("common.loading")}</p>}
       <div className="grid">
         {data?.data?.map((obj) => {
           const raw = parseFields(obj.data?.content);
@@ -146,11 +148,15 @@ export default function MarginPage() {
               <span className="badge">MarginAccount</span>
               <p className="mono">{obj.data?.objectId}</p>
               <p className="hint">
-                Gross Stake:{" "}
-                {gross != null ? formatUsdcBaseUnits(BigInt(String(gross))) : "—"} USDC
+                {t("margin.grossStake")}:{" "}
+                {gross != null ? formatUsdcBaseUnits(BigInt(String(gross))) : t("common.dash")} USDC
               </p>
-              <p className="hint">Worst Liability: {formatUsdcBaseUnits(worst)} USDC</p>
-              <p className="hint">Linked Positions: {linked?.length ?? 0}</p>
+              <p className="hint">
+                {t("margin.worstLiability")}: {formatUsdcBaseUnits(worst)} USDC
+              </p>
+              <p className="hint">
+                {t("margin.linkedPositions")}: {linked?.length ?? 0}
+              </p>
             </article>
           );
         })}

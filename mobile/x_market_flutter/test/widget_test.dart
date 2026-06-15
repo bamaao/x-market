@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:x_market_flutter/src/app/app_controller.dart';
 import 'package:x_market_flutter/src/app/x_market_app.dart';
@@ -69,10 +70,22 @@ void main() {
 
   testWidgets('App shell shows markets tab', (WidgetTester tester) async {
     final app = AppController();
-    await tester.pumpWidget(XMarketApp(controller: app));
+    await tester.pumpWidget(
+      XMarketApp(controller: app, locale: const Locale('zh')),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('X-Market'), findsWidgets);
     expect(find.text('市场'), findsOneWidget);
+  });
+
+  testWidgets('App shell shows English markets tab', (WidgetTester tester) async {
+    final app = AppController();
+    await tester.pumpWidget(
+      XMarketApp(controller: app, locale: const Locale('en')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Markets'), findsOneWidget);
   });
 }

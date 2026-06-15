@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:x_market_flutter/src/app/app_controller.dart';
+import 'package:x_market_flutter/src/l10n/l10n_ext.dart';
+import 'package:x_market_flutter/src/l10n/l10n_helpers.dart';
 import 'package:x_market_flutter/src/models/pricing_models.dart';
 import 'package:x_market_flutter/src/models/sui_models.dart';
 import 'package:x_market_flutter/src/services/pricing_service.dart';
@@ -181,17 +183,18 @@ class _MarketDetailScreenState extends State<MarketDetailScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final market = widget.market;
     final modes = ChainTransactionService.modesForMarketKind(market.kind);
     return Scaffold(
       appBar: AppBar(
-        title: Text(market.label),
+        title: Text(displayMarketLabel(context.l10n, market)),
         bottom: TabBar(
           controller: _tabs,
-          tabs: const [
-            Tab(text: '交易'),
-            Tab(text: 'LP'),
-            Tab(text: '拍卖'),
+          tabs: [
+            Tab(text: l10n.tabTrade),
+            Tab(text: l10n.navLp),
+            Tab(text: l10n.tabAuction),
           ],
         ),
       ),
@@ -207,6 +210,7 @@ class _MarketDetailScreenState extends State<MarketDetailScreen>
   }
 
   Widget _tradeTab(List<ContractMode> modes) {
+    final l10n = context.l10n;
     final kind = widget.market.kind;
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -216,15 +220,15 @@ class _MarketDetailScreenState extends State<MarketDetailScreen>
             padding: const EdgeInsets.only(bottom: 12),
             child: Text(
               widget.app.gasStationReachable
-                  ? 'Gas Station 已启用：交易 Gas 由赞助方代付（USDC 仍自付）'
-                  : 'Gas Station 离线：Gas 将从钱包 SUI 扣除',
+                  ? l10n.gasStationEnabled
+                  : l10n.gasStationOffline,
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
         if (kind == 'dirichlet')
           TextField(
             controller: _dirichletOutcome,
-            decoration: const InputDecoration(labelText: '结果 0/1/2'),
+            decoration: InputDecoration(labelText: l10n.outcome012),
             keyboardType: TextInputType.number,
           )
         else if (kind == 'beta')
@@ -232,10 +236,13 @@ class _MarketDetailScreenState extends State<MarketDetailScreen>
         else
           DropdownButtonFormField<ContractMode>(
             initialValue: modes.contains(_mode) ? _mode : modes.first,
-            decoration: const InputDecoration(labelText: '合约类型'),
+            decoration: InputDecoration(labelText: l10n.contractType),
             items: modes
                 .map(
-                  (m) => DropdownMenuItem(value: m, child: Text(m.label)),
+                  (m) => DropdownMenuItem(
+                    value: m,
+                    child: Text(m.localizedLabel(l10n)),
+                  ),
                 )
                 .toList(),
             onChanged: (v) {
@@ -247,7 +254,7 @@ class _MarketDetailScreenState extends State<MarketDetailScreen>
         ..._paramFields(kind),
         TextField(
           controller: _stake,
-          decoration: const InputDecoration(labelText: 'Stake (USDC)'),
+          decoration: InputDecoration(labelText: l10n.stakeUsdc),
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
         ),
         const SizedBox(height: 12),
@@ -256,7 +263,9 @@ class _MarketDetailScreenState extends State<MarketDetailScreen>
         FilledButton(
           onPressed: widget.app.wallet.busy ? null : _buy,
           child: Text(
-            widget.app.gasStationReachable ? 'Phantom 签名并买入（Gas 赞助）' : 'Phantom 签名并买入',
+            widget.app.gasStationReachable
+                ? l10n.buyWithGasSponsor
+                : l10n.buyWithPhantom,
           ),
         ),
       ],
@@ -264,6 +273,7 @@ class _MarketDetailScreenState extends State<MarketDetailScreen>
   }
 
   List<Widget> _paramFields(String kind) {
+    final l10n = context.l10n;
     if (kind == 'beta') {
       return [
         Row(
@@ -271,14 +281,14 @@ class _MarketDetailScreenState extends State<MarketDetailScreen>
             Expanded(
               child: TextField(
                 controller: _betaA,
-                decoration: const InputDecoration(labelText: '下界 ‰'),
+                decoration: InputDecoration(labelText: l10n.lowerBoundPermille),
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: TextField(
                 controller: _betaB,
-                decoration: const InputDecoration(labelText: '上界 ‰'),
+                decoration: InputDecoration(labelText: l10n.upperBoundPermille),
               ),
             ),
           ],
@@ -324,14 +334,14 @@ class _MarketDetailScreenState extends State<MarketDetailScreen>
             Expanded(
               child: TextField(
                 controller: _normalA,
-                decoration: const InputDecoration(labelText: '下界'),
+                decoration: InputDecoration(labelText: l10n.lowerBound),
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: TextField(
                 controller: _normalB,
-                decoration: const InputDecoration(labelText: '上界'),
+                decoration: InputDecoration(labelText: l10n.upperBound),
               ),
             ),
           ],
@@ -343,7 +353,7 @@ class _MarketDetailScreenState extends State<MarketDetailScreen>
       return [
         TextField(
           controller: _normalThreshold,
-          decoration: const InputDecoration(labelText: '阈值'),
+          decoration: InputDecoration(labelText: l10n.threshold),
         ),
         const SizedBox(height: 12),
       ];
@@ -356,7 +366,7 @@ class _MarketDetailScreenState extends State<MarketDetailScreen>
       return [
         TextField(
           controller: _normalStrike,
-          decoration: const InputDecoration(labelText: '执行价 K'),
+          decoration: InputDecoration(labelText: l10n.strikeK),
         ),
         const SizedBox(height: 12),
       ];
@@ -393,7 +403,7 @@ class _MarketDetailScreenState extends State<MarketDetailScreen>
       return [
         TextField(
           controller: _normalBarrier,
-          decoration: const InputDecoration(labelText: '障碍 B'),
+          decoration: InputDecoration(labelText: l10n.barrierB),
         ),
         const SizedBox(height: 12),
       ];
@@ -402,12 +412,13 @@ class _MarketDetailScreenState extends State<MarketDetailScreen>
   }
 
   Widget _lpTab() {
+    final l10n = context.l10n;
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         TextField(
           controller: _lpAmount,
-          decoration: const InputDecoration(labelText: '申购 USDC'),
+          decoration: InputDecoration(labelText: l10n.subscribeUsdc),
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
         ),
         const SizedBox(height: 12),
@@ -424,31 +435,32 @@ class _MarketDetailScreenState extends State<MarketDetailScreen>
                     ),
                   );
                 },
-          child: const Text('LP 申购'),
+          child: Text(l10n.lpSubscribe),
         ),
       ],
     );
   }
 
   Widget _auctionTab() {
+    final l10n = context.l10n;
     final canAuction = widget.market.kind == 'poisson' ||
         widget.market.kind == 'dirichlet' ||
         widget.market.kind == 'normal';
     if (!canAuction) {
-      return const Center(child: Text('该市场不支持 Opening Auction'));
+      return Center(child: Text(l10n.auctionNotSupported));
     }
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         TextField(
           controller: _auctionBucket,
-          decoration: const InputDecoration(labelText: '桶索引 bucket'),
+          decoration: InputDecoration(labelText: l10n.bucketIndex),
           keyboardType: TextInputType.number,
         ),
         const SizedBox(height: 8),
         TextField(
           controller: _auctionAmount,
-          decoration: const InputDecoration(labelText: '出价 USDC'),
+          decoration: InputDecoration(labelText: l10n.bidUsdc),
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
         ),
         const SizedBox(height: 12),
@@ -468,7 +480,7 @@ class _MarketDetailScreenState extends State<MarketDetailScreen>
                     ),
                   );
                 },
-          child: const Text('拍卖出价'),
+          child: Text(l10n.auctionBid),
         ),
         const SizedBox(height: 8),
         OutlinedButton(
@@ -481,7 +493,7 @@ class _MarketDetailScreenState extends State<MarketDetailScreen>
                     marketKind: widget.market.kind,
                   ),
                 ),
-          child: const Text('定标 finalize_auction'),
+          child: Text(l10n.finalizeAuction),
         ),
       ],
     );
@@ -501,9 +513,10 @@ class _QuotePreviewPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     if (!PricingService.supportsMarketKind(kind)) {
       return Text(
-        '定价预览：Beta / exotic 合约暂不支持 Pricing Engine',
+        l10n.quoteBetaUnsupported,
         style: Theme.of(context).textTheme.bodySmall,
       );
     }
@@ -512,19 +525,19 @@ class _QuotePreviewPanel extends StatelessWidget {
     }
     if (quote == null) {
       return Text(
-        '定价预览不可用（Pricing Engine 离线或未配置）',
+        l10n.quoteUnavailable,
         style: Theme.of(context).textTheme.bodySmall,
       );
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('定价预览（链下估算）', style: Theme.of(context).textTheme.labelLarge),
-        Text('胜率约 ${quote!.entryProbPercent.toStringAsFixed(2)}%'),
+        Text(l10n.quoteTitle, style: Theme.of(context).textTheme.labelLarge),
+        Text(l10n.quoteWinProb(quote!.entryProbPercent.toStringAsFixed(2))),
         Text(
-          '命中兑付约 ${AppController.formatUsdc(quote!.payoutUsdcMist)} USDC',
+          l10n.quotePayout(AppController.formatUsdc(quote!.payoutUsdcMist)),
         ),
-        Text('隐含 ROI ${(quote!.impliedRoiBps / 100).toStringAsFixed(2)}%'),
+        Text(l10n.quoteImpliedRoi((quote!.impliedRoiBps / 100).toStringAsFixed(2))),
       ],
     );
   }

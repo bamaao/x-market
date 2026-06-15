@@ -10,8 +10,10 @@ import { Transaction } from "@mysten/sui/transactions";
 import { PACKAGE_ID, SEED_MARKETS } from "@/lib/markets";
 import { formatUsdcBaseUnits } from "@/lib/usdc";
 import { appendWithdrawLiquidity } from "@/lib/lp";
+import { useT } from "@/i18n/context";
 
 export default function LpPage() {
+  const t = useT();
   const account = useCurrentAccount();
   const { mutate: signAndExecute, isPending: withdrawing } =
     useSignAndExecuteTransaction();
@@ -32,7 +34,7 @@ export default function LpPage() {
   const withdraw = (lpObjectId: string) => {
     const poolId = poolIds[lpObjectId]?.trim();
     if (!poolId) {
-      setStatus("请填写该 LpShare 对应的 Pool ID");
+      setStatus(t("lp.fillPoolId"));
       return;
     }
     const tx = new Transaction();
@@ -42,22 +44,22 @@ export default function LpPage() {
       { transaction: tx as any },
       {
         onSuccess: (r) => {
-          setStatus(`赎回成功: ${r.digest?.slice(0, 18)}…`);
+          setStatus(t("common.txSuccess", { digest: r.digest?.slice(0, 18) ?? "" }));
           void refetch();
         },
-        onError: (e) => setStatus(`赎回失败: ${e.message}`),
+        onError: (e) => setStatus(t("trade.failed", { message: e.message })),
       },
     );
   };
 
   return (
     <>
-      <h1>LP 份额</h1>
-      <p className="sub">LpShare 对象（NAV 申购与赎回）</p>
-      {!account && <p className="hint">连接钱包后查看。</p>}
+      <h1>{t("lp.title")}</h1>
+      <p className="sub">{t("lp.subtitle")}</p>
+      {!account && <p className="hint">{t("lp.connectHint")}</p>}
       {account && (
         <button type="button" className="secondary" onClick={() => refetch()}>
-          刷新
+          {t("common.refresh")}
         </button>
       )}
       <div className="grid">
@@ -71,19 +73,21 @@ export default function LpPage() {
           const marketId = String(fields?.market_id ?? "");
           const marketTitle =
             SEED_MARKETS.find((m) => String(m.params.poolId ?? "") === marketId)
-              ?.title ?? "市场";
+              ?.title ?? t("nav.markets");
           const lpObjectId = obj.data?.objectId ?? "";
           return (
             <article key={lpObjectId} className="card">
               <span className="badge">LpShare</span>
               <p>{marketTitle}</p>
               <p className="hint">
-                份额:{" "}
-                {shares != null
-                  ? formatUsdcBaseUnits(BigInt(String(shares)))
-                  : "—"}
+                {t("lp.shares", {
+                  amount:
+                    shares != null
+                      ? formatUsdcBaseUnits(BigInt(String(shares)))
+                      : t("common.dash"),
+                })}
               </p>
-              <label>Pool ID（用于 withdraw_liquidity）</label>
+              <label>{t("lp.poolIdLabel")}</label>
               <input
                 value={poolIds[lpObjectId] ?? ""}
                 onChange={(e) =>
@@ -97,7 +101,7 @@ export default function LpPage() {
                 disabled={!account || withdrawing}
                 onClick={() => withdraw(lpObjectId)}
               >
-                {withdrawing ? "处理中…" : "赎回 LP"}
+                {withdrawing ? t("common.processing") : t("lp.redeem")}
               </button>
               <p className="mono">{lpObjectId}</p>
             </article>
@@ -106,7 +110,7 @@ export default function LpPage() {
       </div>
       {status && <p className="hint">{status}</p>}
       {account && data?.data?.length === 0 && !isPending && (
-        <p className="hint">暂无 LP，可在市场页 deposit_liquidity 申购。</p>
+        <p className="hint">{t("lp.empty")}</p>
       )}
     </>
   );

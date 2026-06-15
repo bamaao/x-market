@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:x_market_flutter/src/app/app_controller.dart';
+import 'package:x_market_flutter/src/l10n/l10n_ext.dart';
 import 'package:x_market_flutter/src/widgets/connect_banner.dart';
 
 class LpScreen extends StatelessWidget {
@@ -9,6 +10,7 @@ class LpScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return ListenableBuilder(
       listenable: app,
       builder: (context, _) {
@@ -20,8 +22,8 @@ class LpScreen extends StatelessWidget {
               SliverPadding(
                 padding: const EdgeInsets.all(16),
                 sliver: app.lpShares.isEmpty
-                    ? const SliverFillRemaining(
-                        child: Center(child: Text('暂无 LP 份额')),
+                    ? SliverFillRemaining(
+                        child: Center(child: Text(l10n.noLpShares)),
                       )
                     : SliverList.separated(
                         itemCount: app.lpShares.length,
@@ -41,7 +43,9 @@ class LpScreen extends StatelessWidget {
                                         Theme.of(context).textTheme.titleSmall,
                                   ),
                                   Text(
-                                    '份额 ${AppController.formatUsdc(lp.shares)}',
+                                    l10n.lpShares(
+                                      AppController.formatUsdc(lp.shares),
+                                    ),
                                   ),
                                   Text(
                                     lp.objectId.substring(0, 18),
@@ -62,7 +66,7 @@ class LpScreen extends StatelessWidget {
                                                 lpShareId: lp.objectId,
                                               ),
                                             ),
-                                    child: const Text('赎回 LP'),
+                                    child: Text(l10n.redeemLp),
                                   ),
                                 ],
                               ),

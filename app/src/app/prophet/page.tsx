@@ -13,14 +13,12 @@ import { EVENT_ROOT_BY_POOL } from "@/lib/event-root";
 import Link from "next/link";
 import { Transaction } from "@mysten/sui/transactions";
 import {
-  PROPHET_FLOW_STEPS,
   PROPHET_REGISTRY_ID,
   PROPHECY_STATUS_CHEAT,
   PROPHECY_STATUS_OPEN,
   appendAuditProphecy,
   appendCommitPrivateProphecy,
   appendUnlockProphecy,
-  auditOutcomeLabel,
   buildNormalIntervalPayload,
   buildProphecyPayload,
   buildSettlementPreview,
@@ -48,19 +46,16 @@ import {
   loadStoredProphecyPlaintext,
   MIN_AUDITED_FOR_PAID,
   MIN_SCORE_BPS_FOR_PAID,
-  paidUnlockEligibilityHint,
   parseProphecyFields,
   parseUsdcAmount,
   previewAuditOutcome,
   prophecyIntervalWidth,
-  prophecyStatusLabel,
   storeProphecyPlaintext,
   verifyProphecyPlaintextHash,
   type ProphetRegistryView,
   type ProphetStatsView,
   type ProphetWorkflowStep,
   type ProphecyView,
-  workflowStepLabel,
 } from "@/lib/prophet";
 import {
   encryptProphecyPayload,
@@ -76,6 +71,16 @@ import {
   PROPHET_UNLOCK_CUTOFF_SECS,
   type ProphetPoolOption,
 } from "@/lib/prophet-market-eligibility";
+import {
+  localizedAuditOutcome,
+  localizedPaidUnlockEligibilityHint,
+  localizedProphecyStatus,
+  localizedProphecyVerifyReason,
+  localizedProphetEligibilityReason,
+  localizedProphetWorkflowStep,
+} from "@/i18n/domain";
+import { formatCaughtError, localizeLibMessage } from "@/i18n/core";
+import { useT } from "@/i18n/context";
 
 function parseMoveFields(content: unknown): Record<string, unknown> | undefined {
   if (!content || typeof content !== "object") return undefined;
@@ -102,6 +107,7 @@ function flowStepIndex(step: ProphetWorkflowStep): number {
 }
 
 export default function ProphetPage() {
+  const t = useT();
   const account = useCurrentAccount();
   const client = useSuiClient();
   const { mutate: signAndExecute, isPending: walletPending } =
@@ -269,11 +275,11 @@ export default function ProphetPage() {
   const activeFlowIdx = flowStepIndex(workflowStep);
 
   const predictedHint = useMemo(() => {
-    if (!market) return "预测值（链上 slot / tenths）";
-    if (market.kind === "dirichlet") return "Dirichlet bucket 0–2";
-    if (market.kind === "poisson") return "Poisson outcome slot 0–14";
-    return "Normal 宏观区间（tenths，如 25–27 = 2.5%–2.7%）";
-  }, [market]);
+    if (!market) return t("prophet.predictedSlot");
+    if (market.kind === "dirichlet") return t("prophet.predictedHintDirichlet");
+    if (market.kind === "poisson") return t("prophet.predictedHintPoisson");
+    return t("prophet.normalInterval");
+  }, [market, t]);
 
   const isNormalMarket = market?.kind === "normal";
   const normalIntervalValid = useMemo(() => {
@@ -339,10 +345,10 @@ export default function ProphetPage() {
 
   async function runDecrypt(
     target: ProphecyView,
-    successMsg = "内容读取成功",
+    successMsg?: string,
   ) {
     setDecrypting(true);
-    setMsg("尝试 Indexer 明文缓存 → blob 存储…");
+    setMsg(t("prophet.uploading"));
     try {
       const cached = await decryptFromIndexerCache(target.id);
       const publicContent =
@@ -361,13 +367,13 @@ export default function ProphetPage() {
             )
           : null);
       if (!content) {
-        throw new Error("无法读取预测内容，请连接钱包或稍后重试");
+        throw new Error(t("prophet.errReadContent"));
       }
       setDecryptedAnalysis(content.analysis);
       setStoredPlaintext(content.json);
-      setMsg(successMsg);
+      setMsg(successMsg ?? t("prophet.readSuccess"));
     } catch (e) {
-      setMsg((e as Error).message ?? "读取失败");
+      setMsg(formatCaughtError(e, t));
     } finally {
       setDecrypting(false);
     }
@@ -389,26 +395,24 @@ export default function ProphetPage() {
 
   function runTx(
     build: (tx: Transaction) => void | Promise<void>,
-    successMsg = "交易已提交",
+    successMsg?: string,
     onDone?: () => void | Promise<void>,
   ) {
     if (!account) {
-      setMsg("请先连接钱包");
+      setMsg(t("common.connectWallet"));
       return;
     }
     setMsg(null);
     const tx = new Transaction();
+    const msg = successMsg ?? t("prophet.txSubmitted");
     void Promise.resolve(build(tx))
       .then(async () => {
         if (gasStationEnabled) {
           try {
             await executeSponsored(tx);
-            await afterTxSuccess(
-              `${successMsg}（Gas 由协议代付）`,
-              onDone,
-            );
+            await afterTxSuccess(`${msg}${t("prophet.gasSponsoredSuffix")}`, onDone);
           } catch (e) {
-            setMsg((e as Error).message ?? "赞助交易失败");
+            setMsg((e as Error).message ?? t("prophet.sponsorTxFailed"));
           }
           return;
         }
@@ -417,43 +421,41 @@ export default function ProphetPage() {
           { transaction: tx as any },
           {
             onSuccess: async () => {
-              await afterTxSuccess(successMsg, onDone);
+              await afterTxSuccess(msg, onDone);
             },
-            onError: (e) => setMsg(e.message ?? "交易失败"),
+            onError: (e) => setMsg(formatCaughtError(e, t)),
           },
         );
       })
-      .catch((e: Error) => setMsg(e.message));
+      .catch((e: unknown) => setMsg(formatCaughtError(e, t)));
   }
 
   async function onCommit() {
     if (!PROPHET_REGISTRY_ID) {
-      setMsg("请配置 NEXT_PUBLIC_PROPHET_REGISTRY_ID");
+      setMsg(t("prophet.errRegistry"));
       return;
     }
     if (!poolId || !maturityTs) {
-      setMsg("无法读取市场 maturity_ts");
+      setMsg(t("prophet.errMaturity"));
       return;
     }
     if (!poolEligibility.canCommit) {
-      setMsg(poolEligibility.reason);
+      setMsg(localizedProphetEligibilityReason(poolEligibility, t));
       return;
     }
     if (!account) {
-      setMsg("请先连接钱包");
+      setMsg(t("common.connectWallet"));
       return;
     }
     const price = parseUsdcAmount(unlockPrice);
     if (price > 0n && !isPaidUnlockEligible(myStats)) {
-      setMsg(paidUnlockEligibilityHint(myStats));
+      setMsg(localizedPaidUnlockEligibilityHint(myStats, t));
       return;
     }
     setCommitting(true);
     const isPublicCommit = price === 0n;
     setMsg(
-      isPublicCommit
-        ? "Indexer 上传明文 → 链上 Commit（公开预测）…"
-        : "Seal 加密 → Indexer 上传 → 链上 Commit…",
+      isPublicCommit ? t("prophet.committingPublic") : t("prophet.committingPrivate"),
     );
     try {
       const analysisText = analysis.trim();
@@ -464,7 +466,7 @@ export default function ProphetPage() {
         const lo = Number(normalLow);
         const hi = Number(normalHigh);
         if (!Number.isFinite(lo) || !Number.isFinite(hi) || lo > hi) {
-          throw new Error("Normal 区间无效：下限须 ≤ 上限（tenths）");
+          throw new Error(t("prophet.errNormalInterval"));
         }
         payload = buildNormalIntervalPayload(poolId, lo, hi, analysisText);
         predictedLow = payload.predicted_low!;
@@ -485,7 +487,11 @@ export default function ProphetPage() {
           new TextEncoder().encode(json),
         );
         if (!uploaded.ok) {
-          throw new Error(`Indexer 上传失败：${uploaded.error}`);
+          throw new Error(
+            t("prophet.errIndexerUpload", {
+              error: localizeLibMessage(uploaded.error, t),
+            }),
+          );
         }
         blobId = uploaded.blobId;
         sealId = new Uint8Array(0);
@@ -498,7 +504,11 @@ export default function ProphetPage() {
         );
         const uploaded = await uploadProphecyBlob(poolId, encrypted);
         if (!uploaded.ok) {
-          throw new Error(`Indexer 上传失败：${uploaded.error}`);
+          throw new Error(
+            t("prophet.errIndexerUpload", {
+              error: localizeLibMessage(uploaded.error, t),
+            }),
+          );
         }
         blobId = uploaded.blobId;
         storeProphecyPlaintext(sealIdHex(sealId), json);
@@ -523,11 +533,11 @@ export default function ProphetPage() {
         setMsg(
           isPublicCommit
             ? gasStationEnabled
-              ? "已 Commit 公开预测（Gas 代付）：分析明文存 Indexer/IPFS，链上 is_public=true"
-              : "已 Commit 公开预测：分析明文存 Indexer/IPFS，链上 is_public=true"
+              ? t("prophet.committedPublicGas")
+              : t("prophet.committedPublic")
             : gasStationEnabled
-              ? "已 Commit（Gas 代付）：密文在 Indexer/IPFS，链上锁定 hash + seal_id"
-              : "已 Commit：密文在 Indexer/IPFS，链上锁定 hash + seal_id",
+              ? t("prophet.committedPrivateGas")
+              : t("prophet.committedPrivate"),
         );
         const ids = await discoverPropheciesForPoolWithIndexer(
           client,
@@ -561,7 +571,7 @@ export default function ProphetPage() {
             onSuccess: async (result) => {
               await onCommitSuccess(result.digest);
             },
-            onError: (e) => setMsg(e.message ?? "Commit 失败"),
+            onError: (e) => setMsg(formatCaughtError(e, t)),
           },
         );
       }
@@ -583,11 +593,11 @@ export default function ProphetPage() {
           unlockPrice: prophecy.unlockPrice,
         });
       },
-      "解锁成功，正在自动 Seal 解密…",
+      t("prophet.unlockSuccess"),
       async () => {
         const updated = await fetchProphecy(client, prophecyId);
         if (updated) {
-          await runDecrypt(updated, "解锁并完成 Seal 解密");
+          await runDecrypt(updated, t("prophet.auditUnlockDecrypt"));
         }
       },
     );
@@ -597,12 +607,16 @@ export default function ProphetPage() {
     if (!prophecy || !poolId || !PROPHET_REGISTRY_ID) return;
     const plaintext = storedPlaintext.trim();
     if (!plaintext) {
-      setMsg("请提供与 Commit 时一致的明文 JSON");
+      setMsg(t("prophet.errPlaintextJson"));
       return;
     }
     const hashCheck = verifyProphecyPlaintextHash(plaintext, prophecy);
     if (!hashCheck.ok) {
-      setMsg(hashCheck.reason ?? "明文 Hash 校验失败");
+      setMsg(
+        hashCheck.reasonKey
+          ? localizedProphecyVerifyReason(hashCheck.reasonKey, t)
+          : t("prophet.errHashCheck"),
+      );
       return;
     }
     const preview = previewAuditOutcome(
@@ -622,8 +636,12 @@ export default function ProphetPage() {
         });
       },
       preview.outcome === "cheat"
-        ? "审计：作弊判定，托管款将退还买家"
-        : `审计：${auditOutcomeLabel(preview.outcome)} · 预言家实收 ${formatUsdcBaseUnits(settlement.prophetPayout)} USDC · 协议费 ${formatUsdcBaseUnits(settlement.protocolFee)} USDC`,
+        ? t("prophet.auditCheat")
+        : t("prophet.auditResultDetail", {
+            outcome: localizedAuditOutcome(preview.outcome, t),
+            prophet: formatUsdcBaseUnits(settlement.prophetPayout),
+            fee: formatUsdcBaseUnits(settlement.protocolFee),
+          }),
       async () => {
         if (prophecy) {
           const stats = await fetchProphetStats(
@@ -648,36 +666,40 @@ export default function ProphetPage() {
     return (
       <div>
         <PageHeader
-          title="SuiProphet Network"
-          subtitle="知识付费预言模块 — 私密预测 Commit、USDC 解锁、Oracle 审计战绩"
+          title={t("prophet.title")}
+          subtitle={t("prophet.subtitle")}
         />
         <div className="card">
-          <p>
-            部署后调用 <code>create_prophet_registry</code>，并配置{" "}
-            <code>NEXT_PUBLIC_PROPHET_REGISTRY_ID</code>。
-          </p>
+          <p>{t("prophet.registryDeployHint")}</p>
         </div>
       </div>
     );
   }
 
+  const flowSteps = [
+    t("prophet.flowCommit"),
+    t("prophet.flowUnlock"),
+    t("prophet.flowDecrypt"),
+    t("prophet.flowAudit"),
+  ];
+
   return (
     <div>
       <PageHeader
-        title="SuiProphet Network"
-        subtitle="Seal 加密 · Indexer/IPFS 存储 · 双重 OR 解密 · 共用 L0 Oracle 审计（PRD §11）"
+        title={t("prophet.title")}
+        subtitle={t("prophet.subtitle")}
       />
 
-      <div className="oracle-flow" aria-label="Prophet 流程">
-        {PROPHET_FLOW_STEPS.map((s, i) => {
+      <div className="oracle-flow" aria-label={t("prophet.flowAria")}>
+        {flowSteps.map((label, i) => {
           const done = i < activeFlowIdx;
           const active = i === activeFlowIdx;
           return (
             <div
-              key={s.id}
+              key={label}
               className={`oracle-flow-step${active ? " active" : ""}${done ? " done" : ""}`}
             >
-              {s.label}
+              {label}
             </div>
           );
         })}
@@ -685,25 +707,26 @@ export default function ProphetPage() {
       <p className="hint">
         {poolId ? (
           <>
-            当前阶段：<strong>{workflowStepLabel(workflowStep)}</strong>
+            {t("prophet.currentStep", {
+              step: localizedProphetWorkflowStep(workflowStep, t),
+            })}
             {prophecy && (
               <>
-                {" "}
-                · 预测 <code>{prophecy.id.slice(0, 10)}…</code>
+                {t("prophet.prophecyId", { id: prophecy.id.slice(0, 10) })}
               </>
             )}
           </>
         ) : (
-          <>请先在市场列表中选择一项，或调整筛选条件。</>
+          t("prophet.selectMarket")
         )}
       </p>
 
       {!account && poolId && (
-        <p className="hint">连接钱包后发布预测、解锁或解密。</p>
+        <p className="hint">{t("prophet.connectHint")}</p>
       )}
 
       <div className="card">
-        <h2>市场</h2>
+        <h2>{t("prophet.marketSection")}</h2>
         <ProphetMarketPicker
           poolId={poolId}
           nowSec={nowSec}
@@ -711,10 +734,9 @@ export default function ProphetPage() {
         />
         {poolId && (
           <p className="hint">
-            lock_time = Pool maturity · 解锁截止前 {UNLOCK_CUTOFF_SECS / 60} 分钟关闭
-            paid_buyers 与新预测提交
+            {t("prophet.lockTimeHint", { minutes: UNLOCK_CUTOFF_SECS / 60 })}
             {maturityTs > 0 && (
-              <> · 到期 {new Date(maturityTs * 1000).toLocaleString()}</>
+              <> · {new Date(maturityTs * 1000).toLocaleString()}</>
             )}
             {EVENT_ROOT_BY_POOL[poolId] && (
               <>
@@ -726,37 +748,39 @@ export default function ProphetPage() {
         )}
         {!poolEligibility.canCommit && poolId && (
           <p className="hint" style={{ color: "var(--warn, #c9a227)" }}>
-            {poolEligibility.reason} — 仍可查看该市场已有预测，但无法 Commit。
+            {t("prophet.stillView", {
+              reason: localizedProphetEligibilityReason(poolEligibility, t),
+            })}
           </p>
         )}
         {gasStationEnabled ? (
-          <p className="hint">
-            Gas Station 已启用 — Commit / 解锁 / 审计由协议代付 SUI Gas，钱包仅变动
-            USDC。
-          </p>
+          <p className="hint">{t("prophet.gasEnabled")}</p>
         ) : (
-          <p className="hint">
-            未配置 <code>NEXT_PUBLIC_GAS_STATION_URL</code>，交易将自付 SUI Gas。
-          </p>
+          <p className="hint">{t("prophet.gasDisabled")}</p>
         )}
       </div>
 
       {!poolId ? (
         <div className="card" style={{ marginTop: "1rem" }}>
           <p className="hint" style={{ margin: 0 }}>
-            当前筛选下无已选市场 — 请切换主题/分布，或从列表中选择一项后继续。
+            {t("prophet.noMarketSelected")}
           </p>
         </div>
       ) : (
       <div className="grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
         <div className="card">
-          <h2>1. {unlockPriceNum === 0n ? "Indexer → Commit（公开预测）" : "Seal → Indexer → Commit（私密付费）"}</h2>
+          <h2>
+            1.{" "}
+            {unlockPriceNum === 0n
+              ? t("prophet.commitPublicTitle")
+              : t("prophet.commitPrivateTitle")}
+          </h2>
           {isNormalMarket ? (
             <>
               <label>{predictedHint}</label>
               <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
                 <div>
-                  <label>下限 (tenths)</label>
+                  <label>{t("prophet.lowerTenths")}</label>
                   <input
                     value={normalLow}
                     onChange={(e) => setNormalLow(e.target.value)}
@@ -764,7 +788,7 @@ export default function ProphetPage() {
                   />
                 </div>
                 <div>
-                  <label>上限 (tenths)</label>
+                  <label>{t("prophet.upperTenths")}</label>
                   <input
                     value={normalHigh}
                     onChange={(e) => setNormalHigh(e.target.value)}
@@ -774,19 +798,19 @@ export default function ProphetPage() {
               </div>
               {normalIntervalValid && (
                 <p className="hint">
-                  区间宽度 {Math.max(0, Number(normalHigh) - Number(normalLow))} tenths
-                  · 命中精度贡献约{" "}
-                  {formatScorePercent(
-                    intervalPrecisionBps(
-                      Math.max(0, Number(normalHigh) - Number(normalLow)),
+                  {t("prophet.intervalWidth", {
+                    width: Math.max(0, Number(normalHigh) - Number(normalLow)),
+                    bps: formatScorePercent(
+                      intervalPrecisionBps(
+                        Math.max(0, Number(normalHigh) - Number(normalLow)),
+                      ),
                     ),
-                  )}
-                  /100（越窄越高）
+                  })}
                 </p>
               )}
               {!normalIntervalValid && (
                 <p className="hint" style={{ color: "var(--warn, #c9a227)" }}>
-                  请填写有效区间：下限 ≤ 上限
+                  {t("prophet.invalidInterval")}
                 </p>
               )}
             </>
@@ -799,22 +823,24 @@ export default function ProphetPage() {
               />
             </>
           )}
-          <label>独家分析</label>
+          <label>{t("prophet.analysis")}</label>
           <textarea
             rows={4}
             value={analysis}
             onChange={(e) => setAnalysis(e.target.value)}
-            placeholder="链上大户筹码、宏观路径…"
+            placeholder={t("prophet.analysisPlaceholder")}
           />
-          <label>解锁价 (USDC，0 = 公开预测)</label>
+          <label>{t("prophet.unlockPrice")}</label>
           <input
             value={unlockPrice}
             onChange={(e) => setUnlockPrice(e.target.value)}
           />
           <p className="hint">
-            付费开通：≥{MIN_AUDITED_FOR_PAID} 场审计 · Score ≥{" "}
-            {MIN_SCORE_BPS_FOR_PAID / 100} · 零作弊（链上强制）。{" "}
-            {paidUnlockEligibilityHint(myStats)}
+            {t("prophet.paidUnlockRule", {
+              min: MIN_AUDITED_FOR_PAID,
+              score: MIN_SCORE_BPS_FOR_PAID / 100,
+            })}{" "}
+            {localizedPaidUnlockEligibilityHint(myStats, t)}
           </p>
           <div className="btn-row">
             <button
@@ -831,24 +857,24 @@ export default function ProphetPage() {
               onClick={() => void onCommit()}
             >
               {unlockPriceNum === 0n
-                ? "Indexer 上传 → Commit 公开预测"
-                : "Seal 加密 → Indexer → Commit 私密预测"}
+                ? t("prophet.commitPublicBtn")
+                : t("prophet.commitPrivateBtn")}
             </button>
           </div>
           {isProphet && storedPlaintext && (
-            <p className="hint">已本地保存 Commit 明文（审计用）。</p>
+            <p className="hint">{t("prophet.savedPlaintext")}</p>
           )}
         </div>
 
         <div className="card">
-          <h2>预测详情</h2>
+          <h2>{t("prophet.prophecyDetail")}</h2>
           {loadingList ? (
-            <p className="hint">链上发现中…</p>
+            <p className="hint">{t("prophet.discovering")}</p>
           ) : prophecyIds.length === 0 ? (
-            <p className="hint">该市场暂无私密预测 — 请先 Commit</p>
+            <p className="hint">{t("prophet.noProphecies")}</p>
           ) : (
             <>
-              <label>选择预测</label>
+              <label>{t("prophet.selectProphecy")}</label>
               <select
                 value={selectedId}
                 onChange={(e) => setSelectedId(e.target.value)}
@@ -864,38 +890,38 @@ export default function ProphetPage() {
 
           {prophecy && (
             <dl className="meta">
-              <dt>状态</dt>
-              <dd>{prophecyStatusLabel(prophecy.status)}</dd>
-              <dt>预言家</dt>
+              <dt>{t("prophet.status")}</dt>
+              <dd>{localizedProphecyStatus(prophecy.status, t)}</dd>
+              <dt>{t("prophet.prophet")}</dt>
               <dd>
                 <code>{prophecy.prophet.slice(0, 8)}…</code>
-                {isProphet ? "（你）" : ""}
+                {isProphet ? t("common.you") : ""}
               </dd>
-              <dt>预测值</dt>
+              <dt>{t("prophet.predictedValueLabel")}</dt>
               <dd>{formatProphecyPrediction(prophecy, market?.kind)}</dd>
-              <dt>解锁价</dt>
+              <dt>{t("prophet.unlockPriceLabel")}</dt>
               <dd>{formatUsdcBaseUnits(prophecy.unlockPrice)} USDC</dd>
-              <dt>锁定至</dt>
+              <dt>{t("prophet.lockUntil")}</dt>
               <dd>{new Date(prophecy.lockTime * 1000).toLocaleString()}</dd>
-              <dt>已解锁人数</dt>
+              <dt>{t("prophet.unlockCount")}</dt>
               <dd>{prophecy.unlockCount}</dd>
-              <dt>Blob</dt>
+              <dt>{t("prophet.blob")}</dt>
               <dd>
                 <code className="mono">{prophecy.blobId.slice(0, 24)}…</code>
               </dd>
-              <dt>{isPublicProphecy(prophecy) ? "可见性" : "Seal 解密"}</dt>
+              <dt>{isPublicProphecy(prophecy) ? t("prophet.visibility") : t("prophet.sealDecrypt")}</dt>
               <dd>
                 {isPublicProphecy(prophecy) && prophecy.sealIdHex.length === 0
-                  ? "公开预测（提交即可阅读）"
+                  ? t("prophet.publicReadable")
                   : canReadContent
                     ? isPaid
-                      ? "条件 A：已付费"
+                      ? t("prophet.conditionPaid")
                       : prophecy.isPublic
-                        ? "条件 B：已公开"
+                        ? t("prophet.conditionPublic")
                         : nowSec > prophecy.lockTime
-                          ? "条件 B：lock_time 已过"
-                          : "可解密"
-                    : "需 unlock 或等待 lock_time"}
+                          ? t("prophet.conditionLockTime")
+                          : t("prophet.canDecrypt")
+                    : t("prophet.needUnlock")}
               </dd>
             </dl>
           )}
@@ -908,7 +934,9 @@ export default function ProphetPage() {
                 disabled={isPending}
                 onClick={onUnlock}
               >
-                2. 解锁 {formatUsdcBaseUnits(prophecy.unlockPrice)} USDC
+                {t("prophet.unlockBtn", {
+                  price: formatUsdcBaseUnits(prophecy.unlockPrice),
+                })}
               </button>
             )}
             {prophecy && canReadContent && !decrypted && (
@@ -919,82 +947,89 @@ export default function ProphetPage() {
                 onClick={() => void runDecrypt(prophecy)}
               >
                 {isPublicProphecy(prophecy) && prophecy.sealIdHex.length === 0
-                  ? "3. 阅读公开分析"
-                  : "3. Seal 解密阅读分析"}
+                  ? t("prophet.readPublic")
+                  : t("prophet.readDecrypt")}
               </button>
             )}
           </div>
 
           {prophecy && isPaid && !decrypted && canReadContent && (
-            <p className="hint">已满足 Seal 条件 A，可点击解密或等待自动解密。</p>
+            <p className="hint">{t("prophet.autoDecryptHint")}</p>
           )}
 
           {decryptedAnalysis && (
             <div className="card" style={{ marginTop: "0.75rem" }}>
-              <h3>{prophecy && isPublicProphecy(prophecy) ? "预测分析" : "解密内容"}</h3>
+              <h3>
+                {prophecy && isPublicProphecy(prophecy)
+                  ? t("prophet.analysisTitle")
+                  : t("prophet.decryptedContent")}
+              </h3>
               <p style={{ whiteSpace: "pre-wrap" }}>{decryptedAnalysis}</p>
             </div>
           )}
 
           {prophecy && !poolResolved && nowSec >= prophecy.lockTime && (
             <p className="hint">
-              Pool 尚未结算 — 请先在{" "}
-              <Link href="/oracle">Oracle 页</Link> 完成提议 / 争议 / Finalize。
+              {t("prophet.poolNotSettled")}{" "}
+              <Link href="/oracle">Oracle</Link>
             </p>
           )}
 
           {(canAudit || isAudited) && prophecy && (
             <div className="card" style={{ marginTop: "0.75rem" }}>
-              <h3>4. 审计 → 战绩 → 分账</h3>
+              <h3>{t("prophet.auditSection")}</h3>
               <dl className="meta">
-                <dt>Oracle 结果</dt>
+                <dt>{t("prophet.oracleResult")}</dt>
                 <dd>
                   {resolvedValue != null ? (
                     <code>{resolvedValue}</code>
                   ) : (
-                    "待结算"
+                    t("prophet.pendingSettlement")
                   )}
                 </dd>
-                <dt>预测值</dt>
+                <dt>{t("prophet.predictedValueLabel")}</dt>
                 <dd>
                   <code>{formatProphecyPrediction(prophecy, market?.kind)}</code>
                 </dd>
-                <dt>托管总额</dt>
+                <dt>{t("prophet.escrowTotal")}</dt>
                 <dd>
                   {settlementPreview
-                    ? `${formatUsdcBaseUnits(settlementPreview.escrowTotal)} USDC（${prophecy.unlockCount} 人解锁）`
-                    : "—"}
+                    ? t("prophet.escrowDetail", {
+                        total: formatUsdcBaseUnits(settlementPreview.escrowTotal),
+                        count: prophecy.unlockCount,
+                      })
+                    : t("common.dash")}
                 </dd>
-                <dt>协议费率</dt>
+                <dt>{t("prophet.protocolFee")}</dt>
                 <dd>{(protocolFeeBps / 100).toFixed(1)}%</dd>
               </dl>
 
               {isAudited && settlementPreview && (
                 <dl className="meta">
-                  <dt>审计结果</dt>
-                  <dd>{prophecyStatusLabel(prophecy.status)}</dd>
+                  <dt>{t("prophet.auditResult")}</dt>
+                  <dd>{localizedProphecyStatus(prophecy.status, t)}</dd>
                   {prophecy.status === PROPHECY_STATUS_CHEAT ? (
                     <>
-                      <dt>买家退款</dt>
+                      <dt>{t("prophet.buyerRefund")}</dt>
                       <dd>
-                        每人{" "}
-                        {formatUsdcBaseUnits(
-                          computeBuyerRefundPerBuyer(
-                            settlementPreview.escrowTotal,
-                            prophecy.paidBuyers.length,
+                        {t("prophet.refundEach", {
+                          amount: formatUsdcBaseUnits(
+                            computeBuyerRefundPerBuyer(
+                              settlementPreview.escrowTotal,
+                              prophecy.paidBuyers.length,
+                            ),
                           ),
-                        )}{" "}
-                        USDC（均分托管）
+                        })}
                       </dd>
                     </>
                   ) : (
                     <>
-                      <dt>协议收入</dt>
+                      <dt>{t("prophet.protocolRevenue")}</dt>
                       <dd>
                         {formatUsdcBaseUnits(settlementPreview.protocolFee)} USDC
                         → Registry treasury
                       </dd>
-                      <dt>预言家实收</dt>
+                      <dt>{t("prophet.prophetPayout")}</dt>
                       <dd>
                         {formatUsdcBaseUnits(settlementPreview.prophetPayout)}{" "}
                         USDC
@@ -1008,43 +1043,46 @@ export default function ProphetPage() {
                 <>
                   {hashVerification && (
                     <p className="hint">
-                      Hash 校验：{hashVerification.ok ? "通过" : hashVerification.reason}
+                      {t("prophet.hashCheck", {
+                        result: hashVerification.ok
+                          ? t("prophet.hashPass")
+                          : localizedProphecyVerifyReason(
+                              hashVerification.reasonKey,
+                              t,
+                            ),
+                      })}
                     </p>
                   )}
                   {auditPreview && hashVerification?.ok && (
                     <p className="hint">
-                      预判：{auditOutcomeLabel(auditPreview.outcome)}
+                      {t("prophet.auditPreview", {
+                        outcome: localizedAuditOutcome(auditPreview.outcome, t),
+                      })}
                       {auditPreview.outcome === "win" &&
                         auditPreview.precisionBps != null && (
                           <>
-                            {" "}
-                            · 精度贡献{" "}
-                            {formatScorePercent(auditPreview.precisionBps)}/100
-                            {prophecyIntervalWidth(prophecy) > 0 && (
-                              <>
-                                {" "}
-                                （宽度 {prophecyIntervalWidth(prophecy)} tenths）
-                              </>
-                            )}
+                            {t("prophet.precisionContrib", {
+                              bps: formatScorePercent(auditPreview.precisionBps),
+                              width: prophecyIntervalWidth(prophecy),
+                            })}
                           </>
                         )}
                       {settlementPreview && auditPreview.outcome !== "cheat" && (
                         <>
-                          {" "}
-                          · 分账：预言家{" "}
-                          {formatUsdcBaseUnits(settlementPreview.prophetPayout)} /
-                          协议 {formatUsdcBaseUnits(settlementPreview.protocolFee)}{" "}
-                          USDC
+                          {t("prophet.splitPreview", {
+                            prophet: formatUsdcBaseUnits(settlementPreview.prophetPayout),
+                            protocol: formatUsdcBaseUnits(settlementPreview.protocolFee),
+                          })}
                         </>
                       )}
                     </p>
                   )}
-                  <label>审计明文 JSON（须与 Commit 时一致）</label>
+                  <label>{t("prophet.auditPlaintext")}</label>
                   <textarea
                     rows={3}
                     value={storedPlaintext}
                     onChange={(e) => setStoredPlaintext(e.target.value)}
-                    placeholder="预言家本地明文或 Seal 解密后的 JSON"
+                    placeholder={t("prophet.auditPlaintextPlaceholder")}
                   />
                   <div className="btn-row">
                     <button
@@ -1053,7 +1091,7 @@ export default function ProphetPage() {
                       disabled={isPending || !storedPlaintext.trim()}
                       onClick={onAudit}
                     >
-                      audit_prophecy（Hash → 战绩 → 分账）
+                      {t("prophet.auditBtn")}
                     </button>
                     {canReadContent && !decrypted && (
                       <button
@@ -1062,7 +1100,7 @@ export default function ProphetPage() {
                         disabled={decrypting}
                         onClick={() => void runDecrypt(prophecy)}
                       >
-                        先解密获取明文
+                        {t("prophet.decryptFirst")}
                       </button>
                     )}
                   </div>
@@ -1071,20 +1109,27 @@ export default function ProphetPage() {
 
               {prophetStats && (
                 <dl className="meta">
-                  <dt>预言家战绩</dt>
+                  <dt>{t("prophet.prophetStats")}</dt>
                   <dd>
-                    {prophetStats.wins} 胜 / {prophetStats.losses} 负
-                    {prophetStats.cheats > 0 && ` / ${prophetStats.cheats} 作弊`}
+                    {t("prophet.winsLosses", {
+                      wins: prophetStats.wins,
+                      losses: prophetStats.losses,
+                    })}
+                    {prophetStats.cheats > 0 &&
+                      t("prophet.cheats", { n: prophetStats.cheats })}
                   </dd>
-                  <dt>胜率</dt>
+                  <dt>{t("prophet.winRate")}</dt>
                   <dd>{formatAccuracyPercent(prophetStats)}</dd>
-                  <dt>连红</dt>
+                  <dt>{t("prophet.streak")}</dt>
                   <dd>
-                    当前 {prophetStats.currentStreak} · 最高 {prophetStats.maxStreak}
+                    {t("prophet.streakDetail", {
+                      current: prophetStats.currentStreak,
+                      max: prophetStats.maxStreak,
+                    })}
                   </dd>
                   <dt>Prophet Score</dt>
                   <dd>{formatScorePercent(prophetStats.scoreBps)} / 100</dd>
-                  <dt>累计解锁收入</dt>
+                  <dt>{t("prophet.unlockRevenue")}</dt>
                   <dd>
                     {formatUsdcBaseUnits(prophetStats.totalUnlockRevenue)} USDC
                   </dd>
@@ -1097,10 +1142,10 @@ export default function ProphetPage() {
       )}
 
       <div className="card" style={{ marginTop: "1rem" }}>
-        <h2>战绩与排行</h2>
+        <h2>{t("prophet.statsSection")}</h2>
         <p className="hint">
-          排行数据直读链上 <code>ProphetStats</code>，无需本地统计服务。详见{" "}
-          <Link href="/leaderboard">排行榜页</Link>。
+          {t("prophet.statsHint")}{" "}
+          <Link href="/leaderboard">{t("nav.leaderboard")}</Link>.
         </p>
       </div>
 

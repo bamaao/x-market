@@ -20,11 +20,11 @@ export const ORACLE_QUEUE_FILTERS: {
   value: OracleQueueFilter;
   label: string;
 }[] = [
-  { value: "actionable", label: "待办" },
-  { value: "pending_propose", label: "待提议" },
-  { value: "active_assertion", label: "争议窗口" },
-  { value: "in_arbitration", label: "委员会" },
-  { value: "all", label: "全部" },
+  { value: "actionable", label: "Actionable" },
+  { value: "pending_propose", label: "Pending propose" },
+  { value: "active_assertion", label: "Liveness" },
+  { value: "in_arbitration", label: "Arbitration" },
+  { value: "all", label: "All" },
 ];
 
 const STATUS_PRIORITY: Record<OracleQueueStatus, number> = {
@@ -40,19 +40,19 @@ const STATUS_PRIORITY: Record<OracleQueueStatus, number> = {
 export function oracleQueueStatusLabel(status: OracleQueueStatus): string {
   switch (status) {
     case "pending_propose":
-      return "待提议";
+      return "Pending propose";
     case "active_assertion":
-      return "争议窗口 / 可 Finalize";
+      return "Liveness / Finalize";
     case "in_arbitration":
-      return "委员会终裁中";
+      return "In arbitration";
     case "no_feed":
-      return "待注册 Feed";
+      return "Register Feed";
     case "awaiting_maturity":
-      return "未到期";
+      return "Not matured";
     case "settled":
-      return "已结算";
+      return "Settled";
     default:
-      return "进行中";
+      return "In progress";
   }
 }
 
@@ -85,5 +85,5 @@ export function sortOracleQueueItems(
 export function formatMaturityTs(ts: string | number): string {
   const n = Number(ts);
   if (!n) return "—";
-  return new Date(n * 1000).toLocaleString("zh-CN");
+  return new Date(n * 1000).toLocaleString("en-US");
 }

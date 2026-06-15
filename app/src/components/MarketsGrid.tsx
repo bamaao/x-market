@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   SEED_MARKETS,
@@ -18,9 +18,11 @@ import { MarketTagList } from "@/components/MarketTagList";
 import {
   marketMatchesSearch,
   marketMatchesTagFilter,
-  tagLabel,
   topLevelThemeFilters,
 } from "@/lib/market-tags";
+import { useI18n, useT } from "@/i18n/context";
+import { localizeSeedMarket } from "@/i18n/markets";
+import { useLocalizedTagLabel } from "@/i18n/markets";
 
 const KIND_LABELS: Record<MarketKind, string> = {
   poisson: "Poisson",
@@ -29,25 +31,32 @@ const KIND_LABELS: Record<MarketKind, string> = {
   beta: "Beta",
 };
 
-const KIND_FILTERS: { value: "all" | MarketKind; label: string }[] = [
-  { value: "all", label: "全部分布" },
-  { value: "poisson", label: "Poisson" },
-  { value: "dirichlet", label: "Dirichlet" },
-  { value: "normal", label: "Normal" },
-  { value: "beta", label: "Beta" },
-];
-
 function kindBadgeClass(kind: MarketKind): string {
   return `badge badge-${kind}`;
 }
 
 export function MarketsGrid() {
+  const t = useT();
+  const { locale } = useI18n();
+  const tagLabel = useLocalizedTagLabel();
   const [markets, setMarkets] = useState<SeedMarket[]>(SEED_MARKETS);
   const [source, setSource] = useState<"env" | "indexer">("env");
   const [kindFilter, setKindFilter] = useState<"all" | MarketKind>("all");
   const [themeFilter, setThemeFilter] = useState("all");
   const [query, setQuery] = useState("");
-  const [themeTabs, setThemeTabs] = useState(topLevelThemeFilters());
+  const themeTabs = useMemo(() => topLevelThemeFilters(), []);
+
+  const kindFilters = useMemo(
+    () =>
+      [
+        { value: "all" as const, label: t("markets.kindAll") },
+        { value: "poisson" as const, label: "Poisson" },
+        { value: "dirichlet" as const, label: "Dirichlet" },
+        { value: "normal" as const, label: "Normal" },
+        { value: "beta" as const, label: "Beta" },
+      ] as const,
+    [t],
+  );
 
   useEffect(() => {
     const user = loadUserMarkets();
@@ -62,7 +71,12 @@ export function MarketsGrid() {
     });
   }, []);
 
-  const filtered = markets.filter((m) => {
+  const localizedMarkets = useMemo(
+    () => markets.map((m) => localizeSeedMarket(m, locale, t)),
+    [markets, locale, t],
+  );
+
+  const filtered = localizedMarkets.filter((m) => {
     if (kindFilter !== "all" && m.kind !== kindFilter) return false;
     if (!marketMatchesTagFilter(m.tags, themeFilter)) return false;
     return marketMatchesSearch(m, query, m.tags);
@@ -71,8 +85,8 @@ export function MarketsGrid() {
   return (
     <>
       <div className="market-filters-bar">
-        <div className="prophet-kind-tabs" role="tablist" aria-label="分布类型">
-          {KIND_FILTERS.map((f) => (
+        <div className="prophet-kind-tabs" role="tablist" aria-label={t("markets.kindTabAria")}>
+          {kindFilters.map((f) => (
             <button
               key={f.value}
               type="button"
@@ -86,53 +100,53 @@ export function MarketsGrid() {
           ))}
         </div>
         <div className="prophet-filter-group">
-          <span className="prophet-filter-label">主题</span>
-          <div className="prophet-kind-tabs" role="tablist" aria-label="主题筛选">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={themeFilter === "all"}
-            className={themeFilter === "all" ? "active" : undefined}
-            onClick={() => setThemeFilter("all")}
-          >
-            全部
-          </button>
-          {themeTabs.map((t) => (
+          <span className="prophet-filter-label">{t("markets.themeLabel")}</span>
+          <div className="prophet-kind-tabs" role="tablist" aria-label={t("markets.themeTabAria")}>
             <button
-              key={t.slug}
               type="button"
               role="tab"
-              aria-selected={themeFilter === t.slug}
-              className={themeFilter === t.slug ? "active" : undefined}
-              onClick={() => setThemeFilter(t.slug)}
+              aria-selected={themeFilter === "all"}
+              className={themeFilter === "all" ? "active" : undefined}
+              onClick={() => setThemeFilter("all")}
             >
-              {t.label}
+              {t("markets.themeAll")}
             </button>
-          ))}
+            {themeTabs.map((tab) => (
+              <button
+                key={tab.slug}
+                type="button"
+                role="tab"
+                aria-selected={themeFilter === tab.slug}
+                className={themeFilter === tab.slug ? "active" : undefined}
+                onClick={() => setThemeFilter(tab.slug)}
+              >
+                {tagLabel(tab.slug)}
+              </button>
+            ))}
           </div>
         </div>
         <input
           type="search"
           className="prophet-market-search"
-          placeholder="搜索市场标题、描述、主题…"
+          placeholder={t("markets.searchPlaceholder")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          aria-label="搜索市场"
+          aria-label={t("markets.searchAria")}
         />
       </div>
 
       <div className="stats-row">
         <div className="stat-card">
-          <div className="label">市场数量</div>
+          <div className="label">{t("markets.statCount")}</div>
           <div className="value accent">{filtered.length}</div>
         </div>
         <div className="stat-card">
-          <div className="label">分布类型</div>
+          <div className="label">{t("markets.statKinds")}</div>
           <div className="value">4</div>
         </div>
         {themeFilter !== "all" && (
           <div className="stat-card">
-            <div className="label">主题</div>
+            <div className="label">{t("markets.statTheme")}</div>
             <div className="value" style={{ fontSize: "0.95rem" }}>
               {tagLabel(themeFilter)}
             </div>
@@ -140,7 +154,7 @@ export function MarketsGrid() {
         )}
         {indexerEnabled() && (
           <div className="stat-card">
-            <div className="label">数据源</div>
+            <div className="label">{t("markets.statSource")}</div>
             <div className="value" style={{ fontSize: "0.95rem" }}>
               {source === "indexer" ? "Indexer" : "Env"}
             </div>
@@ -152,13 +166,13 @@ export function MarketsGrid() {
         <p style={{ marginBottom: "1rem" }}>
           <span className="source-badge">
             <span className={`dot${source === "indexer" ? "" : " offline"}`} />
-            {source === "indexer" ? "Indexer API 实时同步" : "环境变量种子市场（Indexer 回退）"}
+            {source === "indexer" ? t("markets.sourceIndexer") : t("markets.indexerFallback")}
           </span>
         </p>
       )}
 
       {filtered.length === 0 ? (
-        <p className="hint">无匹配市场，请调整分布、主题或搜索词。</p>
+        <p className="hint">{t("markets.noMatch")}</p>
       ) : (
         <div className="grid grid-markets">
           {filtered.map((m) => (
@@ -187,7 +201,7 @@ export function MarketsGrid() {
                   ) : (
                     <span />
                   )}
-                  <span className="card-cta">交易 →</span>
+                  <span className="card-cta">{t("markets.tradeCta")}</span>
                 </div>
               </div>
             </Link>

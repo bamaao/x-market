@@ -2,6 +2,7 @@
  * Off-chain market comments (Indexer + wallet signature).
  */
 
+import { LocalizedError } from "@/i18n/core";
 import { INDEXER_URL, indexerEnabled } from "./indexer";
 import { normalizeSuiAddress } from "./prophet";
 
@@ -89,7 +90,7 @@ export async function postMarketComment(params: {
   nonce: string;
   signature: string;
 }): Promise<MarketComment> {
-  if (!INDEXER_URL) throw new Error("Indexer 未配置");
+  if (!INDEXER_URL) throw new LocalizedError("errors.indexerNotConfigured");
   const res = await fetch(
     `${INDEXER_URL}/v1/markets/${encodeURIComponent(normalizePoolId(params.poolId))}/comments`,
     {
@@ -117,7 +118,7 @@ export async function deleteMarketComment(params: {
   nonce: string;
   signature: string;
 }): Promise<void> {
-  if (!INDEXER_URL) throw new Error("Indexer 未配置");
+  if (!INDEXER_URL) throw new LocalizedError("errors.indexerNotConfigured");
   const res = await fetch(
     `${INDEXER_URL}/v1/markets/${encodeURIComponent(normalizePoolId(params.poolId))}/comments/${params.commentId}`,
     {

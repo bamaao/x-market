@@ -6,6 +6,7 @@ import { getJsonRpcFullnodeUrl } from "@mysten/sui/jsonRpc";
 import "@mysten/dapp-kit/dist/index.css";
 import { NETWORK } from "@/lib/markets";
 import { primaryRpcUrl } from "@/lib/rpc-urls";
+import { I18nProvider } from "@/i18n/context";
 
 const queryClient = new QueryClient();
 
@@ -18,9 +19,11 @@ const networks = {
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
-      <SuiClientProvider networks={networks} defaultNetwork={NETWORK}>
-        <WalletProvider autoConnect>{children}</WalletProvider>
-      </SuiClientProvider>
+      <I18nProvider>
+        <SuiClientProvider networks={networks} defaultNetwork={NETWORK}>
+          <WalletProvider autoConnect>{children}</WalletProvider>
+        </SuiClientProvider>
+      </I18nProvider>
     </QueryClientProvider>
   );
 }

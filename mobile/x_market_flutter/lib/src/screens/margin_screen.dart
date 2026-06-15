@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:x_market_flutter/src/app/app_controller.dart';
+import 'package:x_market_flutter/src/l10n/l10n_ext.dart';
+import 'package:x_market_flutter/src/l10n/l10n_helpers.dart';
 import 'package:x_market_flutter/src/models/owned_models.dart';
 import 'package:x_market_flutter/src/widgets/connect_banner.dart';
 import 'package:x_market_flutter/src/widgets/cross_margin_var_banner.dart';
@@ -42,6 +44,7 @@ class _MarginScreenState extends State<MarginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final eligiblePositions = _selectedAccount?.poolId == null
         ? widget.app.positions.where((p) => !p.claimed).toList()
         : widget.app.positionsForPool(_selectedAccount!.poolId);
@@ -60,7 +63,7 @@ class _MarginScreenState extends State<MarginScreen> {
                   child: CrossMarginVarBanner(
                     varMist: widget.app.crossMarginVarMist,
                     positionCount: widget.app.positions.length,
-                    subtitle: '钱包持仓组合估算；登记到保证金账户后以链上 liability 为准',
+                    subtitle: l10n.marginVarSubtitle,
                   ),
                 ),
               SliverToBoxAdapter(
@@ -72,14 +75,14 @@ class _MarginScreenState extends State<MarginScreen> {
                       DropdownButtonFormField<String>(
                         key: ValueKey('open-pool-$_openPoolId'),
                         initialValue: _openPoolId,
-                        decoration: const InputDecoration(
-                          labelText: '市场（开户）',
+                        decoration: InputDecoration(
+                          labelText: l10n.marketForOpenAccount,
                         ),
                         items: widget.app.markets
                             .map(
                               (m) => DropdownMenuItem(
                                 value: m.poolId,
-                                child: Text(m.label),
+                                child: Text(displayMarketLabel(l10n, m)),
                               ),
                             )
                             .toList(),
@@ -100,14 +103,14 @@ class _MarginScreenState extends State<MarginScreen> {
                                     poolId: _openPoolId!,
                                   ),
                                 ),
-                        child: const Text('开设保证金账户'),
+                        child: Text(l10n.openMarginAccount),
                       ),
                       const Divider(height: 32),
                       TextField(
                         controller: _marginAccountId,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'MarginAccount ID',
-                          hintText: '点击下方账户卡片自动填入',
+                          hintText: l10n.marginAccountIdHint,
                         ),
                         onChanged: (_) => setState(() {}),
                       ),
@@ -116,8 +119,8 @@ class _MarginScreenState extends State<MarginScreen> {
                         DropdownButtonFormField<String>(
                           key: ValueKey('position-$_selectedPositionId'),
                           initialValue: _selectedPositionId,
-                          decoration: const InputDecoration(
-                            labelText: '持仓（同池）',
+                          decoration: InputDecoration(
+                            labelText: l10n.positionSamePool,
                           ),
                           items: eligiblePositions
                               .map(
@@ -155,7 +158,7 @@ class _MarginScreenState extends State<MarginScreen> {
                                     positionId: _selectedPositionId!,
                                   ),
                                 ),
-                        child: const Text('登记持仓'),
+                        child: Text(l10n.registerPosition),
                       ),
                       const SizedBox(height: 8),
                       OutlinedButton(
@@ -176,7 +179,7 @@ class _MarginScreenState extends State<MarginScreen> {
                                     positionId: _selectedPositionId!,
                                   ),
                                 ),
-                        child: const Text('取消登记'),
+                        child: Text(l10n.unregisterPosition),
                       ),
                     ],
                   ),
@@ -202,10 +205,12 @@ class _MarginScreenState extends State<MarginScreen> {
                           onTap: () => _selectMarginAccount(m),
                           title: Text(widget.app.poolLabelFor(m.poolId)),
                           subtitle: Text(
-                            '持仓 ${m.positionCount} · '
-                            'Gross ${AppController.formatUsdc(m.grossStakeUsdcMist)} USDC · '
-                            'Worst ${AppController.formatUsdc(m.worstLiabilityMist)} USDC\n'
-                            '${m.objectId.substring(0, 18)}…',
+                            l10n.marginAccountSummary(
+                              m.positionCount,
+                              AppController.formatUsdc(m.grossStakeUsdcMist),
+                              AppController.formatUsdc(m.worstLiabilityMist),
+                              '${m.objectId.substring(0, 18)}…',
+                            ),
                           ),
                           isThreeLine: true,
                           trailing: selected

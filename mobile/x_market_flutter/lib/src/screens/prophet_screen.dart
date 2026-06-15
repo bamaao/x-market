@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:x_market_flutter/src/app/app_controller.dart';
+import 'package:x_market_flutter/src/l10n/l10n_ext.dart';
+import 'package:x_market_flutter/src/l10n/l10n_helpers.dart';
 import 'package:x_market_flutter/src/models/prophet_models.dart';
 import 'package:x_market_flutter/src/models/sui_models.dart';
-import 'package:x_market_flutter/src/prophet/prophecy_codec.dart';
 import 'package:x_market_flutter/src/prophet/prophet_eligibility.dart';
 import 'package:x_market_flutter/src/widgets/connect_banner.dart';
 
@@ -91,7 +92,7 @@ class _ProphetScreenState extends State<ProphetScreen>
       if (mounted) {
         setState(() {
           _loading = false;
-          _message = '$e';
+          _message = localizeError(context.l10n, e);
         });
       }
     }
@@ -119,29 +120,31 @@ class _ProphetScreenState extends State<ProphetScreen>
   }
 
   Future<void> _commitPublic() async {
+    final l10n = context.l10n;
     final market = _selectedMarket;
     final eligibility = _eligibility;
     if (market == null) {
-      setState(() => _message = '请选择市场');
+      setState(() => _message = l10n.selectMarket);
       return;
     }
     if (eligibility == null || !eligibility.canCommit) {
-      setState(() => _message = eligibility?.reason ?? '不可提交');
+      setState(() => _message =
+          eligibility?.localizedReason(l10n) ?? l10n.cannotSubmit);
       return;
     }
     if (_analysis.text.trim().isEmpty) {
-      setState(() => _message = '请填写分析内容');
+      setState(() => _message = l10n.fillAnalysis);
       return;
     }
     final pv = int.tryParse(_predictedValue.text.trim());
     if (pv == null) {
-      setState(() => _message = '预测值须为整数');
+      setState(() => _message = l10n.predictedValueMustBeInt);
       return;
     }
 
     setState(() {
       _loading = true;
-      _message = 'Indexer 上传明文 → 链上 Commit…';
+      _message = l10n.committingProphecy;
     });
 
     await widget.app.submitChainTx(
@@ -169,6 +172,7 @@ class _ProphetScreenState extends State<ProphetScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return ListenableBuilder(
       listenable: widget.app,
       builder: (context, _) {
@@ -178,9 +182,9 @@ class _ProphetScreenState extends State<ProphetScreen>
               color: Theme.of(context).colorScheme.surfaceContainerHighest,
               child: TabBar(
                 controller: _tabs,
-                tabs: const [
-                  Tab(text: '发布'),
-                  Tab(text: '排行榜'),
+                tabs: [
+                  Tab(text: l10n.tabPublish),
+                  Tab(text: l10n.tabLeaderboard),
                 ],
               ),
             ),
@@ -200,6 +204,7 @@ class _ProphetScreenState extends State<ProphetScreen>
   }
 
   Widget _publishTab() {
+    final l10n = context.l10n;
     final eligibility = _eligibility;
     return RefreshIndicator(
       onRefresh: _loadPoolData,
@@ -209,23 +214,28 @@ class _ProphetScreenState extends State<ProphetScreen>
           ConnectBanner(app: widget.app),
           if (_myStats != null) ...[
             Text(
-              '我的战绩：${ _myStats!.wins}胜 ${_myStats!.losses}负 · Score ${(_myStats!.scoreBps / 100).toStringAsFixed(1)} · 已审计 ${_myStats!.totalAudited}',
+              l10n.myStats(
+                _myStats!.wins,
+                _myStats!.losses,
+                (_myStats!.scoreBps / 100).toStringAsFixed(1),
+                _myStats!.totalAudited,
+              ),
               style: Theme.of(context).textTheme.bodySmall,
             ),
             Text(
-              paidUnlockEligibilityHint(_myStats),
+              localizedPaidUnlockHint(l10n, _myStats),
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 12),
           ],
           DropdownButtonFormField<MarketPoolSnapshot>(
             initialValue: _selectedMarket,
-            decoration: const InputDecoration(labelText: '目标市场'),
+            decoration: InputDecoration(labelText: l10n.targetMarket),
             items: widget.app.markets
                 .map(
                   (m) => DropdownMenuItem(
                     value: m,
-                    child: Text(m.label, overflow: TextOverflow.ellipsis),
+                    child: Text(displayMarketLabel(l10n, m), overflow: TextOverflow.ellipsis),
                   ),
                 )
                 .toList(),
@@ -236,15 +246,18 @@ class _ProphetScreenState extends State<ProphetScreen>
           ),
           if (eligibility != null) ...[
             const SizedBox(height: 8),
-            Text(eligibility.reason, style: Theme.of(context).textTheme.bodySmall),
+            Text(
+              eligibility.localizedReason(l10n),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
           ],
           const SizedBox(height: 12),
           TextField(
             controller: _predictedValue,
             decoration: InputDecoration(
-              labelText: '预测值',
+              labelText: l10n.predictedValue,
               helperText: _selectedMarket != null
-                  ? '与 ${_selectedMarket!.kind} 分布结算单位一致'
+                  ? l10n.predictedValueHelper(_selectedMarket!.kind)
                   : null,
             ),
             keyboardType: TextInputType.number,
@@ -252,40 +265,42 @@ class _ProphetScreenState extends State<ProphetScreen>
           const SizedBox(height: 8),
           TextField(
             controller: _analysis,
-            decoration: const InputDecoration(
-              labelText: '独家分析（明文）',
+            decoration: InputDecoration(
+              labelText: l10n.exclusiveAnalysis,
               alignLabelWithHint: true,
             ),
             minLines: 3,
             maxLines: 6,
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Mobile P3：仅支持公开练手（unlock_price=0）。付费 Seal 加密预测请使用 Web /prophet。',
-            style: TextStyle(fontSize: 12),
+          Text(
+            l10n.mobileP3Hint,
+            style: const TextStyle(fontSize: 12),
           ),
           const SizedBox(height: 16),
           FilledButton(
             onPressed: widget.app.wallet.busy || _loading || eligibility?.canCommit != true
                 ? null
                 : _commitPublic,
-            child: Text(_loading ? '处理中…' : 'Indexer 明文 → Commit 公开预测'),
+            child: Text(
+              _loading ? l10n.processing : l10n.commitPublicProphecy,
+            ),
           ),
           if (_message != null) ...[
             const SizedBox(height: 12),
             Text(_message!, style: Theme.of(context).textTheme.bodySmall),
           ],
           const Divider(height: 32),
-          Text('本市场预测', style: Theme.of(context).textTheme.titleSmall),
+          Text(l10n.poolProphecies, style: Theme.of(context).textTheme.titleSmall),
           if (_prophecyIds.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
-              child: Text('暂无预测'),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text(l10n.noProphecies),
             )
           else
             DropdownButtonFormField<String>(
               initialValue: _selectedProphecyId,
-              decoration: const InputDecoration(labelText: '选择预测'),
+              decoration: InputDecoration(labelText: l10n.selectProphecy),
               items: _prophecyIds
                   .map((id) => DropdownMenuItem(value: id, child: Text('${id.substring(0, 14)}…')))
                   .toList(),
@@ -295,15 +310,21 @@ class _ProphetScreenState extends State<ProphetScreen>
               },
             ),
           if (_selectedProphecy != null) ...[
-            Text('状态：${prophecyStatusLabel(_selectedProphecy!.status)}'),
-            Text('预测值：${_selectedProphecy!.predictedValue}'),
             Text(
-              _selectedProphecy!.isPublicProphecy ? '公开可读' : '私密（需 Web 解锁/Seal）',
+              l10n.prophecyStatus(
+                localizedProphecyStatus(l10n, _selectedProphecy!.status),
+              ),
+            ),
+            Text(l10n.prophecyValue('${_selectedProphecy!.predictedValue}')),
+            Text(
+              _selectedProphecy!.isPublicProphecy
+                  ? l10n.prophecyPublicReadable
+                  : l10n.prophecyPrivateWeb,
             ),
           ],
           if (_publicContent != null) ...[
             const SizedBox(height: 8),
-            Text('分析内容', style: Theme.of(context).textTheme.labelLarge),
+            Text(l10n.analysisContent, style: Theme.of(context).textTheme.labelLarge),
             Text(_publicContent!.analysis),
           ],
         ],
@@ -312,13 +333,14 @@ class _ProphetScreenState extends State<ProphetScreen>
   }
 
   Widget _leaderboardTab() {
+    final l10n = context.l10n;
     return RefreshIndicator(
       onRefresh: _loadLeaderboard,
       child: _leaderboard.isEmpty
           ? ListView(
-              children: const [
-                SizedBox(height: 120),
-                Center(child: Text('Indexer 离线或无排行数据')),
+              children: [
+                const SizedBox(height: 120),
+                Center(child: Text(l10n.leaderboardEmpty)),
               ],
             )
           : ListView.separated(
@@ -331,11 +353,17 @@ class _ProphetScreenState extends State<ProphetScreen>
                 return ListTile(
                   leading: CircleAvatar(child: Text('${row.rank}')),
                   title: Text(
-                    isMe ? '我 (${row.prophet.substring(0, 8)}…)' : '${row.prophet.substring(0, 10)}…',
+                    isMe
+                        ? l10n.leaderboardMe(row.prophet.substring(0, 8))
+                        : '${row.prophet.substring(0, 10)}…',
                   ),
                   subtitle: Text(
-                    '${row.wins}胜 ${row.losses}负 · Score ${(row.scoreBps / 100).toStringAsFixed(1)}'
-                    '${row.paidUnlockEligible ? ' · 付费已开通' : ''}',
+                    l10n.leaderboardRow(
+                      row.wins,
+                      row.losses,
+                      (row.scoreBps / 100).toStringAsFixed(1),
+                      row.paidUnlockEligible ? l10n.paidUnlockEnabled : '',
+                    ),
                   ),
                 );
               },

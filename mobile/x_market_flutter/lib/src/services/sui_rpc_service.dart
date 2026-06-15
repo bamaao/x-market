@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:x_market_flutter/src/l10n/app_exception.dart';
 import 'package:x_market_flutter/src/models/sui_models.dart';
 import 'package:x_market_flutter/src/sui_config.dart';
 
@@ -92,7 +93,7 @@ class SuiRpcService {
   String normalizeAddress(String input) {
     final v = input.trim().toLowerCase();
     if (!isValidAddress(v)) {
-      throw Exception('地址格式错误（需要 0x 开头 16 进制）');
+      throw AppException(AppErrorCodes.invalidAddress);
     }
     final hex = v.substring(2).padLeft(64, '0');
     return '0x$hex';
@@ -105,11 +106,17 @@ class SuiRpcService {
     final response = await request.close();
     final body = await utf8.decoder.bind(response).join();
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception('RPC 请求失败: HTTP ${response.statusCode}');
+      throw AppException(
+        AppErrorCodes.rpcHttpFailed,
+        args: {'status': response.statusCode},
+      );
     }
     final root = _jsonMap(body);
     if (root.containsKey('error')) {
-      throw Exception('RPC 返回错误: ${root['error']}');
+      throw AppException(
+        AppErrorCodes.rpcError,
+        args: {'error': '${root['error']}'},
+      );
     }
     return body;
   }
@@ -117,7 +124,7 @@ class SuiRpcService {
   Map<String, dynamic> _jsonMap(String body) {
     final parsed = jsonDecode(body);
     if (parsed is! Map<String, dynamic>) {
-      throw Exception('RPC 响应格式异常');
+      throw AppException(AppErrorCodes.rpcInvalidResponse);
     }
     return parsed;
   }
@@ -125,7 +132,10 @@ class SuiRpcService {
   Map<String, dynamic> _readMap(Map<String, dynamic> src, String key) {
     final value = src[key];
     if (value is! Map<String, dynamic>) {
-      throw Exception('缺少字段: $key');
+      throw AppException(
+        AppErrorCodes.rpcMissingField,
+        args: {'field': key},
+      );
     }
     return value;
   }

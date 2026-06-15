@@ -24,6 +24,7 @@ export interface ProphetMarketEligibility {
   canCommit: boolean;
   reason: string;
   remainingSecs: number | null;
+  closingReason?: "cutoff" | "resolution_window";
 }
 
 export interface ProphetPoolOption {
@@ -50,7 +51,7 @@ export function assessProphetMarketEligibility(
     return {
       status: "no_pool",
       canCommit: false,
-      reason: "未配置 Pool ID",
+      reason: "Pool ID not configured",
       remainingSecs: null,
     };
   }
@@ -58,7 +59,7 @@ export function assessProphetMarketEligibility(
     return {
       status: "resolved",
       canCommit: false,
-      reason: "市场已结算，不可再提交预测",
+      reason: "Market settled — predictions closed",
       remainingSecs: null,
     };
   }
@@ -66,7 +67,7 @@ export function assessProphetMarketEligibility(
     return {
       status: "paused",
       canCommit: false,
-      reason: "市场已暂停",
+      reason: "Market paused",
       remainingSecs: maturityTs > nowSec ? maturityTs - nowSec : 0,
     };
   }
@@ -74,7 +75,7 @@ export function assessProphetMarketEligibility(
     return {
       status: "expired",
       canCommit: false,
-      reason: "已过到期时间，不可提交预测",
+      reason: "Past maturity — predictions closed",
       remainingSecs: 0,
     };
   }
@@ -85,8 +86,9 @@ export function assessProphetMarketEligibility(
     return {
       status: "closing",
       canCommit: false,
-      reason: `距到期不足 ${PROPHET_UNLOCK_CUTOFF_SECS / 60} 分钟（解锁窗口已关闭），不可提交新预测`,
+      reason: `Less than ${PROPHET_UNLOCK_CUTOFF_SECS / 60} min to maturity`,
       remainingSecs,
+      closingReason: "cutoff",
     };
   }
 
@@ -97,44 +99,45 @@ export function assessProphetMarketEligibility(
     return {
       status: "closing",
       canCommit: false,
-      reason: "已进入结算窗口，交易与预测均已关闭",
+      reason: "In settlement window",
       remainingSecs,
+      closingReason: "resolution_window",
     };
   }
 
   return {
     status: "open",
     canCommit: true,
-    reason: "可提交预测",
+    reason: "Open for predictions",
     remainingSecs,
   };
 }
 
 export function formatRemainingTime(secs: number | null): string {
   if (secs == null) return "—";
-  if (secs <= 0) return "已到期";
+  if (secs <= 0) return "Expired";
   const d = Math.floor(secs / 86400);
   const h = Math.floor((secs % 86400) / 3600);
   const m = Math.floor((secs % 3600) / 60);
-  if (d > 0) return `${d}天 ${h}小时`;
-  if (h > 0) return `${h}小时 ${m}分`;
-  return `${m} 分钟`;
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m} min`;
 }
 
 export function prophetStatusLabel(status: ProphetMarketStatus): string {
   switch (status) {
     case "open":
-      return "可预测";
+      return "Open";
     case "closing":
-      return "即将截止";
+      return "Closing soon";
     case "expired":
-      return "已截止";
+      return "Closed";
     case "resolved":
-      return "已结算";
+      return "Settled";
     case "paused":
-      return "已暂停";
+      return "Paused";
     case "no_pool":
-      return "未配置";
+      return "Not configured";
   }
 }
 

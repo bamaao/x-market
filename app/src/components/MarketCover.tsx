@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { resolveMarketImageUrl } from "@/lib/market-media";
+import { useT } from "@/i18n/context";
 
 type Variant = "card" | "hero" | "thumb";
 
@@ -29,6 +30,7 @@ export function MarketCover({
   kind,
   variant = "card",
 }: Props) {
+  const t = useT();
   const [failed, setFailed] = useState(false);
   const src = resolveMarketImageUrl({ id, slug, imageUrl });
   const className = `${VARIANT_CLASS[variant]} market-cover--${kind ?? "default"}`;
@@ -46,7 +48,7 @@ export function MarketCover({
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={src}
-        alt={`${title} 封面`}
+        alt={t("markets.coverAlt", { title })}
         className="market-cover-img"
         loading={variant === "hero" ? "eager" : "lazy"}
         decoding="async"

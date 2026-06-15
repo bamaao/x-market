@@ -18,10 +18,12 @@ import {
 import { MintUsdcButton } from "./MintUsdcButton";
 import { UsdcBalance } from "./UsdcBalance";
 import { fetchQuotePreview, type QuotePreview } from "@/lib/pricing";
+import { useT } from "@/i18n/context";
 
 type Props = { market: SeedMarket };
 
 export function TradePanel({ market }: Props) {
+  const t = useT();
   const account = useCurrentAccount();
   const client = useSuiClient();
   const { mutate: signAndExecute, isPending } = useSignAndExecuteTransaction();
@@ -49,17 +51,13 @@ export function TradePanel({ market }: Props) {
 
   const modeHint = (() => {
     if (market.kind !== "normal") return null;
-    if (mode === "linear_call") return "Linear Call：收益随 X 高于 K 的幅度线性增加。";
-    if (mode === "linear_put") return "Linear Put：收益随 X 低于 K 的幅度线性增加。";
-    if (mode === "straddle") return "Straddle：双向波动受益，|X-K| 越大，收益越高。";
-    if (mode === "variance_swap")
-      return "Variance Swap：收益与 (X-K)^2 相关，尾部波动最敏感。";
-    if (mode === "structured_note")
-      return "Structured Note：封顶看涨，收益 = min(max(X-K,0), C-K)。请保证 C > K。";
-    if (mode === "range_note")
-      return "Range Note：到期结果落在 [L,U] 才有固定票息。请保证 U >= L。";
-    if (mode === "barrier_note")
-      return "Barrier Note：到期结果达到阈值 B（X>=B）即触发固定票息。";
+    if (mode === "linear_call") return t("trade.modeLinearCall");
+    if (mode === "linear_put") return t("trade.modeLinearPut");
+    if (mode === "straddle") return t("trade.modeStraddle");
+    if (mode === "variance_swap") return t("trade.modeVarianceSwap");
+    if (mode === "structured_note") return t("trade.modeStructuredNote");
+    if (mode === "range_note") return t("trade.modeRangeNote");
+    if (mode === "barrier_note") return t("trade.modeBarrierNote");
     return null;
   })();
 
@@ -94,22 +92,22 @@ export function TradePanel({ market }: Props) {
 
   const buildBuyTx = async () => {
     if (!account?.address) {
-      setStatus("请先连接钱包");
+      setStatus(t("common.connectWallet"));
       return;
     }
     if (!poolId) {
-      setStatus("请填写 Pool 对象 ID");
+      setStatus(t("common.fillPoolId"));
       return;
     }
     if (market.kind === "normal" && mode === "structured_note") {
       if (Number(normalCap) <= Number(normalStrike)) {
-        setStatus("参数错误：Structured Note 需要 C > K");
+        setStatus(t("trade.errStructuredNote"));
         return;
       }
     }
     if (market.kind === "normal" && mode === "range_note") {
       if (Number(normalUpper) < Number(normalLower)) {
-        setStatus("参数错误：Range Note 需要 U >= L");
+        setStatus(t("trade.errRangeNote"));
         return;
       }
     }
@@ -148,14 +146,14 @@ export function TradePanel({ market }: Props) {
         { transaction: tx as any },
         {
           onSuccess: (r) => {
-            setStatus(`成功: ${r.digest?.slice(0, 20) ?? ""}…`);
+            setStatus(t("trade.success", { digest: r.digest?.slice(0, 20) ?? "" }));
             setBalanceKey((k) => k + 1);
           },
-          onError: (e) => setStatus(`失败: ${e.message}`),
+          onError: (e) => setStatus(t("trade.failed", { message: e.message })),
         },
       );
     } catch (e) {
-      setStatus(e instanceof Error ? e.message : "交易构建失败");
+      setStatus(e instanceof Error ? e.message : t("trade.buildFailed"));
     }
   };
 
@@ -164,9 +162,9 @@ export function TradePanel({ market }: Props) {
 
   return (
     <div className="card panel">
-      <h2>交易面板</h2>
+      <h2>{t("trade.panelTitle")}</h2>
       {!account && (
-        <p className="hint">请先连接 Sui 钱包（页眉 Connect）。</p>
+        <p className="hint">{t("trade.connectHint")}</p>
       )}
       {modeHint && <p className="hint">{modeHint}</p>}
       {account && (
@@ -176,7 +174,7 @@ export function TradePanel({ market }: Props) {
         </>
       )}
 
-      <label>MarketPool 对象 ID</label>
+      <label>{t("trade.poolObjectId")}</label>
       <input
         value={poolId}
         onChange={(e) => setPoolId(e.target.value)}
@@ -185,22 +183,22 @@ export function TradePanel({ market }: Props) {
 
       {!showDirichletOnly && (
         <>
-          <label>合约类型</label>
+          <label>{t("trade.contractType")}</label>
           <select
             value={mode}
             onChange={(e) => setMode(e.target.value as ContractMode)}
           >
-            <option value="interval">区间合约</option>
-            <option value="digital">数字期权</option>
+            <option value="interval">{t("trade.interval")}</option>
+            <option value="digital">{t("trade.digital")}</option>
             {market.kind === "normal" && (
               <>
-                <option value="linear_call">线性 Call</option>
-                <option value="linear_put">线性 Put</option>
-                <option value="straddle">Straddle</option>
-                <option value="variance_swap">Variance Swap</option>
-                <option value="structured_note">Structured Note（封顶看涨）</option>
-                <option value="range_note">Range Note（区间票息）</option>
-                <option value="barrier_note">Barrier Note（障碍票息）</option>
+                <option value="linear_call">{t("trade.modeLinearCall")}</option>
+                <option value="linear_put">{t("trade.modeLinearPut")}</option>
+                <option value="straddle">{t("trade.modeStraddle")}</option>
+                <option value="variance_swap">{t("trade.modeVarianceSwap")}</option>
+                <option value="structured_note">{t("trade.modeStructuredNote")}</option>
+                <option value="range_note">{t("trade.modeRangeNote")}</option>
+                <option value="barrier_note">{t("trade.modeBarrierNote")}</option>
               </>
             )}
           </select>
@@ -210,18 +208,18 @@ export function TradePanel({ market }: Props) {
       {market.kind === "poisson" && mode === "interval" && (
         <div className="field-row">
           <div>
-            <label>区间 a (k)</label>
+            <label>{t("trade.poissonIntervalA")}</label>
             <input value={poissonA} onChange={(e) => setPoissonA(e.target.value)} />
           </div>
           <div>
-            <label>区间 b (k)</label>
+            <label>{t("trade.poissonIntervalB")}</label>
             <input value={poissonB} onChange={(e) => setPoissonB(e.target.value)} />
           </div>
         </div>
       )}
       {market.kind === "poisson" && mode === "digital" && (
         <>
-          <label>结果 k（P(X=k)）</label>
+          <label>{t("trade.poissonDigitalK")}</label>
           <input value={poissonK} onChange={(e) => setPoissonK(e.target.value)} />
         </>
       )}
@@ -229,11 +227,11 @@ export function TradePanel({ market }: Props) {
       {market.kind === "beta" && (
         <div className="field-row">
           <div>
-            <label>区间下界 (‰，350=35%)</label>
+            <label>{t("trade.betaLowerHint")}</label>
             <input value={betaA} onChange={(e) => setBetaA(e.target.value)} />
           </div>
           <div>
-            <label>区间上界 (‰，400=40%)</label>
+            <label>{t("trade.betaUpperHint")}</label>
             <input value={betaB} onChange={(e) => setBetaB(e.target.value)} />
           </div>
         </div>
@@ -241,14 +239,14 @@ export function TradePanel({ market }: Props) {
 
       {market.kind === "dirichlet" && (
         <>
-          <label>结果（0=主胜 1=平 2=客胜）</label>
+          <label>{t("trade.dirichletOutcome")}</label>
           <select
             value={dirichletOutcome}
             onChange={(e) => setDirichletOutcome(e.target.value)}
           >
-            <option value="0">主胜</option>
-            <option value="1">平局</option>
-            <option value="2">客胜</option>
+            <option value="0">{t("trade.dirichletHome")}</option>
+            <option value="1">{t("trade.dirichletDraw")}</option>
+            <option value="2">{t("trade.dirichletAway")}</option>
           </select>
         </>
       )}
@@ -256,18 +254,18 @@ export function TradePanel({ market }: Props) {
       {market.kind === "normal" && mode === "interval" && (
         <div className="field-row">
           <div>
-            <label>区间下界 (tenths)</label>
+            <label>{t("trade.normalIntervalLower")}</label>
             <input value={normalA} onChange={(e) => setNormalA(e.target.value)} />
           </div>
           <div>
-            <label>区间上界 (tenths)</label>
+            <label>{t("trade.normalIntervalUpper")}</label>
             <input value={normalB} onChange={(e) => setNormalB(e.target.value)} />
           </div>
         </div>
       )}
       {market.kind === "normal" && mode === "digital" && (
         <>
-          <label>阈值 (tenths，P(X≥阈值))</label>
+          <label>{t("trade.normalDigitalThreshold")}</label>
           <input
             value={normalThreshold}
             onChange={(e) => setNormalThreshold(e.target.value)}
@@ -280,7 +278,7 @@ export function TradePanel({ market }: Props) {
           mode === "straddle" ||
           mode === "variance_swap") && (
           <>
-            <label>执行价 K (tenths)</label>
+            <label>{t("trade.normalStrikeTenths")}</label>
             <input
               value={normalStrike}
               onChange={(e) => setNormalStrike(e.target.value)}
@@ -290,14 +288,14 @@ export function TradePanel({ market }: Props) {
       {market.kind === "normal" && mode === "structured_note" && (
         <div className="field-row">
           <div>
-            <label>执行价 K (tenths)</label>
+            <label>{t("trade.normalStrikeTenths")}</label>
             <input
               value={normalStrike}
               onChange={(e) => setNormalStrike(e.target.value)}
             />
           </div>
           <div>
-            <label>封顶价 C (tenths)</label>
+            <label>{t("trade.normalCapTenths")}</label>
             <input value={normalCap} onChange={(e) => setNormalCap(e.target.value)} />
           </div>
         </div>
@@ -305,18 +303,18 @@ export function TradePanel({ market }: Props) {
       {market.kind === "normal" && mode === "range_note" && (
         <div className="field-row">
           <div>
-            <label>区间下界 L (tenths)</label>
+            <label>{t("trade.normalLowerTenths")}</label>
             <input value={normalLower} onChange={(e) => setNormalLower(e.target.value)} />
           </div>
           <div>
-            <label>区间上界 U (tenths)</label>
+            <label>{t("trade.normalUpperTenths")}</label>
             <input value={normalUpper} onChange={(e) => setNormalUpper(e.target.value)} />
           </div>
         </div>
       )}
       {market.kind === "normal" && mode === "barrier_note" && (
         <>
-          <label>障碍位 B (tenths，X≥B 生效)</label>
+          <label>{t("trade.normalBarrierTenths")}</label>
           <input
             value={normalBarrier}
             onChange={(e) => setNormalBarrier(e.target.value)}
@@ -324,23 +322,23 @@ export function TradePanel({ market }: Props) {
         </>
       )}
 
-      <label>Stake (USDC)</label>
+      <label>{t("trade.stakeUsdc")}</label>
       <input
         value={stakeUsdc}
         onChange={(e) => setStakeUsdc(e.target.value)}
         placeholder="1.0"
       />
       <p className="hint">
-        自动合并钱包内多枚 USDC 后支付；Gas 仍为 SUI。
-        {market.kind === "dirichlet" && " Dirichlet 为单结果买入（类数字期权）。"}
-        {market.kind === "beta" && " Beta 为得票率区间买入（链上 CDF 定价）。"}
+        {t("trade.stakeHint")}
+        {market.kind === "dirichlet" && t("trade.stakeHintDirichlet")}
+        {market.kind === "beta" && t("trade.stakeHintBeta")}
       </p>
 
       {quote && (
         <ul className="pos-meta">
-          <li>定价预览：胜率约 {quote.entryProbPercent.toFixed(2)}%</li>
-          <li>命中兑付约 {(Number(quote.payoutUsdc) / 1e6).toFixed(4)} USDC</li>
-          <li>隐含 ROI {(quote.impliedRoiBps / 100).toFixed(2)}%（链下估算）</li>
+          <li>{t("trade.quoteWin", { percent: quote.entryProbPercent.toFixed(2) })}</li>
+          <li>{t("trade.quotePayout", { amount: (Number(quote.payoutUsdc) / 1e6).toFixed(4) })}</li>
+          <li>{t("trade.quoteRoi", { roi: (quote.impliedRoiBps / 100).toFixed(2) })}</li>
         </ul>
       )}
 
@@ -350,11 +348,11 @@ export function TradePanel({ market }: Props) {
         disabled={!account || isPending}
         onClick={() => void buildBuyTx()}
       >
-        {isPending ? "签名中…" : "用 USDC 买入"}
+        {isPending ? t("trade.signing") : t("trade.buyUsdc")}
       </button>
       {status && <p className="hint">{status}</p>}
       <p className="hint">
-        预设：{JSON.stringify(defaultTradeParams(market.kind, mode))}
+        {t("trade.preset", { json: JSON.stringify(defaultTradeParams(market.kind, mode)) })}
       </p>
     </div>
   );

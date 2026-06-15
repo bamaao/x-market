@@ -12,7 +12,6 @@ import {
   formatScorePercent,
   formatUsdcBaseUnits,
   isPaidUnlockEligible,
-  paidUnlockEligibilityHint,
   prophetProfilePath,
   shortAddress,
   type LeaderboardEntry,
@@ -24,8 +23,11 @@ import {
 } from "@/lib/indexer";
 import { DataTable } from "@/components/DataTable";
 import { PageHeader } from "@/components/PageHeader";
+import { localizedPaidUnlockEligibilityHint } from "@/i18n/domain";
+import { useT } from "@/i18n/context";
 
 export default function LeaderboardPage() {
+  const t = useT();
   const account = useCurrentAccount();
   const client = useSuiClient();
   const [rows, setRows] = useState<LeaderboardEntry[]>([]);
@@ -70,86 +72,80 @@ export default function LeaderboardPage() {
   return (
     <div>
       <PageHeader
-        title="Prophet 排行榜"
-        subtitle={
-          <>
-            优先读 Indexer 缓存排行；回退链上 <code>ProphetRegistry</code>{" "}
-            动态字段（权威真相源仍在链上）。
-          </>
-        }
+        title={t("leaderboard.title")}
+        subtitle={t("leaderboard.subtitle")}
       />
 
       {!PROPHET_REGISTRY_ID && (
         <div className="card">
-          <p>
-            请配置 <code>NEXT_PUBLIC_PROPHET_REGISTRY_ID</code> 后查看排行榜。
-          </p>
+          <p>{t("leaderboard.registryRequired")}</p>
         </div>
       )}
 
       {account && (
         <div className="card">
-          <h2>我的战绩</h2>
+          <h2>{t("leaderboard.myStats")}</h2>
           {myRow ? (
             <>
               <dl className="meta">
-                <dt>排名</dt>
+                <dt>{t("leaderboard.rank")}</dt>
                 <dd>#{myRow.rank}</dd>
-                <dt>胜 / 负</dt>
+                <dt>{t("leaderboard.wl")}</dt>
                 <dd>
                   {myRow.wins} / {myRow.losses}
                 </dd>
-                <dt>胜率</dt>
+                <dt>{t("leaderboard.winRate")}</dt>
                 <dd>{formatAccuracyPercent(myRow)}</dd>
                 <dt>Prophet Score</dt>
                 <dd>{formatScorePercent(myRow.scoreBps)} / 100</dd>
-                <dt>付费开通</dt>
+                <dt>{t("leaderboard.paidUnlock")}</dt>
                 <dd>
-                  {isPaidUnlockEligible(myRow) ? "已开通" : "未开通"}
+                  {isPaidUnlockEligible(myRow) ? t("leaderboard.paidEnabled") : t("leaderboard.paidDisabled")}
                   {!isPaidUnlockEligible(myRow) && (
-                    <span className="hint"> — {paidUnlockEligibilityHint(myRow)}</span>
+                    <span className="hint"> — {localizedPaidUnlockEligibilityHint(myRow, t)}</span>
                   )}
                 </dd>
               </dl>
               <p style={{ marginTop: "0.75rem" }}>
                 <Link href={prophetProfilePath(account.address)} className="hero-link">
-                  查看我的主页 →
+                  {t("leaderboard.viewProfile")}
                 </Link>
               </p>
             </>
           ) : (
             <p className="hint">
-              尚无链上战绩。前往{" "}
-              <Link href="/prophet">Prophet</Link> 发布免费练手预测（unlock_price =
-              0）。
+              {t("leaderboard.noStats")}{" "}
+              <Link href="/prophet">Prophet</Link>{" "}
+              {t("leaderboard.noStatsHint")}
             </p>
           )}
         </div>
       )}
 
       <div className="card">
-        <h2>全链排行</h2>
+        <h2>{t("leaderboard.globalRank")}</h2>
         <p className="hint">
-          Score = 60% 胜率 + 20% 经验(log N) + 20% 收入 · 付费门槛：≥
-          {MIN_AUDITED_FOR_PAID} 场审计且 Score ≥ {MIN_SCORE_BPS_FOR_PAID / 100} ·
-          零作弊
+          {t("leaderboard.scoreFormula", {
+            minAudited: MIN_AUDITED_FOR_PAID,
+            minScore: MIN_SCORE_BPS_FOR_PAID / 100,
+          })}
         </p>
         {loading ? (
-          <p className="hint">从链上事件 + 动态字段加载…</p>
+          <p className="hint">{t("leaderboard.loading")}</p>
         ) : rows.length === 0 ? (
-          <p className="hint">暂无数据 — 完成首笔 audit_prophecy 后出现。</p>
+          <p className="hint">{t("leaderboard.empty")}</p>
         ) : (
           <DataTable>
             <thead>
               <tr>
                 <th>#</th>
-                <th>预言家</th>
-                <th>胜/负/作弊</th>
-                <th>胜率</th>
-                <th>连红</th>
+                <th>{t("leaderboard.colProphet")}</th>
+                <th>{t("leaderboard.colWlC")}</th>
+                <th>{t("leaderboard.winRate")}</th>
+                <th>{t("leaderboard.colStreak")}</th>
                 <th>Score</th>
-                <th>收入</th>
-                <th>付费</th>
+                <th>{t("leaderboard.colRevenue")}</th>
+                <th>{t("leaderboard.colPaid")}</th>
               </tr>
             </thead>
             <tbody>
@@ -159,7 +155,7 @@ export default function LeaderboardPage() {
                   <td>
                     <Link href={prophetProfilePath(row.prophet)}>
                       <code>{shortAddress(row.prophet)}</code>
-                      {account?.address === row.prophet ? "（你）" : ""}
+                      {account?.address === row.prophet ? t("common.you") : ""}
                     </Link>
                   </td>
                   <td>
@@ -178,14 +174,13 @@ export default function LeaderboardPage() {
           </DataTable>
         )}
         <p className="hint" style={{ marginTop: "1rem" }}>
-          生产环境可选部署 <strong>Indexer</strong> 缓存排行与订阅者 ROI，但链上{" "}
-          <code>ProphetStats</code> 已是唯一真相源。
+          {t("leaderboard.indexerHint")}
         </p>
       </div>
 
       <div className="btn-row">
         <Link href="/prophet" className="card" style={{ padding: "0.75rem 1rem" }}>
-          发布 / 解锁预测 →
+          {t("leaderboard.publishLink")}
         </Link>
       </div>
 

@@ -9,6 +9,7 @@ import {
   unfollowIndexerProphet,
 } from "@/lib/indexer";
 import { normalizeSuiAddress } from "@/lib/prophet";
+import { useT } from "@/i18n/context";
 
 interface FollowButtonProps {
   prophetAddress: string;
@@ -16,6 +17,7 @@ interface FollowButtonProps {
 
 export function FollowButton({ prophetAddress }: FollowButtonProps) {
   const account = useCurrentAccount();
+  const t = useT();
   const [following, setFollowing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState(false);
@@ -61,20 +63,20 @@ export function FollowButton({ prophetAddress }: FollowButtonProps) {
         setFollowing(true);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "操作失败");
+      setError(e instanceof Error ? e.message : t("follow.errAction"));
     } finally {
       setPending(false);
     }
-  }, [follower, following, isSelf, pending, prophet]);
+  }, [follower, following, isSelf, pending, prophet, t]);
 
   if (isSelf) return null;
 
   if (!indexerEnabled()) {
-    return <p className="hint">关注功能需配置 Indexer。</p>;
+    return <p className="hint">{t("follow.indexerRequired")}</p>;
   }
 
   if (!account) {
-    return <p className="hint">连接钱包后可关注该预言家。</p>;
+    return <p className="hint">{t("follow.connectHint")}</p>;
   }
 
   return (
@@ -85,7 +87,13 @@ export function FollowButton({ prophetAddress }: FollowButtonProps) {
         disabled={loading || pending}
         onClick={() => void toggle()}
       >
-        {pending ? "处理中…" : loading ? "…" : following ? "已关注 · 取消" : "+ 关注"}
+        {pending
+          ? t("follow.pending")
+          : loading
+            ? "…"
+            : following
+              ? t("follow.following")
+              : t("follow.follow")}
       </button>
       {error && <p className="hint" style={{ color: "var(--danger)" }}>{error}</p>}
     </div>

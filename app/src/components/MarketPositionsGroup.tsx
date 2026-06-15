@@ -10,19 +10,23 @@ import { Transaction } from "@mysten/sui/transactions";
 import { PACKAGE_ID } from "@/lib/markets";
 import {
   claimableRows,
-  formatPoolParameterLines,
   formatResolvedValue,
-  formatTimeToMaturity,
-  formatUnixTs,
   formatUsdcAmount,
   poolKindLabel,
-  poolStatusLabel,
   summarizeMarketGroup,
   type MarketGroupSummary,
   type MarketRef,
   type PoolView,
   type PositionRow,
 } from "@/lib/position-display";
+import {
+  localizedFormatPoolParameterLines,
+  localizedFormatTimeToMaturity,
+  localizedFormatUnixTs,
+  localizedPoolStatusLabel,
+} from "@/i18n/domain";
+import { useI18n, useT } from "@/i18n/context";
+import { formatCaughtError } from "@/i18n/core";
 import {
   fetchIndexerIvHistory,
   indexerEnabled,
@@ -46,6 +50,8 @@ export function MarketPositionsGroup({
   rows,
   onClaimSuccess,
 }: Props) {
+  const t = useT();
+  const { locale } = useI18n();
   const account = useCurrentAccount();
   const { mutate: signAndExecute, isPending } = useSignAndExecuteTransaction();
   const [msg, setMsg] = useState<string | null>(null);
@@ -57,7 +63,7 @@ export function MarketPositionsGroup({
   );
 
   const toClaim = useMemo(() => claimableRows(rows, pool), [rows, pool]);
-  const paramLines = pool ? formatPoolParameterLines(pool) : [];
+  const paramLines = pool ? localizedFormatPoolParameterLines(pool, t) : [];
 
   useEffect(() => {
     if (!indexerEnabled() || !poolId) return;
@@ -81,11 +87,14 @@ export function MarketPositionsGroup({
       {
         onSuccess: (r) => {
           setMsg(
-            `已批量领取 ${toClaim.length} 笔: ${r.digest?.slice(0, 16)}…`,
+            t("positionsGroup.batchSuccess", {
+              count: toClaim.length,
+              digest: r.digest?.slice(0, 16) ?? "",
+            }),
           );
           onClaimSuccess?.();
         },
-        onError: (e) => setMsg(e.message),
+        onError: (e) => setMsg(formatCaughtError(e, t)),
       },
     );
   };
@@ -108,7 +117,7 @@ export function MarketPositionsGroup({
               <h2>{market.title}</h2>
             </Link>
           ) : (
-            <h2>未知市场</h2>
+            <h2>{t("positionsGroup.unknownMarket")}</h2>
           )}
           <p className="hint position-market-desc">
             {market?.description ?? `Pool ${poolId.slice(0, 12)}…`}
@@ -120,7 +129,9 @@ export function MarketPositionsGroup({
               {poolKindLabel(pool.kind)}
             </span>
           )}
-          <span className="badge">{groupSummary.positionCount} 笔持仓</span>
+          <span className="badge">
+            {t("positionsGroup.positionCount", { count: groupSummary.positionCount })}
+          </span>
         </div>
       </header>
 
@@ -128,20 +139,25 @@ export function MarketPositionsGroup({
         <div className="positions-market-panel card">
           <div className="positions-market-panel-grid">
             <div>
-              <h3>市场快照</h3>
+              <h3>{t("positionsGroup.snapshot")}</h3>
               <ul className="pos-meta">
-                <li>状态: {poolStatusLabel(pool)}</li>
-                <li>到期: {formatUnixTs(pool.maturityTs)}</li>
-                <li>{formatTimeToMaturity(pool)}</li>
+                <li>
+                  {t("positionsGroup.status")}: {localizedPoolStatusLabel(pool, t)}
+                </li>
+                <li>
+                  {t("positionsGroup.maturity")}: {localizedFormatUnixTs(pool.maturityTs, locale)}
+                </li>
+                <li>{localizedFormatTimeToMaturity(pool, t)}</li>
                 {pool.resolved && (
                   <li>
-                    结算值: {formatResolvedValue(pool, market?.kind)}
+                    {t("positionsGroup.settledValue")}:{" "}
+                    {formatResolvedValue(pool, market?.kind)}
                   </li>
                 )}
               </ul>
             </div>
             <div>
-              <h3>当前参数</h3>
+              <h3>{t("positionsGroup.params")}</h3>
               <ul className="pos-meta">
                 {paramLines.map((line) => (
                   <li key={line}>{line}</li>
@@ -150,11 +166,11 @@ export function MarketPositionsGroup({
             </div>
             {ivLatest && (
               <div>
-                <h3>IV（Indexer）</h3>
+                <h3>{t("iv.title")}</h3>
                 <ul className="pos-meta">
-                  <li>IV σ tenths: {ivLatest.iv_tenths}</li>
-                  <li>τ: {((ivLatest.tau_bps ?? 0) / 100).toFixed(1)}%</li>
-                  <li>Vol Crush: {ivLatest.vol_crush_bps} bps</li>
+                  <li>{t("iv.sigmaBase")}: {ivLatest.iv_tenths}</li>
+                  <li>{t("iv.latestTau")}: {((ivLatest.tau_bps ?? 0) / 100).toFixed(1)}%</li>
+                  <li>{t("iv.latestVolCrush")}: {ivLatest.vol_crush_bps} bps</li>
                 </ul>
               </div>
             )}
@@ -162,18 +178,20 @@ export function MarketPositionsGroup({
           <div className="positions-market-panel-actions">
             {market && (
               <Link href={`/markets/${market.id}`} className="secondary btn-link">
-                去交易 →
+                {t("positionsGroup.tradeLink")}
               </Link>
             )}
             <Link
               href={`/oracle?pool=${encodeURIComponent(poolId)}`}
               className="secondary btn-link"
             >
-              Oracle 结算 →
+              {t("positionsGroup.oracleLink")}
             </Link>
             {groupSummary.claimableCount > 0 && (
               <span className="positions-claimable-chip">
-                可领 {formatUsdcAmount(groupSummary.claimableUsdc)}
+                {t("positionsGroup.claimable", {
+                  amount: formatUsdcAmount(groupSummary.claimableUsdc),
+                })}
               </span>
             )}
             {account && toClaim.length > 1 && (
@@ -184,8 +202,8 @@ export function MarketPositionsGroup({
                 onClick={batchClaim}
               >
                 {isPending
-                  ? "领取中…"
-                  : `批量领取 (${toClaim.length})`}
+                  ? t("positionsGroup.batchClaiming")
+                  : t("positionsGroup.batchClaim", { count: toClaim.length })}
               </button>
             )}
           </div>

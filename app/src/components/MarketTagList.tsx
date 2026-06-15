@@ -1,6 +1,7 @@
 "use client";
 
-import { tagLabel } from "@/lib/market-tags";
+import { useLocalizedTagLabel } from "@/i18n/markets";
+import { useT } from "@/i18n/context";
 
 type Props = {
   tags?: string[];
@@ -9,6 +10,7 @@ type Props = {
 };
 
 export function MarketTagList({ tags, max = 4, className }: Props) {
+  const tagLabel = useLocalizedTagLabel();
   if (!tags?.length) return null;
   const shown = tags.slice(0, max);
   return (
@@ -32,6 +34,7 @@ type PickerProps = {
 };
 
 export function MarketTagPicker({ selected, onChange, options }: PickerProps) {
+  const t = useT();
   const toggle = (slug: string) => {
     if (selected.includes(slug)) {
       onChange(selected.filter((s) => s !== slug));
@@ -41,7 +44,7 @@ export function MarketTagPicker({ selected, onChange, options }: PickerProps) {
   };
 
   return (
-    <div className="market-tag-picker" role="group" aria-label="市场主题">
+    <div className="market-tag-picker" role="group" aria-label={t("marketTag.pickerAria")}>
       {options.map((t) => {
         const active = selected.includes(t.slug);
         return (

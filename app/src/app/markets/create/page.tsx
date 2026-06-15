@@ -34,6 +34,8 @@ import {
 } from "@/lib/oracle";
 import { MarketTagPicker } from "@/components/MarketTagList";
 import { catalogTagsForPicker, normalizeTagSlugs } from "@/lib/market-tags";
+import { localizeLibMessage } from "@/i18n/core";
+import { useT } from "@/i18n/context";
 
 const KIND_OPTIONS: { value: MarketKind; label: string }[] = [
   { value: "poisson", label: "Poisson" },
@@ -43,6 +45,7 @@ const KIND_OPTIONS: { value: MarketKind; label: string }[] = [
 ];
 
 export default function CreateMarketPage() {
+  const t = useT();
   const router = useRouter();
   const account = useCurrentAccount();
   const client = useSuiClient();
@@ -148,12 +151,12 @@ export default function CreateMarketPage() {
 
   const submit = async () => {
     if (!account?.address) {
-      setStatus("请先连接钱包");
+      setStatus(t("common.connectWallet"));
       return;
     }
     const err = validateCreateMarketParams(params);
     if (err) {
-      setStatus(err);
+      setStatus(t(err));
       return;
     }
 
@@ -163,31 +166,37 @@ export default function CreateMarketPage() {
 
       if (coverFile) {
         if (!indexerEnabled()) {
-          setStatus("封面上传需要 Indexer（配置 NEXT_PUBLIC_INDEXER_URL）");
+          setStatus(t("createMarket.errCoverIndexer"));
           return;
         }
         setStep("upload");
-        setStatus("正在上传封面到 Indexer…");
+        setStatus(t("createMarket.uploadingCover"));
         const uploaded = await uploadMarketCover(coverFile, params.slug);
         if (!uploaded.ok) {
-          setStatus(`封面上传失败: ${uploaded.error}`);
+          setStatus(
+            t("createMarket.coverUploadFailed", {
+              error: localizeLibMessage(uploaded.error, t),
+            }),
+          );
           setStep("idle");
           return;
         }
         imageRef = uploaded.imageUrl;
         setStatus(
           uploaded.storage === "ipfs" && uploaded.cid
-            ? `封面上传成功 · IPFS ${uploaded.cid.slice(0, 14)}…`
-            : `封面上传成功 · ${uploaded.imageUrl.split("/").pop()}`,
+            ? t("createMarket.coverUploadSuccessIpfs", { cid: uploaded.cid.slice(0, 14) })
+            : t("createMarket.coverUploadSuccess", {
+                name: uploaded.imageUrl.split("/").pop() ?? "",
+              }),
         );
       }
 
       setStep("chain");
-      setStatus("正在创建链上 Pool 与 Oracle Feed…");
+      setStatus(t("createMarket.creatingPool"));
 
       const registryId = await resolveFeedRegistryId(client, ORACLE_CONFIG_ID);
       if (!registryId) {
-        setStatus("无法解析 FeedRegistry，请检查 Oracle 配置");
+        setStatus(t("createMarket.errFeedRegistry"));
         setStep("idle");
         return;
       }
@@ -202,7 +211,7 @@ export default function CreateMarketPage() {
           onSuccess: async (result) => {
             try {
               if (!result.digest) {
-                setStatus("交易已提交但未返回 digest");
+                setStatus(t("createMarket.errNoDigest"));
                 setStep("idle");
                 return;
               }
@@ -212,15 +221,13 @@ export default function CreateMarketPage() {
                 MARKET_POOL_TYPE,
               );
               if (!poolId) {
-                setStatus(
-                  `Pool 已创建但未能解析对象 ID，请在浏览器查看交易: ${result.digest.slice(0, 18)}…`,
-                );
+                setStatus(t("createMarket.errPoolIdParse", { digest: result.digest.slice(0, 18) }));
                 setStep("idle");
                 return;
               }
 
               setStep("register");
-              setStatus("正在注册市场元数据…");
+              setStatus(t("createMarket.registeringMeta"));
 
               const seed = paramsToSeedMarket(params, poolId, imageRef);
               saveUserMarket(seed);
@@ -246,20 +253,27 @@ export default function CreateMarketPage() {
 
               if (!reg.ok) {
                 setStatus(
-                  `链上市场已创建（Pool ${poolId.slice(0, 10)}…），Indexer 注册失败: ${reg.error ?? "未知错误"}（已保存到本地）`,
+                  t("createMarket.errIndexerPartial", {
+                    pool: poolId.slice(0, 10),
+                    error: localizeLibMessage(reg.error ?? "", t) || t("common.unknown"),
+                  }),
                 );
               } else {
-                setStatus(`市场创建成功 · Pool ${poolId.slice(0, 10)}…`);
+                setStatus(t("createMarket.success", { pool: poolId.slice(0, 10) }));
               }
 
               router.push(`/markets/${params.slug}`);
             } catch (e) {
-              setStatus(`后续处理失败: ${e instanceof Error ? e.message : String(e)}`);
+              setStatus(
+                t("createMarket.errPostProcess", {
+                  error: e instanceof Error ? e.message : String(e),
+                }),
+              );
               setStep("idle");
             }
           },
           onError: (e) => {
-            setStatus(`链上创建失败: ${e.message}`);
+            setStatus(t("createMarket.errChain", { message: e.message }));
             setStep("idle");
           },
         },
@@ -277,41 +291,39 @@ export default function CreateMarketPage() {
   return (
     <>
       <div className="section-head">
-        <h1>创建市场</h1>
-        <p className="sub">
-          链上创建 Pool 并自动注册 Oracle Feed；封面可选上传至 Indexer（local / IPFS）。
-        </p>
+        <h1>{t("createMarket.title")}</h1>
+        <p className="sub">{t("createMarket.subtitle")}</p>
       </div>
 
       {!ORACLE_CONFIG_ID && (
         <p className="hint" style={{ color: "var(--warn, #c9a227)" }}>
-          未配置 <code className="mono">NEXT_PUBLIC_ORACLE_CONFIG_ID</code>，无法创建市场。
+          {t("createMarket.oracleRequired")}
         </p>
       )}
 
       <div className="create-market-layout">
         <div className="card create-market-form">
-          <h2>基本信息</h2>
-          <label htmlFor="title">标题</label>
+          <h2>{t("createMarket.basicInfo")}</h2>
+          <label htmlFor="title">{t("createMarket.titleLabel")}</label>
           <input
             id="title"
             value={title}
             onChange={(e) => onTitleChange(e.target.value)}
-            placeholder="例如：今晚欧冠总进球"
+            placeholder={t("createMarket.titlePlaceholder")}
             maxLength={120}
           />
 
-          <label htmlFor="description">描述</label>
+          <label htmlFor="description">{t("createMarket.descriptionLabel")}</label>
           <textarea
             id="description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="市场规则、结算口径与数据来源说明"
+            placeholder={t("createMarket.descriptionPlaceholder")}
             rows={4}
             style={{ maxWidth: "100%" }}
           />
 
-          <label htmlFor="slug">Slug（URL）</label>
+          <label htmlFor="slug">{t("createMarket.slugLabel")}</label>
           <input
             id="slug"
             value={slug}
@@ -321,17 +333,17 @@ export default function CreateMarketPage() {
             }}
             placeholder={effectiveSlug || "auto-from-title"}
           />
-          <p className="hint">访问路径：/markets/{effectiveSlug || "…"}</p>
+          <p className="hint">{t("createMarket.slugHint", { slug: effectiveSlug || "…" })}</p>
 
-          <label>主题（可多选）</label>
+          <label>{t("createMarket.tagsLabel")}</label>
           <MarketTagPicker
             selected={selectedTags}
             onChange={setSelectedTags}
             options={tagOptions}
           />
-          <p className="hint">主题用于发现与筛选，与分布类型（kind）无关；可多选。</p>
+          <p className="hint">{t("createMarket.tagsHint")}</p>
 
-          <label htmlFor="kind">分布类型</label>
+          <label htmlFor="kind">{t("createMarket.kindLabel")}</label>
           <select
             id="kind"
             value={kind}
@@ -346,7 +358,7 @@ export default function CreateMarketPage() {
 
           <MaturityTimeField onChange={setMaturityTs} />
 
-          <label htmlFor="fee">交易费率（bps）</label>
+          <label htmlFor="fee">{t("createMarket.feeLabel")}</label>
           <input
             id="fee"
             type="number"
@@ -356,26 +368,26 @@ export default function CreateMarketPage() {
             onChange={(e) => setFeeBps(e.target.value)}
           />
 
-          <h2 style={{ marginTop: "1.5rem" }}>Oracle Feed</h2>
-          <label htmlFor="feedId">Feed 标识</label>
+          <h2 style={{ marginTop: "1.5rem" }}>{t("createMarket.oracleFeed")}</h2>
+          <label htmlFor="feedId">{t("createMarket.feedIdLabel")}</label>
           <input
             id="feedId"
             value={feedIdentifier}
             onChange={(e) => setFeedIdentifier(e.target.value)}
-            placeholder={effectiveFeedId || "默认与 slug 相同"}
+            placeholder={effectiveFeedId || t("createMarket.feedIdPlaceholder")}
           />
 
-          <label htmlFor="ancillary">辅助说明（Ancillary）</label>
+          <label htmlFor="ancillary">{t("createMarket.ancillaryLabel")}</label>
           <textarea
             id="ancillary"
             value={ancillaryText}
             onChange={(e) => setAncillaryText(e.target.value)}
-            placeholder="可选，默认使用市场描述"
+            placeholder={t("createMarket.ancillaryPlaceholder")}
             rows={2}
             style={{ maxWidth: "100%" }}
           />
 
-          <h2 style={{ marginTop: "1.5rem" }}>池参数</h2>
+          <h2 style={{ marginTop: "1.5rem" }}>{t("createMarket.poolParams")}</h2>
           {kind === "poisson" && (
             <>
               <label htmlFor="lambda">λ（tenths）</label>
@@ -422,8 +434,8 @@ export default function CreateMarketPage() {
             </>
           )}
 
-          <h2 style={{ marginTop: "1.5rem" }}>封面（可选）</h2>
-          <label htmlFor="cover">上传图片 · Indexer / IPFS</label>
+          <h2 style={{ marginTop: "1.5rem" }}>{t("createMarket.coverSection")}</h2>
+          <label htmlFor="cover">{t("createMarket.coverLabel")}</label>
           <input
             id="cover"
             type="file"
@@ -431,14 +443,11 @@ export default function CreateMarketPage() {
             onChange={(e) => onCoverChange(e.target.files?.[0] ?? null)}
             style={{ maxWidth: "100%" }}
           />
-          <p className="hint">
-            建议 16:9，PNG/JPEG/WebP/SVG，最大 2MB。需 Indexer 在线；存储由服务端{" "}
-            <code className="mono">INDEXER_COVER_STORAGE</code> 决定（local 或 ipfs）。
-          </p>
+          <p className="hint">{t("createMarket.coverHint")}</p>
 
           {validationError && (
             <p className="hint" style={{ color: "var(--warn, #c9a227)" }}>
-              {validationError}
+              {t(validationError)}
             </p>
           )}
 
@@ -457,16 +466,16 @@ export default function CreateMarketPage() {
             >
               {isPending || step !== "idle"
                 ? step === "upload"
-                  ? "上传中…"
+                  ? t("createMarket.uploading")
                   : step === "chain"
-                    ? "签名中…"
+                    ? t("createMarket.signing")
                     : step === "register"
-                      ? "注册中…"
-                      : "处理中…"
-                : "创建市场"}
+                      ? t("createMarket.registering")
+                      : t("createMarket.processing")
+                : t("createMarket.submit")}
             </button>
             <Link href="/" className="hero-link secondary">
-              取消
+              {t("createMarket.cancel")}
             </Link>
           </div>
 
@@ -474,26 +483,23 @@ export default function CreateMarketPage() {
         </div>
 
         <div className="card create-market-preview">
-          <h2>预览</h2>
+          <h2>{t("createMarket.preview")}</h2>
           <div className="market-cover market-cover--card" style={{ position: "relative", minHeight: 140 }}>
             {previewCoverSrc ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={previewCoverSrc} alt="封面预览" className="market-cover-img" />
+              <img src={previewCoverSrc} alt={t("createMarket.coverPreviewAlt")} className="market-cover-img" />
             ) : (
               <div className="market-cover-fallback" />
             )}
           </div>
           <span className={`badge badge-${kind}`}>{kind}</span>
-          <h3 style={{ marginTop: "0.75rem" }}>{title.trim() || "市场标题"}</h3>
-          <p>{description.trim() || "市场描述将显示在这里。"}</p>
+          <h3 style={{ marginTop: "0.75rem" }}>{title.trim() || t("createMarket.titleFallback")}</h3>
+          <p>{description.trim() || t("createMarket.descriptionFallback")}</p>
           <p className="hint">
             Feed: <code className="mono">{effectiveFeedId || "—"}</code>
           </p>
           {coverPreview && coverFile && (
-            <p className="hint">
-              上传后存为 <code className="mono">/v1/covers/…</code>（local）或{" "}
-              <code className="mono">ipfs://…</code>（ipfs + Pin）
-            </p>
+            <p className="hint">{t("createMarket.coverStorageHint")}</p>
           )}
         </div>
       </div>

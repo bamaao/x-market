@@ -89,31 +89,33 @@ bool isPaidUnlockEligible(ProphetStatsView? stats) {
 }
 
 String paidUnlockEligibilityHint(ProphetStatsView? stats) {
+  // Kept for tests; UI should use localizedPaidUnlockHint from l10n_helpers.dart.
   if (stats == null) {
-    return '新预言家须先发布免费预测（unlock_price=0），完成 ≥$minAuditedForPaid 场审计且 Score ≥ ${minScoreBpsForPaid / 100} 后方可开通付费';
+    return 'New prophets must publish free predictions (unlock_price=0), complete ≥$minAuditedForPaid audits with Score ≥ ${minScoreBpsForPaid / 100} before paid unlock';
   }
-  if (stats.cheats > 0) return '存在作弊记录，暂不可开通付费解锁';
+  if (stats.cheats > 0) return 'Cheat record found; paid unlock unavailable';
   if (stats.totalAudited < minAuditedForPaid) {
-    return '已审计 ${stats.totalAudited}/$minAuditedForPaid 场，继续免费练手预测以积累战绩';
+    return 'Audited ${stats.totalAudited}/$minAuditedForPaid; keep publishing free predictions to build record';
   }
   if (stats.scoreBps < minScoreBpsForPaid) {
-    return 'Prophet Score ${(stats.scoreBps / 100).toStringAsFixed(1)}，需 ≥ ${minScoreBpsForPaid / 100} 方可开通付费';
+    return 'Prophet Score ${(stats.scoreBps / 100).toStringAsFixed(1)}, need ≥ ${minScoreBpsForPaid / 100} for paid unlock';
   }
-  return '已满足付费开通条件，可设置 unlock_price > 0（Mobile 暂请用 Web App 发 Seal 加密预测）';
+  return 'Eligible for paid unlock (unlock_price > 0). Use Web App for Seal encrypted predictions on Mobile';
 }
 
 String prophecyStatusLabel(int status) {
+  // Kept for tests; UI should use localizedProphecyStatus from l10n_helpers.dart.
   switch (status) {
     case prophecyStatusOpen:
-      return '开放';
+      return 'Open';
     case 1:
-      return '审计·胜';
+      return 'Audited · Win';
     case 2:
-      return '审计·负';
+      return 'Audited · Loss';
     case 3:
-      return '作弊';
+      return 'Cheat';
     default:
-      return '未知($status)';
+      return 'Unknown($status)';
   }
 }
 

@@ -10,13 +10,13 @@ export async function uploadProphecyBlob(
   | { ok: false; error: string }
 > {
   if (!INDEXER_URL) {
-    return { ok: false, error: "Indexer 未配置（NEXT_PUBLIC_INDEXER_URL）" };
+    return { ok: false, error: "errors.indexerNotConfigured" };
   }
   if (data.length === 0) {
-    return { ok: false, error: "空 blob" };
+    return { ok: false, error: "errors.emptyBlob" };
   }
   if (data.length > MAX_PROPHET_BLOB_BYTES) {
-    return { ok: false, error: "分析内容超过 512KB 限制" };
+    return { ok: false, error: "errors.blobTooLarge" };
   }
 
   const headers: Record<string, string> = {
@@ -47,7 +47,7 @@ export async function uploadProphecyBlob(
       cid?: string | null;
     };
     if (!body.blob_id) {
-      return { ok: false, error: "Indexer 响应缺少 blob_id" };
+      return { ok: false, error: "errors.missingBlobId" };
     }
     return {
       ok: true,

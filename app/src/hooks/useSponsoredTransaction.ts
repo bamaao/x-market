@@ -13,6 +13,7 @@ import {
   isGasStationEnabled,
   requestSponsor,
 } from "@/lib/gas-station";
+import { LocalizedError } from "@/i18n/core";
 
 export interface SponsoredExecuteResult {
   digest: string;
@@ -27,10 +28,10 @@ export function useSponsoredTransaction() {
   const executeSponsored = useCallback(
     async (tx: Transaction): Promise<SponsoredExecuteResult> => {
       if (!account?.address) {
-        throw new Error("请先连接钱包");
+        throw new LocalizedError("common.connectWallet");
       }
       if (!isGasStationEnabled()) {
-        throw new Error("Gas Station 未配置（NEXT_PUBLIC_GAS_STATION_URL）");
+        throw new LocalizedError("errors.gasStationNotConfigured");
       }
       setIsPending(true);
       try {
@@ -51,9 +52,7 @@ export function useSponsoredTransaction() {
           options: { showEffects: true },
         });
         if (result.effects?.status.status !== "success") {
-          throw new Error(
-            result.effects?.status.error ?? "赞助交易执行失败",
-          );
+          throw new LocalizedError("errors.sponsoredTxFailed");
         }
         return { digest: result.digest };
       } finally {

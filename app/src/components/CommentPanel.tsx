@@ -19,13 +19,14 @@ import { indexerEnabled } from "@/lib/indexer";
 import { defaultPoolId } from "@/lib/markets";
 import type { SeedMarket } from "@/lib/markets";
 import { normalizeSuiAddress, shortAddress } from "@/lib/prophet";
+import { useI18n, useT } from "@/i18n/context";
 
 type Props = { market: SeedMarket };
 
-function formatCommentTime(iso: string): string {
+function formatCommentTime(iso: string, locale: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
-  return date.toLocaleString("zh-CN", {
+  return date.toLocaleString(locale === "zh" ? "zh-CN" : "en-US", {
     month: "short",
     day: "numeric",
     hour: "2-digit",
@@ -34,6 +35,8 @@ function formatCommentTime(iso: string): string {
 }
 
 export function CommentPanel({ market }: Props) {
+  const t = useT();
+  const { locale } = useI18n();
   const account = useCurrentAccount();
   const { mutateAsync: signPersonalMessage } = useSignPersonalMessage();
   const poolId = defaultPoolId(market);
@@ -70,11 +73,11 @@ export function CommentPanel({ market }: Props) {
     if (!author || !poolId || pending) return;
     const body = draft.trim();
     if (!body) {
-      setError("请输入评论内容");
+      setError(t("comments.errEmpty"));
       return;
     }
     if (body.length > COMMENT_BODY_MAX) {
-      setError(`评论最多 ${COMMENT_BODY_MAX} 字`);
+      setError(t("comments.errMax", { max: COMMENT_BODY_MAX }));
       return;
     }
 
@@ -101,11 +104,11 @@ export function CommentPanel({ market }: Props) {
       setComments((prev) => [created, ...prev]);
       setDraft("");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "发送失败");
+      setError(e instanceof Error ? e.message : t("comments.errSend"));
     } finally {
       setPending(false);
     }
-  }, [author, draft, pending, poolId, signPersonalMessage]);
+  }, [author, draft, pending, poolId, signPersonalMessage, t]);
 
   const remove = useCallback(
     async (comment: MarketComment) => {
@@ -132,19 +135,19 @@ export function CommentPanel({ market }: Props) {
         });
         setComments((prev) => prev.filter((row) => row.id !== comment.id));
       } catch (e) {
-        setError(e instanceof Error ? e.message : "删除失败");
+        setError(e instanceof Error ? e.message : t("comments.errDelete"));
       } finally {
         setDeletingId(null);
       }
     },
-    [author, deletingId, poolId, signPersonalMessage],
+    [author, deletingId, poolId, signPersonalMessage, t],
   );
 
   if (!indexerEnabled()) {
     return (
       <div className="card panel comment-panel">
-        <h2>讨论</h2>
-        <p className="hint">评论功能需配置 Indexer（NEXT_PUBLIC_INDEXER_URL）。</p>
+        <h2>{t("comments.title")}</h2>
+        <p className="hint">{t("comments.indexerRequired")}</p>
       </div>
     );
   }
@@ -152,28 +155,26 @@ export function CommentPanel({ market }: Props) {
   if (!poolId) {
     return (
       <div className="card panel comment-panel">
-        <h2>讨论</h2>
-        <p className="hint">该市场尚未配置 Pool ID，暂无法评论。</p>
+        <h2>{t("comments.title")}</h2>
+        <p className="hint">{t("comments.noPool")}</p>
       </div>
     );
   }
 
   return (
     <div className="card panel comment-panel">
-      <h2>讨论</h2>
-      <p className="hint comment-disclaimer">
-        链下评论，未经 Oracle 验证，不构成投资建议。与 SuiProphet 预言/analysis 无关。
-      </p>
+      <h2>{t("comments.title")}</h2>
+      <p className="hint comment-disclaimer">{t("comments.disclaimer")}</p>
 
       {!account ? (
-        <p className="hint">连接钱包后可发表评论。</p>
+        <p className="hint">{t("comments.connectHint")}</p>
       ) : (
         <div className="comment-compose">
           <textarea
             className="comment-input"
             rows={3}
             maxLength={COMMENT_BODY_MAX}
-            placeholder="聊两句…"
+            placeholder={t("comments.placeholder")}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             disabled={pending}
@@ -183,7 +184,7 @@ export function CommentPanel({ market }: Props) {
               {draft.trim().length}/{COMMENT_BODY_MAX}
             </span>
             <button type="button" disabled={pending || !draft.trim()} onClick={() => void submit()}>
-              {pending ? "发送中…" : "发送"}
+              {pending ? t("common.sending") : t("common.send")}
             </button>
           </div>
         </div>
@@ -196,9 +197,9 @@ export function CommentPanel({ market }: Props) {
       )}
 
       {loading ? (
-        <p className="hint">加载评论中…</p>
+        <p className="hint">{t("comments.loading")}</p>
       ) : comments.length === 0 ? (
-        <p className="hint">还没有评论，来第一句吧。</p>
+        <p className="hint">{t("comments.empty")}</p>
       ) : (
         <ul className="comment-list">
           {comments.map((comment) => {
@@ -207,7 +208,9 @@ export function CommentPanel({ market }: Props) {
               <li key={comment.id} className="comment-item">
                 <div className="comment-item-head">
                   <code className="mono comment-author">{shortAddress(comment.author)}</code>
-                  <time className="hint comment-time">{formatCommentTime(comment.created_at)}</time>
+                  <time className="hint comment-time">
+                    {formatCommentTime(comment.created_at, locale)}
+                  </time>
                 </div>
                 <p className="comment-body">{comment.body}</p>
                 {isOwn && (
@@ -217,7 +220,7 @@ export function CommentPanel({ market }: Props) {
                     disabled={deletingId === comment.id}
                     onClick={() => void remove(comment)}
                   >
-                    {deletingId === comment.id ? "删除中…" : "删除"}
+                    {deletingId === comment.id ? t("common.deleting") : t("common.delete")}
                   </button>
                 )}
               </li>
