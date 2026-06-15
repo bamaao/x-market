@@ -1,3 +1,14 @@
+// Copyright (c) 2026 zouyc zouyccq@gmail.com.
+// All rights reserved.
+//
+// Licensed under the Business Source License 1.1 (BSL 1.1).
+// You may not use this file except in compliance with the License.
+//
+// Change Date: 2031-01-01
+// On the Change Date, or the fourth anniversary of the first publicly available
+// distribution of the code under the BSL, whichever comes first, the code
+// automatically becomes available under the Apache License 2.0.
+
 "use client";
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
@@ -161,7 +172,7 @@ function OraclePageInner() {
   const [bondMist, setBondMist] = useState("10000000");
   const [msg, setMsg] = useState<string | null>(null);
   const [arbitratorAdapter, setArbitratorAdapter] = useState(0);
-  const [nowSec, setNowSec] = useState(() => Math.floor(Date.now() / 1000));
+  const [nowSec, setNowSec] = useState(0);
   const isUmaDvmAdapter = arbitratorAdapter === ADAPTER_UMA_DVM;
 
   const marketMeta = marketsWithPool.find((m) => m.poolId === selectedPoolId);
@@ -226,6 +237,7 @@ function OraclePageInner() {
   }, [poolId, marketMeta]);
 
   useEffect(() => {
+    setNowSec(Math.floor(Date.now() / 1000));
     const id = setInterval(() => setNowSec(Math.floor(Date.now() / 1000)), 1000);
     return () => clearInterval(id);
   }, []);

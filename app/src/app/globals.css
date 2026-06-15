@@ -1,3 +1,16 @@
+/*
+ * Copyright (c) 2026 zouyc zouyccq@gmail.com.
+ * All rights reserved.
+ *
+ * Licensed under the Business Source License 1.1 (BSL 1.1).
+ * You may not use this file except in compliance with the License.
+ *
+ * Change Date: 2031-01-01
+ * On the Change Date, or the fourth anniversary of the first publicly available
+ * distribution of the code under the BSL, whichever comes first, the code
+ * automatically becomes available under the Apache License 2.0.
+ */
+
 :root {
   --bg: #080a0f;
   --bg-elevated: #0d1018;
@@ -85,16 +98,12 @@ body::before {
 }
 
 .logo-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
   width: 28px;
   height: 28px;
   border-radius: 7px;
-  background: linear-gradient(135deg, var(--accent-dim), #14b8a6);
-  color: #04120e;
-  font-size: 0.75rem;
-  font-weight: 800;
+  object-fit: cover;
+  flex-shrink: 0;
 }
 
 .logo span {

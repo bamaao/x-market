@@ -1,3 +1,14 @@
+// Copyright (c) 2026 zouyc zouyccq@gmail.com.
+// All rights reserved.
+//
+// Licensed under the Business Source License 1.1 (BSL 1.1).
+// You may not use this file except in compliance with the License.
+//
+// Change Date: 2031-01-01
+// On the Change Date, or the fourth anniversary of the first publicly available
+// distribution of the code under the BSL, whichever comes first, the code
+// automatically becomes available under the Apache License 2.0.
+
 "use client";
 
 import {
@@ -12,12 +23,14 @@ import {
 import {
   createTranslator,
   detectBrowserLocale,
+  localeFromCookieValue,
   persistLocale,
+  readCookieLocale,
   readStoredLocale,
   type Translator,
 } from "./core";
 import { messages } from "./messages";
-import type { Locale } from "./types";
+import { DEFAULT_LOCALE, type Locale } from "./types";
 
 interface I18nContextValue {
   locale: Locale;
@@ -27,12 +40,21 @@ interface I18nContextValue {
 
 const I18nContext = createContext<I18nContextValue | null>(null);
 
-function initialLocale(): Locale {
-  return readStoredLocale() ?? detectBrowserLocale();
-}
-
-export function I18nProvider({ children }: { children: ReactNode }) {
+export function I18nProvider({
+  children,
+  initialLocale = DEFAULT_LOCALE,
+}: {
+  children: ReactNode;
+  initialLocale?: Locale;
+}) {
   const [locale, setLocaleState] = useState<Locale>(initialLocale);
+
+  useEffect(() => {
+    const stored = readStoredLocale();
+    const fromCookie = readCookieLocale();
+    const next = stored ?? fromCookie ?? detectBrowserLocale();
+    setLocaleState((current) => (next === current ? current : next));
+  }, []);
 
   const setLocale = useCallback((next: Locale) => {
     setLocaleState(next);

@@ -1,3 +1,16 @@
+<!--
+  Copyright (c) 2026 zouyc zouyccq@gmail.com.
+  All rights reserved.
+
+  Licensed under the Business Source License 1.1 (BSL 1.1).
+  You may not use this file except in compliance with the License.
+
+  Change Date: 2031-01-01
+  On the Change Date, or the fourth anniversary of the first publicly available
+  distribution of the code under the BSL, whichever comes first, the code
+  automatically becomes available under the Apache License 2.0.
+-->
+
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -7,7 +20,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>X Market Flutter</string>
+	<string>x-market</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -28,7 +41,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>x_market_flutter</string>
+	<string>x-market</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

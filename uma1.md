@@ -1,3 +1,16 @@
+<!--
+  Copyright (c) 2026 zouyc zouyccq@gmail.com.
+  All rights reserved.
+
+  Licensed under the Business Source License 1.1 (BSL 1.1).
+  You may not use this file except in compliance with the License.
+
+  Change Date: 2031-01-01
+  On the Change Date, or the fourth anniversary of the first publicly available
+  distribution of the code under the BSL, whichever comes first, the code
+  automatically becomes available under the Apache License 2.0.
+-->
+
 乐观预言机（Optimistic Oracle）要是没有“仲裁”模块，就像司法系统没有最高法院，整个经济博弈的闭环就断了——谁来判定提议者和挑战者到底谁在说谎？
 
 这就把核心的“3.4 仲裁与纠纷解决模块”补进 PRD 中，并把相关的状态机和利益分配逻辑梳理清楚。

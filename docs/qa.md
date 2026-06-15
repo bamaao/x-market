@@ -1,3 +1,16 @@
+<!--
+  Copyright (c) 2026 zouyc zouyccq@gmail.com.
+  All rights reserved.
+
+  Licensed under the Business Source License 1.1 (BSL 1.1).
+  You may not use this file except in compliance with the License.
+
+  Change Date: 2031-01-01
+  On the Change Date, or the fourth anniversary of the first publicly available
+  distribution of the code under the BSL, whichever comes first, the code
+  automatically becomes available under the Apache License 2.0.
+-->
+
 # 如何把期权、区间定价和波动率模型引入预测市场？
 
 要将期权、区间定价和波动率模型真正引入预测市场，必须彻底颠覆现有的“二元对立（Yes/No）”设计架构。核心的转变逻辑是：**停止对“事件结果”进行代币化，转而对“标的资产/事件变量的概率分布函数（PDF）”进行参数化做市。**

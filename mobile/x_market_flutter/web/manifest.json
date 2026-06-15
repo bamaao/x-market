@@ -1,11 +1,11 @@
 {
-    "name": "x_market_flutter",
-    "short_name": "x_market_flutter",
+    "name": "x-market",
+    "short_name": "x-market",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#1A1A2E",
+    "theme_color": "#E85D04",
+    "description": "Prediction markets on Sui",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

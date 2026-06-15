@@ -1,3 +1,14 @@
+-- Copyright (c) 2026 zouyc zouyccq@gmail.com.
+-- All rights reserved.
+--
+-- Licensed under the Business Source License 1.1 (BSL 1.1).
+-- You may not use this file except in compliance with the License.
+--
+-- Change Date: 2031-01-01
+-- On the Change Date, or the fourth anniversary of the first publicly available
+-- distribution of the code under the BSL, whichever comes first, the code
+-- automatically becomes available under the Apache License 2.0.
+
 -- P3.3 Seal 到期明文缓存
 CREATE TABLE IF NOT EXISTS seal_plaintext_cache (
   prophecy_id TEXT PRIMARY KEY REFERENCES prophecies(prophecy_id) ON DELETE CASCADE,

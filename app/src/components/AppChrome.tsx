@@ -1,3 +1,14 @@
+// Copyright (c) 2026 zouyc zouyccq@gmail.com.
+// All rights reserved.
+//
+// Licensed under the Business Source License 1.1 (BSL 1.1).
+// You may not use this file except in compliance with the License.
+//
+// Change Date: 2031-01-01
+// On the Change Date, or the fourth anniversary of the first publicly available
+// distribution of the code under the BSL, whichever comes first, the code
+// automatically becomes available under the Apache License 2.0.
+
 "use client";
 
 import Link from "next/link";
@@ -13,7 +24,8 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
     <>
       <header className="header">
         <Link href="/" className="logo">
-          <span className="logo-mark">X</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/icon-192.png" alt="" className="logo-mark" width={28} height={28} />
           X-Market <span>Sui</span>
         </Link>
         <SiteNav />

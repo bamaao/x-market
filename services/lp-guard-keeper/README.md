@@ -1,3 +1,16 @@
+<!--
+  Copyright (c) 2026 zouyc zouyccq@gmail.com.
+  All rights reserved.
+
+  Licensed under the Business Source License 1.1 (BSL 1.1).
+  You may not use this file except in compliance with the License.
+
+  Change Date: 2031-01-01
+  On the Change Date, or the fourth anniversary of the first publicly available
+  distribution of the code under the BSL, whichever comes first, the code
+  automatically becomes available under the Apache License 2.0.
+-->
+
 # LP Guard Keeper
 
 链下动态费率引擎：监测 `MarketPool` 参数（`μ` / `λ` / `α`）在短时间窗口内的单边漂移、偏度与成交量冲击，自动调用 `pool::set_lp_guard_params` 抬高 `fee_multiplier_bps`、虚拟 `σ` / 浓度；风险消退后按衰减系数平滑回落。
