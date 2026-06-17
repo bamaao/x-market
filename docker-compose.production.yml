@@ -1,0 +1,163 @@
+# Copyright (c) 2026 zouyc zouyccq@gmail.com.
+# All rights reserved.
+#
+# Licensed under the Business Source License 1.1 (BSL 1.1).
+# You may not use this file except in compliance with the License.
+#
+# Change Date: 2031-01-01
+# On the Change Date, or the fourth anniversary of the first publicly available
+# distribution of the code under the BSL, whichever comes first, the code
+# automatically becomes available under the Apache License 2.0.
+
+# 生产环境：P1 链下服务 + P2 Indexer + Postgres (+ P3 Pricing Engine)
+# 用法:
+#   ./scripts/bootstrap-production-env.sh --frontend-url ... --api-base-url ...
+#   docker compose -f docker-compose.production.yml up -d --build
+
+services:
+  postgres:
+    profiles: ["p2", "full"]
+    image: postgres:16-alpine
+    ports:
+      - "127.0.0.1:5432:5432"
+    environment:
+      POSTGRES_USER: xmarket
+      POSTGRES_PASSWORD: xmarket
+      POSTGRES_DB: xmarket_indexer
+    volumes:
+      - xmarket_indexer_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U xmarket -d xmarket_indexer"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  gas-station:
+    build:
+      context: .
+      dockerfile: services/gas-station/Dockerfile
+    ports:
+      - "127.0.0.1:8787:8787"
+    env_file:
+      - ./services/gas-station/.env.local
+    environment:
+      PORT: "8787"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8787/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  lp-guard-keeper:
+    build:
+      context: .
+      dockerfile: services/lp-guard-keeper/Dockerfile
+    ports:
+      - "127.0.0.1:8788:8788"
+    env_file:
+      - ./services/lp-guard-keeper/.env.local
+    environment:
+      LP_GUARD_HEALTH_PORT: "8788"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8788/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  chain-monitor:
+    build:
+      context: .
+      dockerfile: services/chain-monitor/Dockerfile
+    ports:
+      - "127.0.0.1:8789:8789"
+    env_file:
+      - ./services/chain-monitor/.env.local
+    depends_on:
+      gas-station:
+        condition: service_healthy
+      lp-guard-keeper:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8789/health"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  oracle-relayer:
+    build:
+      context: .
+      dockerfile: services/oracle-relayer/Dockerfile
+    ports:
+      - "127.0.0.1:8790:8790"
+    env_file:
+      - ./services/oracle-relayer/.env.local
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8790/health"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  walrus-relay:
+    build:
+      context: .
+      dockerfile: services/walrus-relay/Dockerfile
+    ports:
+      - "127.0.0.1:8791:8791"
+    env_file:
+      - ./services/walrus-relay/.env.local
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8791/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  indexer:
+    profiles: ["p2", "full"]
+    build:
+      context: .
+      dockerfile: services/indexer/Dockerfile
+    ports:
+      - "127.0.0.1:8800:8800"
+    env_file:
+      - ./services/indexer/.env.local
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8800/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 25s
+
+  pricing-engine:
+    profiles: ["full"]
+    build:
+      context: .
+      dockerfile: pricing-engine/Dockerfile
+    ports:
+      - "127.0.0.1:8801:8801"
+    env_file:
+      - ./pricing-engine/.env.local
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8801/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  xmarket_indexer_pg:

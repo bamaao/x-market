@@ -12,9 +12,11 @@
 import { Transaction } from "@mysten/sui/transactions";
 import { toBase64 } from "@mysten/sui/utils";
 import type { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
+import { normalizeApiBase, resolveApiUrl } from "./api-base";
 
-export const GAS_STATION_URL =
-  process.env.NEXT_PUBLIC_GAS_STATION_URL ?? "http://localhost:8787";
+export const GAS_STATION_URL = normalizeApiBase(
+  process.env.NEXT_PUBLIC_GAS_STATION_URL,
+) || "http://localhost:8787";
 
 export interface SponsorApiResponse {
   transactionBytes: string;
@@ -30,7 +32,7 @@ export async function requestSponsor(
   transactionKindBcs: Uint8Array,
   sender: string,
 ): Promise<SponsorApiResponse> {
-  const res = await fetch(`${GAS_STATION_URL}/v1/sponsor`, {
+  const res = await fetch(resolveApiUrl(GAS_STATION_URL, "/v1/sponsor"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

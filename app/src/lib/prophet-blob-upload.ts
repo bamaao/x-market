@@ -9,7 +9,7 @@
 // distribution of the code under the BSL, whichever comes first, the code
 // automatically becomes available under the Apache License 2.0.
 
-import { INDEXER_URL } from "./indexer";
+import { INDEXER_URL, indexerApiUrl } from "./indexer";
 
 const MAX_PROPHET_BLOB_BYTES = 512 * 1024;
 
@@ -38,7 +38,9 @@ export async function uploadProphecyBlob(
 
   try {
     const res = await fetch(
-      `${INDEXER_URL}/v1/prophecies/blob?pool_id=${encodeURIComponent(poolId)}`,
+      indexerApiUrl(
+        `/v1/prophecies/blob?pool_id=${encodeURIComponent(poolId)}`,
+      ),
       {
         method: "POST",
         headers,

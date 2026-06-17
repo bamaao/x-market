@@ -11,8 +11,29 @@
 
 import type { NextConfig } from "next";
 
+function backendProxyRewrites():
+  | { source: string; destination: string }[]
+  | undefined {
+  const host = process.env.BACKEND_PROXY_HOST?.trim();
+  if (!host) return undefined;
+
+  const bare = host.replace(/^https?:\/\//, "").replace(/\/$/, "").split(":")[0];
+  const scheme = process.env.BACKEND_PROXY_SCHEME?.trim() || "http";
+  const origin = (port: number) => `${scheme}://${bare}:${port}`;
+
+  return [
+    { source: "/api/gas/:path*", destination: `${origin(8787)}/:path*` },
+    { source: "/api/indexer/:path*", destination: `${origin(8800)}/:path*` },
+    { source: "/api/pricing/:path*", destination: `${origin(8801)}/:path*` },
+    { source: "/api/walrus/:path*", destination: `${origin(8791)}/:path*` },
+  ];
+}
+
+const rewrites = backendProxyRewrites();
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  ...(rewrites ? { async rewrites() { return rewrites; } } : {}),
 };
 
 export default nextConfig;

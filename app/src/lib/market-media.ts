@@ -9,7 +9,7 @@
 // distribution of the code under the BSL, whichever comes first, the code
 // automatically becomes available under the Apache License 2.0.
 
-import { INDEXER_URL } from "./indexer";
+import { INDEXER_URL, indexerApiUrl } from "./indexer";
 import { resolveIpfsRef } from "./ipfs";
 
 export const MARKET_COVER_BY_ID: Record<string, string> = {
@@ -31,7 +31,7 @@ export function resolveMarketImageUrl(input: {
     if (ipfsUrl) return ipfsUrl;
     if (raw.startsWith("/v1/covers/")) {
       if (!INDEXER_URL) return undefined;
-      return `${INDEXER_URL}${raw}`;
+      return indexerApiUrl(raw);
     }
     if (raw.startsWith("http://") || raw.startsWith("https://")) {
       return raw;

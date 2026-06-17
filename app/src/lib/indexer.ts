@@ -15,9 +15,13 @@
  */
 
 import { LocalizedError } from "@/i18n/core";
+import { normalizeApiBase, resolveApiUrl } from "./api-base";
 
-export const INDEXER_URL =
-  process.env.NEXT_PUBLIC_INDEXER_URL?.replace(/\/$/, "") ?? "";
+export const INDEXER_URL = normalizeApiBase(process.env.NEXT_PUBLIC_INDEXER_URL);
+
+export function indexerApiUrl(path: string): string {
+  return resolveApiUrl(INDEXER_URL, path);
+}
 
 export function indexerEnabled(): boolean {
   return INDEXER_URL.length > 0;
@@ -30,7 +34,7 @@ async function getJson<T>(path: string): Promise<T | null> {
       typeof window === "undefined"
         ? { next: { revalidate: 15 } }
         : { cache: "no-store" };
-    const res = await fetch(`${INDEXER_URL}${path}`, init);
+    const res = await fetch(resolveApiUrl(INDEXER_URL, path), init);
     if (!res.ok) return null;
     return (await res.json()) as T;
   } catch {
@@ -41,7 +45,7 @@ async function getJson<T>(path: string): Promise<T | null> {
 async function fetchIndexerJson<T>(path: string): Promise<T | null> {
   if (!INDEXER_URL) return null;
   try {
-    const res = await fetch(`${INDEXER_URL}${path}`, { cache: "no-store" });
+    const res = await fetch(resolveApiUrl(INDEXER_URL, path), { cache: "no-store" });
     if (!res.ok) return null;
     return (await res.json()) as T;
   } catch {
@@ -51,7 +55,7 @@ async function fetchIndexerJson<T>(path: string): Promise<T | null> {
 
 async function fetchIndexerJsonOrThrow<T>(path: string): Promise<T> {
   if (!INDEXER_URL) throw new LocalizedError("errors.indexerNotConfigured");
-  const res = await fetch(`${INDEXER_URL}${path}`, { cache: "no-store" });
+  const res = await fetch(indexerApiUrl(path), { cache: "no-store" });
   const body = (await res.json().catch(() => ({}))) as T & { error?: string };
   if (!res.ok) {
     throw new Error(body.error ?? `Indexer HTTP ${res.status}`);
@@ -266,7 +270,7 @@ export async function registerMarketMetadata(
   const secret = process.env.NEXT_PUBLIC_MARKET_REGISTER_SECRET?.trim();
   if (secret) headers["X-Market-Register-Secret"] = secret;
   try {
-    const res = await fetch(`${INDEXER_URL}/v1/markets/register`, {
+    const res = await fetch(indexerApiUrl("/v1/markets/register"), {
       method: "POST",
       headers,
       body: JSON.stringify(payload),
@@ -512,7 +516,7 @@ async function mutateIndexerJson<T>(
     cache: "no-store",
   };
   if (body) init.body = JSON.stringify(body);
-  const res = await fetch(`${INDEXER_URL}${path}`, init);
+  const res = await fetch(indexerApiUrl(path), init);
   const data = (await res.json().catch(() => ({}))) as T & { error?: string };
   if (!res.ok) {
     throw new Error(data.error ?? `Indexer HTTP ${res.status}`);

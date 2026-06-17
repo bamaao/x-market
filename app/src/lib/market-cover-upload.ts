@@ -9,7 +9,7 @@
 // distribution of the code under the BSL, whichever comes first, the code
 // automatically becomes available under the Apache License 2.0.
 
-import { INDEXER_URL } from "./indexer";
+import { INDEXER_URL, indexerApiUrl } from "./indexer";
 
 const MAX_COVER_BYTES = 2 * 1024 * 1024;
 
@@ -46,7 +46,7 @@ export async function uploadMarketCover(
 
   try {
     const res = await fetch(
-      `${INDEXER_URL}/v1/markets/cover?slug=${encodeURIComponent(slug)}`,
+      indexerApiUrl(`/v1/markets/cover?slug=${encodeURIComponent(slug)}`),
       {
         method: "POST",
         headers,

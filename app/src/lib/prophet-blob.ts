@@ -10,7 +10,7 @@
 // automatically becomes available under the Apache License 2.0.
 
 import { LocalizedError } from "@/i18n/core";
-import { INDEXER_URL } from "./indexer";
+import { INDEXER_URL, indexerApiUrl } from "./indexer";
 import { ipfsCidToGatewayUrl, parseIpfsCid } from "./ipfs";
 
 export function parseIdxBlobFilename(blobId: string): string | null {
@@ -33,7 +33,9 @@ async function readIdxBlob(blobId: string): Promise<Uint8Array> {
   if (!filename) {
     throw new LocalizedError("errors.invalidIdxBlobId");
   }
-  const url = `${INDEXER_URL}/v1/prophecies/blobs/${encodeURIComponent(filename)}`;
+  const url = indexerApiUrl(
+    `/v1/prophecies/blobs/${encodeURIComponent(filename)}`,
+  );
   const res = await fetch(url);
   if (!res.ok) {
     throw new LocalizedError("errors.indexerBlobReadFailed", { status: res.status });

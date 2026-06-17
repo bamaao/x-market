@@ -19,6 +19,8 @@ app/.env
 app/.env.*
 !app/.env.example
 .run/
+deploy/vercel.env.generated
+deploy/vercel.server.env.generated
 docs/governance-params-snapshot.json
 
 # Node / Next

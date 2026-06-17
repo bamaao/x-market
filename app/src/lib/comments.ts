@@ -14,7 +14,7 @@
  */
 
 import { LocalizedError } from "@/i18n/core";
-import { INDEXER_URL, indexerEnabled } from "./indexer";
+import { INDEXER_URL, indexerApiUrl, indexerEnabled } from "./indexer";
 import { normalizeSuiAddress } from "./prophet";
 
 export const COMMENT_BODY_MAX = 500;
@@ -86,7 +86,9 @@ export async function fetchMarketComments(
     offset: String(offset),
   });
   const res = await fetch(
-    `${INDEXER_URL}/v1/markets/${encodeURIComponent(normalizePoolId(poolId))}/comments?${q}`,
+    indexerApiUrl(
+      `/v1/markets/${encodeURIComponent(normalizePoolId(poolId))}/comments?${q}`,
+    ),
     { cache: "no-store" },
   );
   if (!res.ok) return [];
@@ -103,7 +105,9 @@ export async function postMarketComment(params: {
 }): Promise<MarketComment> {
   if (!INDEXER_URL) throw new LocalizedError("errors.indexerNotConfigured");
   const res = await fetch(
-    `${INDEXER_URL}/v1/markets/${encodeURIComponent(normalizePoolId(params.poolId))}/comments`,
+    indexerApiUrl(
+      `/v1/markets/${encodeURIComponent(normalizePoolId(params.poolId))}/comments`,
+    ),
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -131,7 +135,9 @@ export async function deleteMarketComment(params: {
 }): Promise<void> {
   if (!INDEXER_URL) throw new LocalizedError("errors.indexerNotConfigured");
   const res = await fetch(
-    `${INDEXER_URL}/v1/markets/${encodeURIComponent(normalizePoolId(params.poolId))}/comments/${params.commentId}`,
+    indexerApiUrl(
+      `/v1/markets/${encodeURIComponent(normalizePoolId(params.poolId))}/comments/${params.commentId}`,
+    ),
     {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },

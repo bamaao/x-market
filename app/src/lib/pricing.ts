@@ -13,8 +13,10 @@
  * 定价预览 — 调用 pricing-engine HTTP 或本地公式回退。
  */
 
+import { normalizeApiBase, resolveApiUrl } from "./api-base";
+
 export const PRICING_ENGINE_URL =
-  process.env.NEXT_PUBLIC_PRICING_ENGINE_URL?.replace(/\/$/, "") ??
+  normalizeApiBase(process.env.NEXT_PUBLIC_PRICING_ENGINE_URL) ||
   "http://localhost:8801";
 
 export interface QuotePreview {
@@ -25,7 +27,9 @@ export interface QuotePreview {
 
 export async function fetchQuotePreview(params: URLSearchParams): Promise<QuotePreview | null> {
   try {
-    const res = await fetch(`${PRICING_ENGINE_URL}/v1/quote?${params.toString()}`);
+    const res = await fetch(
+      resolveApiUrl(PRICING_ENGINE_URL, `/v1/quote?${params.toString()}`),
+    );
     if (!res.ok) return null;
     const json = (await res.json()) as { quote?: QuotePreview };
     return json.quote ?? null;
