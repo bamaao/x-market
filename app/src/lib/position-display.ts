@@ -32,6 +32,7 @@ export const POOL_KIND_BETA = 3;
 export const STATUS_AUCTION = 0;
 export const STATUS_TRADING = 1;
 export const STATUS_SETTLED = 2;
+export const STATUS_VOIDED = 3;
 
 export interface PositionView {
   marketId: string;
@@ -99,7 +100,8 @@ export interface MarketRef {
 export type SettlementDisplay =
   | { state: "pending"; label: string }
   | { state: "hit" | "miss"; label: string; payoutUsdc: bigint | null }
-  | { state: "claimed"; label: string };
+  | { state: "claimed"; label: string }
+  | { state: "refundable"; label: string; refundUsdc: bigint };
 
 export function parseMoveObjectFields(
   content: unknown,
@@ -320,10 +322,15 @@ export function poolKindLabel(kind: number): string {
 }
 
 export function poolStatusLabel(pool: PoolView): string {
+  if (pool.status === STATUS_VOIDED) return "Voided";
   if (pool.paused) return "Paused";
   if (pool.resolved || pool.status === STATUS_SETTLED) return "Settled";
   if (pool.status === STATUS_AUCTION) return "In auction";
   return "Trading";
+}
+
+export function isPoolVoided(pool: PoolView | undefined): boolean {
+  return pool?.status === STATUS_VOIDED;
 }
 
 export function formatUnixTs(ts: number, locale = "en-US"): string {
@@ -454,6 +461,13 @@ export function getSettlementDisplay(
   if (position.claimed) {
     return { state: "claimed", label: "Payout claimed" };
   }
+  if (isPoolVoided(pool)) {
+    return {
+      state: "refundable",
+      label: "Voided — refund stake",
+      refundUsdc: position.stakeUsdc,
+    };
+  }
   if (!pool?.resolved) {
     const status = pool ? poolStatusLabel(pool) : "Unknown";
     return { state: "pending", label: `Pending settlement (pool: ${status})` };
@@ -528,6 +542,7 @@ export function getPositionFilterState(
   pool: PoolView | undefined,
 ): "pending" | "claimable" | "closed" {
   const settlement = getSettlementDisplay(position, pool);
+  if (settlement.state === "refundable") return "claimable";
   if (settlement.state === "hit") return "claimable";
   if (settlement.state === "pending") return "pending";
   return "closed";
@@ -560,7 +575,11 @@ export function summarizePortfolio(
       pendingStake += row.position.stakeUsdc;
     } else if (state === "claimable" && pool) {
       claimableCount += 1;
-      claimableUsdc += estimatePayoutUsdc(row.position, pool);
+      if (isPoolVoided(pool)) {
+        claimableUsdc += row.position.stakeUsdc;
+      } else {
+        claimableUsdc += estimatePayoutUsdc(row.position, pool);
+      }
     } else if (state === "closed" && pool?.resolved) {
       lostStake += row.position.stakeUsdc;
     }

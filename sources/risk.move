@@ -13,11 +13,13 @@
 module x_market::risk;
 
 use x_market::errors;
+use x_market::position::{Self, Position};
 
 const OUTCOME_SLOTS: u64 = 15;
 /// Beta vote-share pools: liability indexed by integer percent 0–100.
 const BETA_LIABILITY_SLOTS: u64 = 101;
 const LINEAR_PAYOUT_DIVISOR: u64 = 10;
+const KIND_DIRICHLET: u8 = 1;
 const LINEAR_CALL_KIND: u8 = 2;
 const LINEAR_PUT_KIND: u8 = 3;
 const STRADDLE_KIND: u8 = 4;
@@ -315,5 +317,104 @@ public fun assert_linear_max_loss_bounded(
     };
     if (max_liab > (vault_usdc + stake_usdc)) {
         abort errors::max_loss_exceeded()
+    };
+}
+
+fun subtract_from_slot(liability_by_k: &mut vector<u64>, k: u8, amount: u64) {
+    let idx = k as u64;
+    if (idx < vector::length(liability_by_k)) {
+        let slot = vector::borrow_mut(liability_by_k, idx);
+        if (*slot >= amount) {
+            *slot = *slot - amount;
+        } else {
+            *slot = 0;
+        };
+    };
+}
+
+fun remove_dirichlet_liability(
+    liability_by_k: &mut vector<u64>,
+    outcome: u8,
+    payout: u64,
+) {
+    subtract_from_slot(liability_by_k, outcome, payout);
+}
+
+fun remove_position_liability(
+    liability_by_k: &mut vector<u64>,
+    interval_a: u8,
+    interval_b: u8,
+    payout: u64,
+) {
+    let mut k = interval_a;
+    while (k <= interval_b) {
+        subtract_from_slot(liability_by_k, k, payout);
+        k = k + 1;
+    };
+}
+
+fun release_linear_liability(
+    liability_by_k: &mut vector<u64>,
+    contract_kind: u8,
+    strike_slot: u8,
+    stake_usdc: u64,
+) {
+    let mut k = 0u8;
+    while ((k as u64) < vector::length(liability_by_k)) {
+        let sub = linear_payout_usdc(contract_kind, strike_slot, k, stake_usdc);
+        if (sub > 0) {
+            subtract_from_slot(liability_by_k, k, sub);
+        };
+        k = k + 1;
+    };
+}
+
+fun release_structured_liability(
+    liability_by_k: &mut vector<u64>,
+    contract_kind: u8,
+    param_a: u8,
+    param_b: u8,
+    stake_usdc: u64,
+) {
+    let mut k = 0u8;
+    while ((k as u64) < vector::length(liability_by_k)) {
+        let sub = derivative_payout_usdc(contract_kind, param_a, param_b, k, stake_usdc);
+        if (sub > 0) {
+            subtract_from_slot(liability_by_k, k, sub);
+        };
+        k = k + 1;
+    };
+}
+
+/// Release worst-case liability reserved for a position during emergency refund.
+public fun release_position_liability(
+    liability_by_k: &mut vector<u64>,
+    pool_kind: u8,
+    pos: &Position,
+) {
+    let stake = position::stake_usdc(pos);
+    let contract_kind = position::contract_kind(pos);
+    let a = position::interval_a(pos);
+    let b = position::interval_b(pos);
+
+    if (
+        contract_kind == LINEAR_CALL_KIND ||
+            contract_kind == LINEAR_PUT_KIND ||
+            contract_kind == STRADDLE_KIND ||
+            contract_kind == VARIANCE_SWAP_KIND
+    ) {
+        release_linear_liability(liability_by_k, contract_kind, a, stake);
+    } else if (
+        contract_kind == STRUCTURED_NOTE_KIND ||
+            contract_kind == RANGE_NOTE_KIND ||
+            contract_kind == BARRIER_NOTE_KIND
+    ) {
+        release_structured_liability(liability_by_k, contract_kind, a, b, stake);
+    } else if (position::is_digital(pos) && pool_kind == KIND_DIRICHLET) {
+        let payout = position_payout_usdc(stake, position::entry_prob_ppb(pos));
+        remove_dirichlet_liability(liability_by_k, a, payout);
+    } else {
+        let payout = position_payout_usdc(stake, position::entry_prob_ppb(pos));
+        remove_position_liability(liability_by_k, a, b, payout);
     };
 }

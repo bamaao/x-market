@@ -64,6 +64,9 @@ const E_EVENT_ROOT_ALREADY_LINKED: u64 = 50;
 const E_UMA_ADAPTER_ONLY_RELAYER: u64 = 51;
 const E_NOT_UMA_RELAYER: u64 = 52;
 const E_INVALID_ADAPTER: u64 = 53;
+const E_MARKET_VOIDED: u64 = 55;
+const E_NOT_VOIDED: u64 = 56;
+const E_ALREADY_VOIDED: u64 = 57;
 
 public fun math_overflow(): u64 { E_MATH_OVERFLOW }
 public fun div_by_zero(): u64 { E_DIV_BY_ZERO }
@@ -117,3 +120,6 @@ public fun event_root_already_linked(): u64 { E_EVENT_ROOT_ALREADY_LINKED }
 public fun uma_adapter_only_relayer(): u64 { E_UMA_ADAPTER_ONLY_RELAYER }
 public fun not_uma_relayer(): u64 { E_NOT_UMA_RELAYER }
 public fun invalid_adapter(): u64 { E_INVALID_ADAPTER }
+public fun market_voided(): u64 { E_MARKET_VOIDED }
+public fun not_voided(): u64 { E_NOT_VOIDED }
+public fun already_voided(): u64 { E_ALREADY_VOIDED }

@@ -1,0 +1,7 @@
+# Circle sui_extensions — testnet on-chain package (dependency only)
+
+[published.testnet]
+chain-id = "4c78adac"
+published-at = "0x252b1dd4b853d6b4c0721cf3f55c0587c940ee4d386d1b1cb5f46fa16e3de98a"
+original-id = "0x252b1dd4b853d6b4c0721cf3f55c0587c940ee4d386d1b1cb5f46fa16e3de98a"
+version = 1

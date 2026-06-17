@@ -26,6 +26,7 @@ const NAV_HREFS = [
   "/following",
   "/roi",
   "/metrics",
+  "/admin",
 ] as const;
 
 const NAV_KEYS = [
@@ -39,6 +40,7 @@ const NAV_KEYS = [
   "nav.following",
   "nav.roi",
   "nav.metrics",
+  "nav.admin",
 ] as const;
 
 function isActive(pathname: string, href: string): boolean {

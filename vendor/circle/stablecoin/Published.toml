@@ -1,0 +1,7 @@
+# Circle stablecoin — testnet on-chain package (dependency only)
+
+[published.testnet]
+chain-id = "4c78adac"
+published-at = "0x346e3233f61eb0055713417bfaddda7dc3bf26816faad1f7606994a368b92917"
+original-id = "0x346e3233f61eb0055713417bfaddda7dc3bf26816faad1f7606994a368b92917"
+version = 1

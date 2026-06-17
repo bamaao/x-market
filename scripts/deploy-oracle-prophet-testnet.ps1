@@ -50,6 +50,16 @@ if (Test-Path $publishedBackup) {
   Remove-Item $publishedBackup -Force
 }
 
+$prevDeployPath = Join-Path $root "deploy/testnet-v2.json"
+$prevPackageId = $null
+if (Test-Path $prevDeployPath) {
+  try {
+    $prevPackageId = (Get-Content $prevDeployPath -Raw | ConvertFrom-Json).packageId
+  } catch {
+    $prevPackageId = $null
+  }
+}
+
 $maturity = [int64]([DateTimeOffset]::UtcNow.ToUnixTimeSeconds() + ($MaturityDays * 86400))
 $deployer = (sui client active-address).Trim()
 Write-Host "Deployer: $deployer"
@@ -57,7 +67,7 @@ Write-Host "Maturity: $maturity"
 Write-Host ""
 
 Write-Host "[1/6] sui client publish (Circle USDC dep, skip dep verify)..."
-$pubOut = sui client publish --skip-dependency-verification --gas-budget 700000000 --json
+$pubOut = sui client publish --skip-dependency-verification --gas-budget 1200000000 --json
 if ($LASTEXITCODE -ne 0) { throw "publish failed" }
 
 $packageId = Get-PublishedPackageId $pubOut
@@ -148,8 +158,12 @@ $deployV2 = @{
     source = "circle-native"
   }
   superseded = @{
-    packageId = "0x1a175ee8ba5ae34cedc2f09e5cde8da1bff2fd11cfda7ade4fc369e84e5602a0"
-    note = "v4 package superseded; use seedMarkets in this file"
+    packageId = $(if ($prevPackageId) { $prevPackageId } else { "0x1a175ee8ba5ae34cedc2f09e5cde8da1bff2fd11cfda7ade4fc369e84e5602a0" })
+    note = "previous testnet-v2 package superseded by fresh publish"
+  }
+  features = @{
+    emergencyVoid = $true
+    note = "emergency_cancel::emergency_void_market + claim_position_refund"
   }
   explorer = @{
     package = "https://testnet.suivision.xyz/package/$packageId"
@@ -167,6 +181,7 @@ NEXT_PUBLIC_POOL_DIRICHLET=$dirichletPool
 NEXT_PUBLIC_POOL_NORMAL=$normalPool
 NEXT_PUBLIC_SUI_CLOCK=0x6
 NEXT_PUBLIC_GLOBAL_CONFIG=$globalConfig
+NEXT_PUBLIC_ADMIN_CAP=$adminCap
 NEXT_PUBLIC_ORACLE_CONFIG_ID=$oracleConfigId
 NEXT_PUBLIC_ORACLE_ARBITRATOR_ID=$arbitratorId
 NEXT_PUBLIC_PROPHET_REGISTRY_ID=$prophetRegistryId

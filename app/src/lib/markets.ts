@@ -167,6 +167,7 @@ export const PACKAGE_ID =
   process.env.NEXT_PUBLIC_PACKAGE_ID ?? "0x0";
 export const GLOBAL_CONFIG_ID =
   process.env.NEXT_PUBLIC_GLOBAL_CONFIG ?? "";
+export const ADMIN_CAP_ID = process.env.NEXT_PUBLIC_ADMIN_CAP ?? "";
 export const NETWORK =
   (process.env.NEXT_PUBLIC_SUI_NETWORK as "testnet" | "devnet" | "mainnet") ??
   "testnet";

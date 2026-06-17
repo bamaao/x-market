@@ -1,45 +1,53 @@
-{
-  "network": "testnet",
-  "publishedAt": "2026-06-14",
-  "deployer": "0x87e487cd6b1c7a53f91999eb3a5372ced201b614b26924ba4cc1d282a2240c07",
-  "packageId": "0x083d470a44ce73a290368ec18a8ee96c49cc3491e29117737e62c9f57dbec57d",
-  "publishTx": "see deploy log",
-  "globalConfig": "0x55d3205160a04f43eabcc3ee1dadd8cc39a071e0791cda00af3dd96258fe1111",
-  "adminCap": "0x5560450916bf31807ab5b3a389d9895c92d18de68e770ebe598ca3aa3f3ed528",
-  "upgradeCap": "0x2c5ebeeff2fd37deb349a6d9d2d005e90214b592ed288439c1b8bb672fec63eb",
-  "maturityTs": 1784030313,
-  "oracle": {
-    "oracleConfigId": "0x4d3e154b88aae952099c91bbb28c50c49140a3954d223f9c84570722b7a39f8a",
-    "feedRegistryId": "0x782b98880cdedd0bdc392fc91df11bad78837b81cfae1d79f4bbc22612b90472",
-    "oracleArbitratorId": "0x9926677bcba6d723d303d85c817147ed17cff7328a6d80d38306e802bfc936d9"
-  },
-  "prophet": {
-    "registryId": "0x1f654bad17271115bebd91e92639a0f80157539779192022ffb1d959a5f115c3"
-  },
-  "usdc": {
-    "coinType": "0xa1ec7fc00a6f40db9693ad1415d0c193ad3906494428cf252621037bd7117e29::usdc::USDC",
-    "source": "circle-native"
-  },
-  "seedMarkets": {
-    "poisson_goals": {
-      "poolId": "0x075799eb6efda59c1834d8e70338cb11c9dc56c567c5ddb113a742ff419cc0d5",
-      "lambdaTenths": 25
-    },
-    "dirichlet_wdl": {
-      "poolId": "0x296c749d8257d68a31a1da3b715ccb01acfabb85112e5cc9885755818b3dcd5e",
-      "alphas": [10, 10, 10]
-    },
-    "normal_cpi": {
-      "poolId": "0x407cbfcbab839d1fd192bf694d582c7cc1686b3ec7aed1b4e6f19335bb98cf91",
-      "muTenths": 25,
-      "sigmaTenths": 4
-    }
-  },
-  "superseded": {
-    "packageId": "0x1a175ee8ba5ae34cedc2f09e5cde8da1bff2fd11cfda7ade4fc369e84e5602a0",
-    "note": "v4 package superseded; use seedMarkets in this file"
-  },
-  "explorer": {
-    "package": "https://testnet.suivision.xyz/package/0x083d470a44ce73a290368ec18a8ee96c49cc3491e29117737e62c9f57dbec57d"
-  }
+﻿{
+    "maturityTs":  1784280588,
+    "adminCap":  "0x6dd04c263f50d95902d4a3e1d4df5794f0aed4b6265321374b29eb5d1a0083cd",
+    "upgradeCap":  "0x2a837493d9392ac94da7e12e3a69e2114c4bddbbe9c6c9f8acddd22cfe67e4b5",
+    "features":  {
+                     "note":  "emergency_cancel::emergency_void_market + claim_position_refund",
+                     "emergencyVoid":  true
+                 },
+    "publishedAt":  "2026-06-17",
+    "superseded":  {
+                       "packageId":  "0x083d470a44ce73a290368ec18a8ee96c49cc3491e29117737e62c9f57dbec57d",
+                       "note":  "previous testnet-v2 package superseded by fresh publish"
+                   },
+    "seedMarkets":  {
+                        "dirichlet_wdl":  {
+                                              "poolId":  "0x02652d2a061a8699d9943576a153e4206a32f5d78e281fcebd3daae4764d0b06",
+                                              "alphas":  [
+                                                             10,
+                                                             10,
+                                                             10
+                                                         ]
+                                          },
+                        "normal_cpi":  {
+                                           "poolId":  "0x91b36284552331d7bc5678fd298aa44fb0fcd2bf41c4475ed96a281be5ddf200",
+                                           "muTenths":  25,
+                                           "sigmaTenths":  4
+                                       },
+                        "poisson_goals":  {
+                                              "lambdaTenths":  25,
+                                              "poolId":  "0x92fbd45afa0216fce84a057beb05e69b59b33f851034ab10154720da818cf71d"
+                                          }
+                    },
+    "explorer":  {
+                     "package":  "https://testnet.suivision.xyz/package/0x67a441faf576adec29d0b279c959893c6024acd4224c1a9751031d4bc12c5b98"
+                 },
+    "deployer":  "0x87e487cd6b1c7a53f91999eb3a5372ced201b614b26924ba4cc1d282a2240c07",
+    "publishTx":  "GKXgdd9f8ZK7puwmoxdRicGfYf28wv3qxzvECL9GYuoT",
+    "oracle":  {
+                   "feedRegistryId":  "0x53ce167c52c3de88f17588c364b0ece5e35e0156ffebb98510df42c11faa00e6",
+                   "oracleArbitratorId":  "0xf76f5cc19251c0fce424bf2ed44ff28fdcd9d3c458bd5ffd8f6462d3c34ed168",
+                   "oracleConfigId":  "0x177d8de95dfd97ac3e543feca2f4abad63b6c689be4ece1215a9930dd6615e47"
+               },
+    "prophet":  {
+                    "registryId":  "0x54ff2266605070ef26549113a9a1824013cbd6d615dddd5e140bf531adfa8880"
+                },
+    "usdc":  {
+                 "coinType":  "0xa1ec7fc00a6f40db9693ad1415d0c193ad3906494428cf252621037bd7117e29::usdc::USDC",
+                 "source":  "circle-native"
+             },
+    "globalConfig":  "0x46730d3318637baeec980b4bc11a576fb8d34fba68dc20e84973ca45e80b5912",
+    "packageId":  "0x67a441faf576adec29d0b279c959893c6024acd4224c1a9751031d4bc12c5b98",
+    "network":  "testnet"
 }

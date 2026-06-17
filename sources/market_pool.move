@@ -100,6 +100,10 @@ public fun is_settled(pool: &MarketPool): bool {
     market_status::is_settled(pool.status)
 }
 
+public fun is_voided(pool: &MarketPool): bool {
+    market_status::is_voided(pool.status)
+}
+
 public fun lambda_tenths(pool: &MarketPool): u16 {
     pool.lambda_tenths
 }
@@ -162,6 +166,10 @@ public fun created_ts(pool: &MarketPool): u64 {
 
 public fun authority(pool: &MarketPool): address {
     pool.authority
+}
+
+public fun kind(pool: &MarketPool): u8 {
+    pool.kind
 }
 
 public fun fee_bps(pool: &MarketPool): u16 {
@@ -687,6 +695,12 @@ public(package) fun set_resolution(pool: &mut MarketPool, value: u64) {
     pool.resolved = true;
     pool.resolved_value = value;
     pool.status = market_status::status_settled();
+}
+
+/// Emergency void: stop trading and enter refund mode (PRD §10.4.3).
+public(package) fun set_voided(pool: &mut MarketPool) {
+    pool.status = market_status::status_voided();
+    pool.paused = true;
 }
 
 public(package) fun add_lp_shares(pool: &mut MarketPool, amount: u64) {

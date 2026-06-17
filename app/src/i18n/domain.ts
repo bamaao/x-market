@@ -137,6 +137,7 @@ export function localizedPoolStatusLabel(
   pool: { paused: boolean; resolved: boolean; status: number },
   t: Translator,
 ): string {
+  if (pool.status === 3) return t("positions.poolStatus.voided");
   if (pool.paused) return t("positions.poolStatus.paused");
   if (pool.resolved || pool.status === 2) return t("positions.poolStatus.settled");
   if (pool.status === 0) return t("positions.poolStatus.auction");
@@ -254,6 +255,8 @@ export function localizedSettlementDisplay(
       return { ...raw, label: t("positions.settlement.miss") };
     case "hit":
       return { ...raw, label: t("positions.settlement.hit") };
+    case "refundable":
+      return { ...raw, label: t("positions.settlement.refundable") };
   }
 }
 

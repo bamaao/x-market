@@ -27,6 +27,7 @@ import {
   type PoolView,
   type PositionView,
 } from "@/lib/position-display";
+import { appendClaimPositionRefund } from "@/lib/emergency-cancel";
 import {
   localizedContractKind,
   localizedFormatOutcomeDescription,
@@ -67,6 +68,11 @@ export function PositionCard({
     !position.claimed &&
     settlement.state === "hit" &&
     poolId.length > 0;
+  const canRefund =
+    account &&
+    !position.claimed &&
+    settlement.state === "refundable" &&
+    poolId.length > 0;
 
   const claim = () => {
     if (!poolId) {
@@ -84,6 +90,26 @@ export function PositionCard({
       {
         onSuccess: (r) => {
           setMsg(t("positions.claimSuccess", { digest: r.digest?.slice(0, 16) ?? "" }));
+          onClaimSuccess?.();
+        },
+        onError: (e) => setMsg(formatCaughtError(e, t)),
+      },
+    );
+  };
+
+  const refund = () => {
+    if (!poolId) {
+      setMsg(t("positions.missingPoolId"));
+      return;
+    }
+    const tx = new Transaction();
+    appendClaimPositionRefund(tx, poolId, objectId);
+    signAndExecute(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      { transaction: tx as any },
+      {
+        onSuccess: (r) => {
+          setMsg(t("positions.refundSuccess", { digest: r.digest?.slice(0, 16) ?? "" }));
           onClaimSuccess?.();
         },
         onError: (e) => setMsg(formatCaughtError(e, t)),
@@ -151,7 +177,23 @@ export function PositionCard({
             {formatUsdcAmount(settlement.payoutUsdc)}
           </span>
         )}
+        {settlement.state === "refundable" && (
+          <span className="position-settlement-payout">
+            {formatUsdcAmount(settlement.refundUsdc)}
+          </span>
+        )}
       </div>
+
+      {canRefund && (
+        <button
+          type="button"
+          className="secondary"
+          disabled={isPending}
+          onClick={refund}
+        >
+          {isPending ? t("positions.refunding") : t("positions.refund")}
+        </button>
+      )}
 
       {canClaim && (
         <button
