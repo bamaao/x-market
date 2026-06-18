@@ -94,9 +94,15 @@ run_init_sql() {
   require_cmd psql
   echo "Creating database ${DB_NAME} / user ${DB_USER} ..."
 
-  local tmp_sql
-  tmp_sql="$(mktemp)"
-  cat >"$tmp_sql" <<SQL
+  local -a psql_cmd
+  if [[ "$(id -u)" -eq 0 ]]; then
+    psql_cmd=(runuser -u postgres -- psql -v ON_ERROR_STOP=1)
+  else
+    psql_cmd=(sudo -u postgres psql -v ON_ERROR_STOP=1)
+  fi
+
+  # stdin 传 SQL，避免 mktemp 文件 postgres 用户无法读取（Permission denied）
+  "${psql_cmd[@]}" <<SQL
 DO \$do\$
 BEGIN
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '${DB_USER}') THEN
@@ -108,13 +114,6 @@ SELECT 'CREATE DATABASE ${DB_NAME} OWNER ${DB_USER}'
 WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${DB_NAME}')\\gexec
 GRANT ALL PRIVILEGES ON DATABASE ${DB_NAME} TO ${DB_USER};
 SQL
-
-  if [[ "$(id -u)" -eq 0 ]]; then
-    su - postgres -c "psql -v ON_ERROR_STOP=1 -f ${tmp_sql}"
-  else
-    sudo -u postgres psql -v ON_ERROR_STOP=1 -f "$tmp_sql"
-  fi
-  rm -f "$tmp_sql"
 }
 
 case "$MODE" in
@@ -153,6 +152,7 @@ if [[ ! -f services/indexer/.env.local ]]; then
   if [[ -f "${SCRIPT_DIR}/bootstrap-indexer-env.sh" ]]; then
     "${SCRIPT_DIR}/bootstrap-indexer-env.sh"
   elif [[ -n "${XMARKET_INDEXER_DATABASE_URL:-}" ]]; then
+    :
   else
     echo "Missing services/indexer/.env.local — run bootstrap-indexer-env.sh first" >&2
     exit 1
