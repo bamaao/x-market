@@ -33,7 +33,7 @@ deploy_json_get() {
   python3 - "$DEPLOY_JSON" "$path" <<'PY'
 import json, sys
 path = sys.argv[2].split(".")
-with open(sys.argv[1], encoding="utf-8") as f:
+with open(sys.argv[1], encoding="utf-8-sig") as f:
     d = json.load(f)
 for p in path:
     d = d[p]
