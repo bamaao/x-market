@@ -11,9 +11,23 @@
   automatically becomes available under the Apache License 2.0.
 -->
 
-# Indexer PostgreSQL 初始化
+# Indexer PostgreSQL 初始化（Ubuntu 24.04）
 
-## 两层结构
+> **运行环境：** Ubuntu 24.04 LTS（`init-postgres.sh` 为 Bash 脚本，使用 `sudo -u postgres` / `runuser`）  
+> Windows 本地开发见文末 `init-postgres.ps1`。
+
+## 前置条件（Ubuntu）
+
+```bash
+chmod +x scripts/*.sh scripts/lib/*.sh
+
+# docker 模式
+sudo apt-get install -y docker.io docker-compose-v2   # 或 Docker Engine 官方源
+
+# native / sql 模式（本机 PostgreSQL）
+sudo apt-get install -y postgresql postgresql-client
+# 或一键：./scripts/init-postgres.sh --mode native --install-native
+```
 
 | 步骤 | 内容 | 位置 |
 |------|------|------|
@@ -29,7 +43,9 @@
 连接串: postgresql://xmarket:xmarket@localhost:5432/xmarket_indexer
 ```
 
-## 一键脚本
+## 一键脚本（Ubuntu）
+
+在仓库根目录执行：
 
 ```bash
 # Docker Postgres + 建表
@@ -50,13 +66,14 @@
 ./scripts/run-indexer-migrations.sh
 ```
 
-Windows:
+## 故障排查（Ubuntu）
 
-```powershell
-.\scripts\init-postgres.ps1 -Mode docker
-.\scripts\init-postgres.ps1 -Mode native
-.\scripts\init-postgres.ps1 -Mode migrate
-```
+| 报错 | 原因 | 处理 |
+|------|------|------|
+| `psql: ... /tmp/tmp.xxx: Permission denied` | 临时 SQL 文件属主不是 `postgres` | 已修复：脚本通过 stdin 传 SQL；请 `git pull` 最新版 |
+| `JSONDecodeError: Unexpected UTF-8 BOM` | `deploy/testnet-v2.json` 带 BOM（常见于跨平台 git/编辑器） | 已修复：`utf-8-sig` 解析；或 `sed -i '1s/^\xEF\xBB\xBF//' deploy/testnet-v2.json` |
+| `sudo: command not found` / 无法切换 postgres | 未安装 sudo 或非 Ubuntu 环境 | 使用 Ubuntu 24.04，或以 root 运行（脚本会用 `runuser`） |
+| Docker 模式 postgres 不健康 | Docker 未启动或端口占用 | `sudo systemctl start docker`；`docker compose -f docker-compose.indexer.yml ps` |
 
 ## 手动执行
 
@@ -89,3 +106,11 @@ sudo -u postgres psql -f deploy/postgres/init-database.sql
 ## Docker
 
 `docker compose -f docker-compose.indexer.yml up -d postgres` 会通过环境变量**自动建库**，仍需跑迁移（`init-postgres.sh --mode docker` 或启动 Indexer）。
+
+## Windows 本地开发（可选）
+
+```powershell
+.\scripts\init-postgres.ps1 -Mode docker
+.\scripts\init-postgres.ps1 -Mode native
+.\scripts\init-postgres.ps1 -Mode migrate
+```

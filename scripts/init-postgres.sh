@@ -10,9 +10,9 @@
 # distribution of the code under the BSL, whichever comes first, the code
 # automatically becomes available under the Apache License 2.0.
 
-# PostgreSQL 建库 + Indexer 建表（一键）
+# PostgreSQL 建库 + Indexer 建表（Ubuntu 24.04）
 #
-# 用法:
+# 用法（在仓库根目录）:
 #   ./scripts/init-postgres.sh --mode docker      # Docker Postgres + 迁移
 #   ./scripts/init-postgres.sh --mode native      # apt 安装 + 建库 + 迁移
 #   ./scripts/init-postgres.sh --mode migrate     # 仅建表（库已存在）
@@ -32,6 +32,8 @@ DB_NAME="${XMARKET_PG_DATABASE:-xmarket_indexer}"
 usage() {
   cat <<EOF
 Usage: $0 [OPTIONS]
+
+Target: Ubuntu 24.04 (requires sudo for native/sql modes)
 
 Options:
   --mode MODE       docker | native | migrate | sql  (default: docker)
