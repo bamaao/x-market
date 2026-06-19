@@ -49,6 +49,7 @@ fi
 }
 
 if [[ "$SKIP_INSTALL" != "true" ]]; then
+  install_shared_npm_deps
   echo "npm install: services/indexer"
   (cd services/indexer && npm install --silent)
 fi

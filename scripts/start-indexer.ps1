@@ -25,6 +25,10 @@ if (-not (Test-Path "services/indexer/.env.local")) {
 }
 
 if (-not $SkipInstall) {
+  Write-Host "npm install: services/shared"
+  Push-Location services/shared
+  npm install --silent 2>&1 | Out-Null
+  Pop-Location
   Push-Location services/indexer
   npm install --silent 2>&1 | Out-Null
   Pop-Location

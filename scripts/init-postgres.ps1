@@ -53,6 +53,9 @@ if (-not (Test-Path "services/indexer/.env.local")) {
   & "$PSScriptRoot\bootstrap-indexer-env.ps1"
 }
 
+Push-Location services/shared
+npm install --silent
+Pop-Location
 Push-Location services/indexer
 npm install --silent
 npm run migrate

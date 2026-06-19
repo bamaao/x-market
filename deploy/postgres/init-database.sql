@@ -36,4 +36,9 @@ WHERE NOT EXISTS (
 
 GRANT ALL PRIVILEGES ON DATABASE xmarket_indexer TO xmarket;
 
-\echo 'Ready: database=xmarket_indexer user=xmarket'
+\connect xmarket_indexer
+GRANT ALL ON SCHEMA public TO xmarket;
+GRANT CREATE ON SCHEMA public TO xmarket;
+ALTER SCHEMA public OWNER TO xmarket;
+
+\echo 'Ready: database=xmarket_indexer user=xmarket (public schema granted)'

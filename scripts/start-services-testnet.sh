@@ -61,6 +61,7 @@ for svc in "${services[@]}"; do
 done
 
 if [[ "$SKIP_INSTALL" != "true" ]]; then
+  install_shared_npm_deps
   for svc in "${services[@]}"; do
     echo "npm install: services/${svc}"
     (cd "services/${svc}" && npm install --silent)

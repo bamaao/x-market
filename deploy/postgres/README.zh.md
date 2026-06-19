@@ -71,7 +71,8 @@ sudo apt-get install -y postgresql postgresql-client
 | 报错 | 原因 | 处理 |
 |------|------|------|
 | `psql: ... /tmp/tmp.xxx: Permission denied` | 临时 SQL 文件属主不是 `postgres` | 已修复：脚本通过 stdin 传 SQL；请 `git pull` 最新版 |
-| `JSONDecodeError: Unexpected UTF-8 BOM` | `deploy/testnet-v2.json` 带 BOM（常见于跨平台 git/编辑器） | 已修复：`utf-8-sig` 解析；或 `sed -i '1s/^\xEF\xBB\xBF//' deploy/testnet-v2.json` |
+| `JSONDecodeError` / `SyntaxError: Unexpected token` + `"{"` | `deploy/testnet-v2.json` 带 UTF-8 BOM | `./scripts/strip-deploy-json-bom.sh` |
+| `permission denied for schema public` (42501) | PostgreSQL 15+ 限制 public 建表 | `./scripts/fix-postgres-public-schema.sh native` |
 | `sudo: command not found` / 无法切换 postgres | 未安装 sudo 或非 Ubuntu 环境 | 使用 Ubuntu 24.04，或以 root 运行（脚本会用 `runuser`） |
 | Docker 模式 postgres 不健康 | Docker 未启动或端口占用 | `sudo systemctl start docker`；`docker compose -f docker-compose.indexer.yml ps` |
 
@@ -82,6 +83,7 @@ sudo apt-get install -y postgresql postgresql-client
 sudo -u postgres psql -f deploy/postgres/init-database.sql
 
 # 2. 建表
+./scripts/fix-postgres-public-schema.sh native   # PostgreSQL 15+ 本机库若报 schema public 权限错误
 ./scripts/bootstrap-indexer-env.sh   # 生成 INDEXER_DATABASE_URL
 ./scripts/run-indexer-migrations.sh
 ```

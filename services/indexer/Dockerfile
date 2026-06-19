@@ -17,6 +17,7 @@ COPY services/indexer/tsconfig.json ./
 COPY services/indexer/migrations ./migrations
 COPY services/indexer/src ./src
 COPY services/shared ../shared
+RUN cd ../shared && npm install --omit=dev
 COPY deploy/testnet-v2.json ../../deploy/testnet-v2.json
 EXPOSE 8800
 CMD ["node", "--env-file=.env.local", "--import", "tsx", "src/index.ts"]

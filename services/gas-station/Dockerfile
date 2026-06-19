@@ -16,5 +16,6 @@ RUN npm install --omit=dev
 COPY services/gas-station/tsconfig.json ./
 COPY services/gas-station/src ./src
 COPY services/shared ../shared
+RUN cd ../shared && npm install --omit=dev
 EXPOSE 8787
 CMD ["node", "--env-file=.env.local", "--import", "tsx", "src/server.ts"]

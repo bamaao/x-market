@@ -16,5 +16,6 @@ RUN npm install --omit=dev
 COPY services/lp-guard-keeper/tsconfig.json ./
 COPY services/lp-guard-keeper/src ./src
 COPY services/shared ../shared
+RUN cd ../shared && npm install --omit=dev
 EXPOSE 8788
 CMD ["node", "--env-file=.env.local", "--import", "tsx", "src/keeper.ts"]

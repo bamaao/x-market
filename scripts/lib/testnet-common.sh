@@ -28,6 +28,12 @@ require_cmd() {
   fi
 }
 
+# services/shared/*.ts imports @mysten/sui; Node resolves from that directory.
+install_shared_npm_deps() {
+  echo "npm install: services/shared"
+  (cd services/shared && npm install --silent)
+}
+
 deploy_json_get() {
   local path="$1"
   python3 - "$DEPLOY_JSON" "$path" <<'PY'

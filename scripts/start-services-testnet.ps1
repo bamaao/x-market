@@ -42,6 +42,10 @@ foreach ($svc in $services) {
 }
 
 if (-not $SkipInstall) {
+  Write-Host "npm install: services/shared"
+  Push-Location services/shared
+  npm install --silent 2>&1 | Out-Null
+  Pop-Location
   foreach ($svc in $services) {
     Write-Host "npm install: services/$svc"
     Push-Location "services/$svc"
