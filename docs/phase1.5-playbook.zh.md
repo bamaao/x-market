@@ -67,21 +67,43 @@ $env:X_MARKET_PACKAGE_ID="0x你的新包ID"
 
 ## 3. 启动 Auction 池
 
-脚本：`scripts/start-auction-pool.ps1`
+### 3.0 前端创建（推荐）
 
-### 3.1 创建 Poisson Auction 池
+打开 `/markets/create`：
+
+1. **启动方式** 选 **Opening Auction**
+2. 填写标题、分布类型、竞价截止时间、到期时间、Oracle Feed
+3. 提交后 Indexer 会写入 `launch_mode=auction`、`status=0`；首页列表显示 **竞价中** 徽章
+
+需已发布含 `start_*_auction_with_feed` 的新包，并配置 `NEXT_PUBLIC_PACKAGE_ID`。
+
+### 3.1 CLI 脚本（裸池 / 演示）
+
+脚本：`scripts/start-auction-pool.ps1`
 
 ```powershell
 .\scripts\start-auction-pool.ps1 -Kind poisson -PackageId 0x你的新包ID -AuctionHours 24 -MaturityDays 30
 ```
 
-### 3.2 创建 Dirichlet Auction 池
+含 Oracle Feed（需新包 + 环境变量）：
+
+```powershell
+.\scripts\start-auction-pool.ps1 -Kind dirichlet -WithFeed -FeedIdentifier "MY_AUCTION" -AuctionHours 24
+```
+
+### 3.2 创建 Poisson Auction 池
+
+```powershell
+.\scripts\start-auction-pool.ps1 -Kind poisson -PackageId 0x你的新包ID -AuctionHours 24 -MaturityDays 30
+```
+
+### 3.3 创建 Dirichlet Auction 池
 
 ```powershell
 .\scripts\start-auction-pool.ps1 -Kind dirichlet -PackageId 0x你的新包ID -AuctionHours 24 -MaturityDays 30
 ```
 
-### 3.3 创建 Normal Auction 池（CPI 等宏观）
+### 3.4 创建 Normal Auction 池（CPI 等宏观）
 
 三桶锚点：μ = 2.0% / 2.5% / 3.0%（tenths 20/25/30），σ = 0.3% / 0.4% / 0.6%（tenths 3/4/6），按 USDC 加权定标。
 

@@ -67,21 +67,43 @@ $env:X_MARKET_PACKAGE_ID="0xYourNewPackageId"
 
 ## 3. Start Auction pools
 
-Script: `scripts/start-auction-pool.ps1`
+### 3.0 Frontend (recommended)
 
-### 3.1 Create a Poisson Auction pool
+Open `/markets/create`:
+
+1. Set **Launch mode** to **Opening Auction**
+2. Fill title, distribution kind, auction end, maturity, Oracle Feed
+3. Indexer stores `launch_mode=auction`, `status=0`; home list shows an **In auction** badge
+
+Requires a package with `start_*_auction_with_feed` and `NEXT_PUBLIC_PACKAGE_ID`.
+
+### 3.1 CLI script (bare pool / demos)
+
+Script: `scripts/start-auction-pool.ps1`
 
 ```powershell
 .\scripts\start-auction-pool.ps1 -Kind poisson -PackageId 0xYourNewPackageId -AuctionHours 24 -MaturityDays 30
 ```
 
-### 3.2 Create a Dirichlet Auction pool
+With Oracle Feed (new package + env vars):
+
+```powershell
+.\scripts\start-auction-pool.ps1 -Kind dirichlet -WithFeed -FeedIdentifier "MY_AUCTION" -AuctionHours 24
+```
+
+### 3.2 Create a Poisson Auction pool
+
+```powershell
+.\scripts\start-auction-pool.ps1 -Kind poisson -PackageId 0xYourNewPackageId -AuctionHours 24 -MaturityDays 30
+```
+
+### 3.3 Create a Dirichlet Auction pool
 
 ```powershell
 .\scripts\start-auction-pool.ps1 -Kind dirichlet -PackageId 0xYourNewPackageId -AuctionHours 24 -MaturityDays 30
 ```
 
-### 3.3 Create a Normal Auction pool (macro, e.g. CPI)
+### 3.4 Create a Normal Auction pool (macro, e.g. CPI)
 
 Three-bucket anchors: μ = 2.0% / 2.5% / 3.0% (tenths 20/25/30), σ = 0.3% / 0.4% / 0.6% (tenths 3/4/6), calibrated by USDC-weighted buckets.
 

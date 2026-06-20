@@ -25,11 +25,18 @@ import {
   MARKET_POOL_TYPE,
   paramsToSeedMarket,
   slugifyTitle,
+  supportsOpeningAuction,
   validateCreateMarketParams,
   type CreateMarketParams,
+  type LaunchMode,
 } from "@/lib/create-market";
 import { sanitizeSlug } from "@/lib/market-slug";
-import { defaultMaturityZonedInput, detectUserTimezone, parseZonedDatetimeInput } from "@/lib/market-maturity-time";
+import {
+  defaultAuctionEndZonedInput,
+  defaultMaturityZonedInput,
+  detectUserTimezone,
+  parseZonedDatetimeInput,
+} from "@/lib/market-maturity-time";
 import { MaturityTimeField } from "@/components/MaturityTimeField";
 import { saveUserMarket } from "@/lib/market-catalog";
 import {
@@ -78,10 +85,18 @@ export default function CreateMarketPage() {
   const [slug, setSlug] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
   const [kind, setKind] = useState<MarketKind>("poisson");
+  const [launchMode, setLaunchMode] = useState<LaunchMode>("auction");
+  const userTimezone = useMemo(() => detectUserTimezone(), []);
   const [maturityTs, setMaturityTs] = useState(() =>
     parseZonedDatetimeInput(
-      defaultMaturityZonedInput(detectUserTimezone()),
-      detectUserTimezone(),
+      defaultMaturityZonedInput(userTimezone),
+      userTimezone,
+    ),
+  );
+  const [auctionEndTs, setAuctionEndTs] = useState(() =>
+    parseZonedDatetimeInput(
+      defaultAuctionEndZonedInput(userTimezone),
+      userTimezone,
     ),
   );
   const [feeBps, setFeeBps] = useState("30");
@@ -122,7 +137,9 @@ export default function CreateMarketPage() {
       description,
       slug: effectiveSlug,
       kind,
+      launchMode,
       maturityTs,
+      auctionEndTs: launchMode === "auction" ? auctionEndTs : undefined,
       feeBps: Number(feeBps || "30"),
       feedIdentifier: effectiveFeedId,
       ancillaryText: ancillaryText.trim() || description.trim(),
@@ -141,7 +158,9 @@ export default function CreateMarketPage() {
       description,
       effectiveSlug,
       kind,
+      launchMode,
       maturityTs,
+      auctionEndTs,
       feeBps,
       effectiveFeedId,
       ancillaryText,
@@ -155,6 +174,14 @@ export default function CreateMarketPage() {
       betaBeta,
       selectedTags,
     ],
+  );
+
+  const kindOptions = useMemo(
+    () =>
+      launchMode === "auction"
+        ? KIND_OPTIONS.filter((o) => supportsOpeningAuction(o.value))
+        : KIND_OPTIONS,
+    [launchMode],
   );
 
   const validationError = validateCreateMarketParams(params);
@@ -214,7 +241,11 @@ export default function CreateMarketPage() {
       }
 
       setStep("chain");
-      setStatus(t("createMarket.creatingPool"));
+      setStatus(
+        params.launchMode === "auction"
+          ? t("createMarket.creatingAuctionPool")
+          : t("createMarket.creatingPool"),
+      );
 
       const registryId = await resolveFeedRegistryId(client, ORACLE_CONFIG_ID);
       if (!registryId) {
@@ -266,11 +297,21 @@ export default function CreateMarketPage() {
                 maturity_ts: params.maturityTs,
                 package_id: PACKAGE_ID,
                 authority: account.address,
+                launch_mode: params.launchMode,
+                auction_end_ts:
+                  params.launchMode === "auction" ? (params.auctionEndTs ?? null) : null,
                 lambda_tenths:
-                  params.kind === "poisson" ? (params.lambdaTenths ?? null) : null,
-                mu_tenths: params.kind === "normal" ? (params.muTenths ?? null) : null,
+                  params.kind === "poisson" && params.launchMode === "trading"
+                    ? (params.lambdaTenths ?? null)
+                    : null,
+                mu_tenths:
+                  params.kind === "normal" && params.launchMode === "trading"
+                    ? (params.muTenths ?? null)
+                    : null,
                 sigma_tenths:
-                  params.kind === "normal" ? (params.sigmaTenths ?? null) : null,
+                  params.kind === "normal" && params.launchMode === "trading"
+                    ? (params.sigmaTenths ?? null)
+                    : null,
                 tags: params.tags,
               });
 
@@ -282,7 +323,11 @@ export default function CreateMarketPage() {
                   }),
                 );
               } else {
-                setStatus(t("createMarket.success", { pool: poolId.slice(0, 10) }));
+                setStatus(
+                  params.launchMode === "auction"
+                    ? t("createMarket.successAuction", { pool: poolId.slice(0, 10) })
+                    : t("createMarket.success", { pool: poolId.slice(0, 10) }),
+                );
               }
 
               router.push(`/markets/${params.slug}`);
@@ -315,7 +360,11 @@ export default function CreateMarketPage() {
     <>
       <div className="section-head">
         <h1>{t("createMarket.title")}</h1>
-        <p className="sub">{t("createMarket.subtitle")}</p>
+        <p className="sub">
+          {launchMode === "auction"
+            ? t("createMarket.subtitleAuction")
+            : t("createMarket.subtitle")}
+        </p>
       </div>
 
       {!ORACLE_CONFIG_ID && (
@@ -366,18 +415,49 @@ export default function CreateMarketPage() {
           />
           <p className="hint">{t("createMarket.tagsHint")}</p>
 
+          <label htmlFor="launchMode">{t("createMarket.launchModeLabel")}</label>
+          <select
+            id="launchMode"
+            value={launchMode}
+            onChange={(e) => {
+              const next = e.target.value as LaunchMode;
+              setLaunchMode(next);
+              if (next === "auction" && kind === "beta") setKind("poisson");
+            }}
+          >
+            <option value="auction">{t("createMarket.launchModeAuction")}</option>
+            <option value="trading">{t("createMarket.launchModeTrading")}</option>
+          </select>
+          <p className="hint">
+            {launchMode === "auction"
+              ? t("createMarket.launchModeAuctionHint")
+              : t("createMarket.launchModeTradingHint")}
+          </p>
+
           <label htmlFor="kind">{t("createMarket.kindLabel")}</label>
           <select
             id="kind"
             value={kind}
             onChange={(e) => setKind(e.target.value as MarketKind)}
           >
-            {KIND_OPTIONS.map((o) => (
+            {kindOptions.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
               </option>
             ))}
           </select>
+          {launchMode === "auction" && (
+            <p className="hint">{t("createMarket.kindAuctionHint")}</p>
+          )}
+
+          {launchMode === "auction" && (
+            <MaturityTimeField
+              i18nPrefix="createMarket.auctionEnd"
+              idPrefix="auction-end"
+              initialLocalValue={defaultAuctionEndZonedInput(userTimezone)}
+              onChange={setAuctionEndTs}
+            />
+          )}
 
           <MaturityTimeField onChange={setMaturityTs} />
 
@@ -410,51 +490,61 @@ export default function CreateMarketPage() {
             style={{ maxWidth: "100%" }}
           />
 
-          <h2 style={{ marginTop: "1.5rem" }}>{t("createMarket.poolParams")}</h2>
-          {kind === "poisson" && (
+          {launchMode === "trading" && (
             <>
-              <label htmlFor="lambda">λ（tenths）</label>
-              <input
-                id="lambda"
-                type="number"
-                min={1}
-                max={80}
-                value={lambdaTenths}
-                onChange={(e) => setLambdaTenths(e.target.value)}
-              />
+              <h2 style={{ marginTop: "1.5rem" }}>{t("createMarket.poolParams")}</h2>
+              {kind === "poisson" && (
+                <>
+                  <label htmlFor="lambda">λ（tenths）</label>
+                  <input
+                    id="lambda"
+                    type="number"
+                    min={1}
+                    max={80}
+                    value={lambdaTenths}
+                    onChange={(e) => setLambdaTenths(e.target.value)}
+                  />
+                </>
+              )}
+              {kind === "dirichlet" && (
+                <div className="field-row">
+                  <div>
+                    <label htmlFor="a0">α₀</label>
+                    <input id="a0" type="number" min={1} value={alpha0} onChange={(e) => setAlpha0(e.target.value)} />
+                  </div>
+                  <div>
+                    <label htmlFor="a1">α₁</label>
+                    <input id="a1" type="number" min={1} value={alpha1} onChange={(e) => setAlpha1(e.target.value)} />
+                  </div>
+                  <div>
+                    <label htmlFor="a2">α₂</label>
+                    <input id="a2" type="number" min={1} value={alpha2} onChange={(e) => setAlpha2(e.target.value)} />
+                  </div>
+                </div>
+              )}
+              {kind === "normal" && (
+                <>
+                  <label htmlFor="mu">μ（tenths）</label>
+                  <input id="mu" type="number" value={muTenths} onChange={(e) => setMuTenths(e.target.value)} />
+                  <label htmlFor="sigma">σ（tenths）</label>
+                  <input id="sigma" type="number" min={1} value={sigmaTenths} onChange={(e) => setSigmaTenths(e.target.value)} />
+                </>
+              )}
+              {kind === "beta" && (
+                <>
+                  <label htmlFor="balpha">α</label>
+                  <input id="balpha" type="number" min={1} value={betaAlpha} onChange={(e) => setBetaAlpha(e.target.value)} />
+                  <label htmlFor="bbeta">β</label>
+                  <input id="bbeta" type="number" min={1} value={betaBeta} onChange={(e) => setBetaBeta(e.target.value)} />
+                </>
+              )}
             </>
           )}
-          {kind === "dirichlet" && (
-            <div className="field-row">
-              <div>
-                <label htmlFor="a0">α₀</label>
-                <input id="a0" type="number" min={1} value={alpha0} onChange={(e) => setAlpha0(e.target.value)} />
-              </div>
-              <div>
-                <label htmlFor="a1">α₁</label>
-                <input id="a1" type="number" min={1} value={alpha1} onChange={(e) => setAlpha1(e.target.value)} />
-              </div>
-              <div>
-                <label htmlFor="a2">α₂</label>
-                <input id="a2" type="number" min={1} value={alpha2} onChange={(e) => setAlpha2(e.target.value)} />
-              </div>
-            </div>
-          )}
-          {kind === "normal" && (
-            <>
-              <label htmlFor="mu">μ（tenths）</label>
-              <input id="mu" type="number" value={muTenths} onChange={(e) => setMuTenths(e.target.value)} />
-              <label htmlFor="sigma">σ（tenths）</label>
-              <input id="sigma" type="number" min={1} value={sigmaTenths} onChange={(e) => setSigmaTenths(e.target.value)} />
-            </>
-          )}
-          {kind === "beta" && (
-            <>
-              <label htmlFor="balpha">α</label>
-              <input id="balpha" type="number" min={1} value={betaAlpha} onChange={(e) => setBetaAlpha(e.target.value)} />
-              <label htmlFor="bbeta">β</label>
-              <input id="bbeta" type="number" min={1} value={betaBeta} onChange={(e) => setBetaBeta(e.target.value)} />
-            </>
+
+          {launchMode === "auction" && (
+            <p className="hint" style={{ marginTop: "1rem" }}>
+              {t("createMarket.auctionParamsHint")}
+            </p>
           )}
 
           <h2 style={{ marginTop: "1.5rem" }}>{t("createMarket.coverSection")}</h2>
@@ -495,7 +585,9 @@ export default function CreateMarketPage() {
                     : step === "register"
                       ? t("createMarket.registering")
                       : t("createMarket.processing")
-                : t("createMarket.submit")}
+                : launchMode === "auction"
+                  ? t("createMarket.submitAuction")
+                  : t("createMarket.submit")}
             </button>
             <Link href="/" className="hero-link secondary">
               {t("createMarket.cancel")}
@@ -516,6 +608,11 @@ export default function CreateMarketPage() {
             )}
           </div>
           <span className={`badge badge-${kind}`}>{kind}</span>
+          <span className="badge" style={{ marginLeft: "0.35rem" }}>
+            {launchMode === "auction"
+              ? t("createMarket.launchModeAuction")
+              : t("createMarket.launchModeTrading")}
+          </span>
           <h3 style={{ marginTop: "0.75rem" }}>{title.trim() || t("createMarket.titleFallback")}</h3>
           <p>{description.trim() || t("createMarket.descriptionFallback")}</p>
           <p className="hint">

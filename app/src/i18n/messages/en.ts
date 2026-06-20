@@ -914,6 +914,20 @@ export const en = {
   createMarket: {
     title: "Create market",
     subtitle: "Create on-chain Pool and register Oracle Feed; optional cover upload to Indexer (local / IPFS).",
+    subtitleAuction:
+      "Cold-start via Opening Auction: pool enters bidding after creation; finalize sets prior and initial liquidity; Oracle Feed registered in the same tx.",
+    launchModeLabel: "Launch mode",
+    launchModeAuction: "Opening Auction",
+    launchModeTrading: "Direct Trading",
+    launchModeAuctionHint:
+      "Bid USDC into three buckets during the auction; finalize derives prior and enters Trading without extra LP seeding.",
+    launchModeTradingHint:
+      "Pool enters Trading immediately; set prior parameters manually and deposit LP before users can trade.",
+    kindAuctionHint: "Opening Auction supports Poisson / Dirichlet / Normal; Beta is direct Trading only.",
+    auctionParamsHint: "Prior parameters (λ, α, μ/σ) are derived from bucket USDC weights after auction finalize.",
+    submitAuction: "Create Opening Auction market",
+    creatingAuctionPool: "Creating Opening Auction pool and Oracle Feed…",
+    successAuction: "Opening Auction market created · Pool {pool}… (bid on the market page)",
     oracleRequired: "NEXT_PUBLIC_ORACLE_CONFIG_ID not set — cannot create market.",
     basicInfo: "Basic info",
     titleLabel: "Title",
@@ -969,6 +983,13 @@ export const en = {
       utcLabel: "UTC · {offset}",
       tzLabel: "{zone} · {offset}",
     },
+    auctionEnd: {
+      timezone: "Timezone",
+      datetime: "Auction end time",
+      hint: "Auction end must be before maturity; call finalize after the deadline to enter Trading. Stored as UTC Unix seconds.",
+      chainUtc: "On-chain UTC:",
+      yourTz: "Your system timezone ({label}):",
+    },
     validation: {
       titleRequired: "Enter a market title",
       slugRequired: "Enter a slug",
@@ -982,6 +1003,10 @@ export const en = {
       dirichletAlpha: "Dirichlet α must be positive integers",
       normalSigma: "Normal σ (tenths) must be > 0",
       betaParams: "Beta α/β must be positive integers",
+      betaNoAuction: "Beta markets do not support Opening Auction — use Direct Trading",
+      auctionEndRequired: "Enter a valid auction end time",
+      auctionEndMinLead: "Auction end must be at least 1 minute from now",
+      auctionEndBeforeMaturity: "Auction end must be before maturity",
     },
   },
   errors: {

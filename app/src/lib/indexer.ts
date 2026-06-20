@@ -74,6 +74,9 @@ export interface IndexerMarket {
   package_id: string;
   fee_bps: number;
   maturity_ts: string;
+  status?: number;
+  launch_mode?: string | null;
+  auction_end_ts?: string | number | null;
   paused: boolean;
   resolved: boolean;
   lambda_tenths: number | null;
@@ -252,6 +255,8 @@ export interface RegisterMarketPayload {
   maturity_ts: number;
   package_id: string;
   authority?: string;
+  launch_mode?: "auction" | "trading";
+  auction_end_ts?: number | null;
   lambda_tenths?: number | null;
   mu_tenths?: number | null;
   sigma_tenths?: number | null;

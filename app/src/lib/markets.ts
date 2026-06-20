@@ -114,6 +114,11 @@ export function indexerMarketToSeed(m: {
   image_url?: string | null;
   tags?: string[] | null;
   fee_bps: number;
+  status?: number;
+  launch_mode?: string | null;
+  auction_end_ts?: string | number | null;
+  resolved?: boolean;
+  paused?: boolean;
   lambda_tenths?: number | null;
   mu_tenths?: number | null;
   sigma_tenths?: number | null;
@@ -133,6 +138,13 @@ export function indexerMarketToSeed(m: {
     params: {
       poolId: m.pool_id,
       fee_bps: m.fee_bps,
+      ...(m.status != null ? { status: m.status } : {}),
+      ...(m.launch_mode ? { launch_mode: m.launch_mode } : {}),
+      ...(m.auction_end_ts != null && m.auction_end_ts !== ""
+        ? { auction_end_ts: Number(m.auction_end_ts) }
+        : {}),
+      ...(m.resolved != null ? { resolved: m.resolved ? 1 : 0 } : {}),
+      ...(m.paused != null ? { paused: m.paused ? 1 : 0 } : {}),
       ...(m.lambda_tenths != null ? { lambda_tenths: m.lambda_tenths } : {}),
       ...(m.mu_tenths != null ? { mu_tenths: m.mu_tenths } : {}),
       ...(m.sigma_tenths != null ? { sigma_tenths: m.sigma_tenths } : {}),

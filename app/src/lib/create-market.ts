@@ -17,6 +17,7 @@ import {
   appendCreatePoissonPoolWithFeed,
   ORACLE_CONFIG_ID,
 } from "./oracle";
+import { SUI_CLOCK_ID } from "./trade";
 
 export { sanitizeSlug, slugifyTitle } from "./market-slug";
 
@@ -25,14 +26,19 @@ export const MARKET_POOL_TYPE = `${PACKAGE_ID}::market_pool::MarketPool`;
 /** Minimum lead time before maturity when creating a market (frontend guard). */
 export const MIN_MATURITY_LEAD_SECS = 300;
 
-export type LaunchMode = "trading";
+/** Minimum lead time before auction end (chain requires auction_end_ts > now). */
+export const MIN_AUCTION_LEAD_SECS = 60;
+
+export type LaunchMode = "auction" | "trading";
 
 export interface CreateMarketParams {
   title: string;
   description: string;
   slug: string;
   kind: MarketKind;
+  launchMode: LaunchMode;
   maturityTs: number;
+  auctionEndTs?: number;
   feeBps: number;
   feedIdentifier: string;
   ancillaryText: string;
@@ -45,6 +51,10 @@ export interface CreateMarketParams {
   betaAlpha?: number;
   betaBeta?: number;
   tags?: string[];
+}
+
+export function supportsOpeningAuction(kind: MarketKind): boolean {
+  return kind !== "beta";
 }
 
 export function textToBytes(text: string): number[] {
@@ -66,6 +76,23 @@ export function validateCreateMarketParams(p: CreateMarketParams): string | null
   if (p.feeBps < 0 || p.feeBps > 500) return "createMarket.validation.feeRange";
   if (!p.feedIdentifier.trim()) return "createMarket.validation.feedRequired";
   if (!ORACLE_CONFIG_ID) return "createMarket.validation.oracleConfigMissing";
+
+  if (p.launchMode === "auction") {
+    if (!supportsOpeningAuction(p.kind)) {
+      return "createMarket.validation.betaNoAuction";
+    }
+    if (!Number.isFinite(p.auctionEndTs) || (p.auctionEndTs ?? 0) <= 0) {
+      return "createMarket.validation.auctionEndRequired";
+    }
+    const now = Math.floor(Date.now() / 1000);
+    if ((p.auctionEndTs ?? 0) <= now + MIN_AUCTION_LEAD_SECS) {
+      return "createMarket.validation.auctionEndMinLead";
+    }
+    if ((p.auctionEndTs ?? 0) >= p.maturityTs) {
+      return "createMarket.validation.auctionEndBeforeMaturity";
+    }
+    return null;
+  }
 
   switch (p.kind) {
     case "poisson":
@@ -90,12 +117,50 @@ export function validateCreateMarketParams(p: CreateMarketParams): string | null
   return null;
 }
 
+export function appendStartAuctionPoolWithFeed(
+  tx: Transaction,
+  oracleConfigId: string,
+  registryId: string,
+  params: CreateMarketParams,
+): void {
+  const identifier = textToBytes(params.feedIdentifier.trim());
+  const ancillary = textToBytes(params.ancillaryText.trim() || params.description.trim());
+  const maturity = BigInt(params.maturityTs);
+  const auctionEnd = BigInt(params.auctionEndTs ?? 0);
+  const fee = params.feeBps;
+
+  const targetByKind: Record<Exclude<MarketKind, "beta">, string> = {
+    poisson: `${PACKAGE_ID}::pool::start_poisson_auction_with_feed`,
+    dirichlet: `${PACKAGE_ID}::pool::start_dirichlet_auction_with_feed`,
+    normal: `${PACKAGE_ID}::pool::start_normal_auction_with_feed`,
+  };
+
+  tx.moveCall({
+    target: targetByKind[params.kind as Exclude<MarketKind, "beta">],
+    arguments: [
+      tx.object(oracleConfigId),
+      tx.object(registryId),
+      tx.pure.u64(auctionEnd),
+      tx.pure.u64(maturity),
+      tx.pure.u16(fee),
+      tx.pure.vector("u8", identifier),
+      tx.pure.vector("u8", ancillary),
+      tx.object(SUI_CLOCK_ID),
+    ],
+  });
+}
+
 export function appendCreateMarketPoolWithFeed(
   tx: Transaction,
   oracleConfigId: string,
   registryId: string,
   params: CreateMarketParams,
 ): void {
+  if (params.launchMode === "auction") {
+    appendStartAuctionPoolWithFeed(tx, oracleConfigId, registryId, params);
+    return;
+  }
+
   const identifier = textToBytes(params.feedIdentifier.trim());
   const ancillary = textToBytes(params.ancillaryText.trim() || params.description.trim());
   const maturity = BigInt(params.maturityTs);
@@ -178,8 +243,17 @@ export function paramsToSeedMarket(
     params: {
       poolId,
       fee_bps: params.feeBps,
+      launch_mode: params.launchMode,
+      ...(params.launchMode === "auction"
+        ? { status: 0, auction_end_ts: params.auctionEndTs ?? 0 }
+        : { status: 1 }),
     } as Record<string, string | number>,
   };
+
+  if (params.launchMode === "auction") {
+    return base;
+  }
+
   switch (params.kind) {
     case "poisson":
       base.params.lambda_tenths = params.lambdaTenths ?? 25;

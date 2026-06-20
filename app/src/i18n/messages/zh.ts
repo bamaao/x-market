@@ -913,6 +913,19 @@ export const zh = {
   createMarket: {
     title: "创建市场",
     subtitle: "链上创建 Pool 并自动注册 Oracle Feed；封面可选上传至 Indexer（local / IPFS）。",
+    subtitleAuction:
+      "以 Opening Auction 冷启动：创建后进入竞价期，定标后自动获得初始流动性；Oracle Feed 同笔交易注册。",
+    launchModeLabel: "启动方式",
+    launchModeAuction: "Opening Auction",
+    launchModeTrading: "直接 Trading",
+    launchModeAuctionHint:
+      "竞价期向三桶注资 USDC，定标后推导 prior 并进入 Trading，无需额外 LP 冷启动。",
+    launchModeTradingHint: "创建后直接进入 Trading，需手动设置 prior 参数并注入 LP 方可交易。",
+    kindAuctionHint: "Opening Auction 支持 Poisson / Dirichlet / Normal；Beta 仅支持直接 Trading。",
+    auctionParamsHint: "Prior 参数（λ、α、μ/σ）将在竞价定标后由桶内 USDC 比例自动推导。",
+    submitAuction: "创建 Opening Auction 市场",
+    creatingAuctionPool: "正在创建 Opening Auction 池与 Oracle Feed…",
+    successAuction: "Opening Auction 市场已创建 · Pool {pool}…（请在市场页竞价）",
     oracleRequired: "未配置 NEXT_PUBLIC_ORACLE_CONFIG_ID，无法创建市场。",
     basicInfo: "基本信息",
     titleLabel: "标题",
@@ -968,6 +981,13 @@ export const zh = {
       utcLabel: "UTC · {offset}",
       tzLabel: "{zone} · {offset}",
     },
+    auctionEnd: {
+      timezone: "时区",
+      datetime: "竞价截止时间",
+      hint: "竞价截止须早于到期时间；定标（finalize）后方可进入 Trading。链上按 UTC Unix 秒存储。",
+      chainUtc: "链上 UTC 标准时间：",
+      yourTz: "您的系统时区（{label}）：",
+    },
     validation: {
       titleRequired: "请填写市场标题",
       slugRequired: "请填写 slug",
@@ -981,6 +1001,10 @@ export const zh = {
       dirichletAlpha: "Dirichlet α 须为正整数",
       normalSigma: "Normal σ（tenths）须 > 0",
       betaParams: "Beta α/β 须为正整数",
+      betaNoAuction: "Beta 市场不支持 Opening Auction，请选择直接 Trading",
+      auctionEndRequired: "请填写有效的竞价截止时间",
+      auctionEndMinLead: "竞价截止须至少 1 分钟后",
+      auctionEndBeforeMaturity: "竞价截止须早于到期时间",
     },
   },
   errors: {

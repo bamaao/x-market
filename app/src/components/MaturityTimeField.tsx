@@ -23,17 +23,40 @@ import {
 } from "@/lib/market-maturity-time";
 import { useT } from "@/i18n/context";
 
+export type DatetimeFieldI18nPrefix = "createMarket.maturity" | "createMarket.auctionEnd";
+
 type Props = {
   onChange: (unixSec: number) => void;
+  /** i18n key prefix for labels and hints */
+  i18nPrefix?: DatetimeFieldI18nPrefix;
+  /** Initial wall-clock value (`datetime-local` string) */
+  initialLocalValue?: string;
+  /** HTML id prefix for inputs (defaults from i18nPrefix) */
+  idPrefix?: string;
 };
 
-export function MaturityTimeField({ onChange }: Props) {
+function fieldKey(prefix: DatetimeFieldI18nPrefix, suffix: string): string {
+  if (suffix === "datetime" && prefix === "createMarket.maturity") {
+    return `${prefix}.maturity`;
+  }
+  return `${prefix}.${suffix}`;
+}
+
+export function MaturityTimeField({
+  onChange,
+  i18nPrefix = "createMarket.maturity",
+  initialLocalValue,
+  idPrefix,
+}: Props) {
   const t = useT();
   const userTz = useMemo(() => detectUserTimezone(), []);
   const timezoneOptions = useMemo(() => buildTimezoneOptions(userTz), [userTz]);
 
   const [timeZone, setTimeZone] = useState(userTz);
-  const [localValue, setLocalValue] = useState(() => defaultMaturityZonedInput(userTz));
+  const [localValue, setLocalValue] = useState(
+    () => initialLocalValue ?? defaultMaturityZonedInput(userTz),
+  );
+  const resolvedIdPrefix = idPrefix ?? (i18nPrefix === "createMarket.auctionEnd" ? "auction" : "maturity");
 
   const unixSec = useMemo(
     () => parseZonedDatetimeInput(localValue, timeZone),
@@ -56,9 +79,9 @@ export function MaturityTimeField({ onChange }: Props) {
 
   return (
     <div className="maturity-time-field">
-      <label htmlFor="maturity-tz">{t("createMarket.maturity.timezone")}</label>
+      <label htmlFor={`${resolvedIdPrefix}-tz`}>{t(fieldKey(i18nPrefix, "timezone"))}</label>
       <select
-        id="maturity-tz"
+        id={`${resolvedIdPrefix}-tz`}
         value={timeZone}
         onChange={(e) => handleTimezoneChange(e.target.value)}
       >
@@ -69,25 +92,25 @@ export function MaturityTimeField({ onChange }: Props) {
         ))}
       </select>
 
-      <label htmlFor="maturity">{t("createMarket.maturity.maturity")}</label>
+      <label htmlFor={resolvedIdPrefix}>{t(fieldKey(i18nPrefix, "datetime"))}</label>
       <input
-        id="maturity"
+        id={resolvedIdPrefix}
         type="datetime-local"
         value={localValue}
         onChange={(e) => setLocalValue(e.target.value)}
       />
 
-      <p className="hint">{t("createMarket.maturity.hint")}</p>
+      <p className="hint">{t(fieldKey(i18nPrefix, "hint"))}</p>
 
       {valid && (
         <div className="maturity-time-ref">
           <p className="hint" style={{ marginTop: "0.35rem" }}>
-            {t("createMarket.maturity.chainUtc")}{" "}
+            {t(fieldKey(i18nPrefix, "chainUtc"))}{" "}
             <code className="mono">{formatUtcDisplay(unixSec)}</code>
           </p>
           {userTz !== timeZone && (
             <p className="hint" style={{ marginTop: "0.35rem" }}>
-              {t("createMarket.maturity.yourTz", {
+              {t(fieldKey(i18nPrefix, "yourTz"), {
                 label: timezoneLabel(userTz, new Date(unixSec * 1000)),
               })}{" "}
               <code className="mono">{formatZonedDatetimeInput(unixSec, userTz).replace("T", " ")}</code>

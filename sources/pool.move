@@ -307,6 +307,113 @@ public entry fun start_poisson_auction(
     market_pool::share_pool(pool);
 }
 
+// --- Opening Auction + Oracle feed (auto-register, same PTB) ---
+
+public entry fun start_poisson_auction_with_feed(
+    oracle: &OracleConfig,
+    registry: &mut FeedRegistry,
+    auction_end_ts: u64,
+    maturity_ts: u64,
+    fee_bps: u16,
+    identifier: vector<u8>,
+    ancillary_data: vector<u8>,
+    clock: &Clock,
+    ctx: &mut TxContext,
+) {
+    if (auction_end_ts <= clock::timestamp_ms(clock) / 1000) {
+        abort errors::out_of_bounds()
+    };
+    let pool = market_pool::new_poisson_auction(
+        ctx.sender(),
+        auction_end_ts,
+        maturity_ts,
+        fee_bps,
+        ctx,
+    );
+    macro_oracle::register_feed_for_pool(
+        oracle,
+        registry,
+        &pool,
+        identifier,
+        maturity_ts,
+        0,
+        0,
+        ancillary_data,
+        ctx,
+    );
+    market_pool::share_pool(pool);
+}
+
+public entry fun start_dirichlet_auction_with_feed(
+    oracle: &OracleConfig,
+    registry: &mut FeedRegistry,
+    auction_end_ts: u64,
+    maturity_ts: u64,
+    fee_bps: u16,
+    identifier: vector<u8>,
+    ancillary_data: vector<u8>,
+    clock: &Clock,
+    ctx: &mut TxContext,
+) {
+    if (auction_end_ts <= clock::timestamp_ms(clock) / 1000) {
+        abort errors::out_of_bounds()
+    };
+    let pool = market_pool::new_dirichlet_auction(
+        ctx.sender(),
+        auction_end_ts,
+        maturity_ts,
+        fee_bps,
+        ctx,
+    );
+    macro_oracle::register_feed_for_pool(
+        oracle,
+        registry,
+        &pool,
+        identifier,
+        maturity_ts,
+        0,
+        0,
+        ancillary_data,
+        ctx,
+    );
+    market_pool::share_pool(pool);
+}
+
+public entry fun start_normal_auction_with_feed(
+    oracle: &OracleConfig,
+    registry: &mut FeedRegistry,
+    auction_end_ts: u64,
+    maturity_ts: u64,
+    fee_bps: u16,
+    identifier: vector<u8>,
+    ancillary_data: vector<u8>,
+    clock: &Clock,
+    ctx: &mut TxContext,
+) {
+    if (auction_end_ts <= clock::timestamp_ms(clock) / 1000) {
+        abort errors::out_of_bounds()
+    };
+    let pool = market_pool::new_normal_auction(
+        ctx.sender(),
+        auction_end_ts,
+        maturity_ts,
+        fee_bps,
+        ctx,
+    );
+    macro_oracle::register_feed_for_pool(
+        oracle,
+        registry,
+        &pool,
+        identifier,
+        maturity_ts,
+        0,
+        0,
+        ancillary_data,
+        ctx,
+    );
+    market_pool::share_pool(pool);
+}
+
 public entry fun auction_bid(
     pool: &mut MarketPool,
     payment: Coin<USDC>,

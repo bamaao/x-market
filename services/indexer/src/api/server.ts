@@ -951,13 +951,22 @@ export function createApiServer(config: IndexerConfig, state: { lastEventAt: str
           json(res, 400, { error: "pool_id, slug, title, kind required" }, config.corsOrigin, "GET, POST, OPTIONS");
           return;
         }
+        const tagSlugs = normalizeTagSlugs(body.tags);
+        const launchModeRaw = String(body.launch_mode ?? "trading").trim().toLowerCase();
+        const launchMode = launchModeRaw === "auction" ? "auction" : "trading";
+        const auctionEndTs =
+          body.auction_end_ts != null && body.auction_end_ts !== ""
+            ? Number(body.auction_end_ts)
+            : null;
+        const initialStatus = launchMode === "auction" ? 0 : 1;
         await query(
           config.databaseUrl,
           `INSERT INTO markets (
             pool_id, slug, title, description, image_url, kind, package_id, authority, status,
-            lambda_tenths, mu_tenths, sigma_tenths, fee_bps, maturity_ts, paused, resolved, updated_at, indexed_at
+            lambda_tenths, mu_tenths, sigma_tenths, fee_bps, maturity_ts, launch_mode, auction_end_ts,
+            paused, resolved, updated_at, indexed_at
           ) VALUES (
-            $1,$2,$3,$4,$5,$6,$7,$8,1,$9,$10,$11,$12,$13,false,false,NOW(),NOW()
+            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,false,false,NOW(),NOW()
           )
           ON CONFLICT (pool_id) DO UPDATE SET
             slug = EXCLUDED.slug,
@@ -971,6 +980,8 @@ export function createApiServer(config: IndexerConfig, state: { lastEventAt: str
             sigma_tenths = EXCLUDED.sigma_tenths,
             fee_bps = EXCLUDED.fee_bps,
             maturity_ts = EXCLUDED.maturity_ts,
+            launch_mode = COALESCE(EXCLUDED.launch_mode, markets.launch_mode),
+            auction_end_ts = COALESCE(EXCLUDED.auction_end_ts, markets.auction_end_ts),
             updated_at = NOW()`,
           [
             poolId,
@@ -981,14 +992,16 @@ export function createApiServer(config: IndexerConfig, state: { lastEventAt: str
             kind,
             String(body.package_id ?? config.packageId),
             body.authority != null ? String(body.authority) : null,
+            initialStatus,
             body.lambda_tenths != null ? Number(body.lambda_tenths) : null,
             body.mu_tenths != null ? Number(body.mu_tenths) : null,
             body.sigma_tenths != null ? Number(body.sigma_tenths) : null,
             Number(body.fee_bps ?? 30),
             Number(body.maturity_ts ?? 0),
+            launchMode,
+            auctionEndTs,
           ],
         );
-        const tagSlugs = normalizeTagSlugs(body.tags);
         if (tagSlugs.length) {
           await syncMarketTags(config.databaseUrl, poolId, tagSlugs);
         }

@@ -1374,6 +1374,48 @@ textarea {
   flex: 1;
 }
 
+.market-card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.market-status-badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+}
+
+.market-status-auction {
+  color: #c9a227;
+  border-color: rgba(201, 162, 39, 0.45);
+  background: rgba(201, 162, 39, 0.1);
+}
+
+.market-status-trading {
+  color: #3d9a6a;
+  border-color: rgba(61, 154, 106, 0.45);
+  background: rgba(61, 154, 106, 0.1);
+}
+
+.market-status-settled {
+  color: var(--text-muted);
+}
+
+.market-status-paused {
+  color: #c96a3d;
+  border-color: rgba(201, 106, 61, 0.45);
+  background: rgba(201, 106, 61, 0.1);
+}
+
 .market-card-body h2 {
   color: var(--text);
   margin: 0.5rem 0 0.35rem;

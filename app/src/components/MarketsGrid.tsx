@@ -18,6 +18,10 @@ import {
   type MarketKind,
   type SeedMarket,
 } from "@/lib/markets";
+import {
+  marketListStatusClass,
+  marketListStatusKey,
+} from "@/lib/market-list-status";
 import { fetchIndexerMarkets, indexerEnabled } from "@/lib/indexer";
 import {
   indexerRowsToSeeds,
@@ -200,7 +204,15 @@ export function MarketsGrid() {
                 variant="card"
               />
               <div className="market-card-body">
-                <span className={kindBadgeClass(m.kind)}>{KIND_LABELS[m.kind]}</span>
+                <div className="market-card-badges">
+                  <span className={kindBadgeClass(m.kind)}>{KIND_LABELS[m.kind]}</span>
+                  {(() => {
+                    const statusKey = marketListStatusKey(m);
+                    return statusKey ? (
+                      <span className={marketListStatusClass(m)}>{t(statusKey)}</span>
+                    ) : null;
+                  })()}
+                </div>
                 <MarketTagList tags={m.tags} />
                 <h2>{m.title}</h2>
                 <p>{m.description}</p>

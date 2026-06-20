@@ -51,7 +51,7 @@ export async function runSnapshotWorker(
       config.databaseUrl,
       `UPDATE markets SET
         authority = $2, status = $3, lambda_tenths = $4, mu_tenths = $5, sigma_tenths = $6,
-        fee_bps = $7, maturity_ts = $8, paused = $9, resolved = $10, resolved_value = $11, updated_at = NOW()
+        fee_bps = $7, maturity_ts = $8, auction_end_ts = $9, paused = $10, resolved = $11, resolved_value = $12, updated_at = NOW()
        WHERE pool_id = $1`,
       [
         row.pool_id,
@@ -62,6 +62,7 @@ export async function runSnapshotWorker(
         Number(fields.sigma_tenths ?? 0) || null,
         Number(fields.fee_bps ?? 0),
         Number(fields.maturity_ts ?? 0),
+        Number(fields.auction_end_ts ?? 0) || null,
         Boolean(fields.paused),
         Boolean(fields.resolved),
         fields.resolved_value != null ? String(fields.resolved_value) : null,

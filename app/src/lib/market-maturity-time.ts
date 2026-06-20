@@ -120,6 +120,12 @@ export function defaultMaturityZonedInput(timeZone: string, offsetDays = 7): str
   return formatZonedDatetimeInput(unixSec, timeZone);
 }
 
+/** Default auction end: 24 hours from now in the given timezone. */
+export function defaultAuctionEndZonedInput(timeZone: string, offsetHours = 24): string {
+  const unixSec = Math.floor((Date.now() + offsetHours * 3600 * 1000) / 1000);
+  return formatZonedDatetimeInput(unixSec, timeZone);
+}
+
 export function formatUtcDatetimeInput(unixSec: number): string {
   return formatZonedDatetimeInput(unixSec, "UTC");
 }
