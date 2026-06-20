@@ -29,7 +29,7 @@ This document covers the full **local/test machine** deployment: frontend, off-c
 Browser (localhost:3000)
     │
     ├── Sui RPC (Testnet) ──────────────► On-chain contracts v3
-    ├── Gas Station (:8787) ────────────► Sponsor Prophet PTB
+    ├── LP Guard Keeper (:8788) ──────────► Seed pool dynamic fees
     ├── Walrus Relay (:8791) ─────────► PUT /v1/blobs → Walrus Publisher
     ├── Indexer API (:8800) ──────────► PostgreSQL (:5432)
     └── Pricing Engine (:8801) ───────► Trade preview quotes
@@ -55,7 +55,7 @@ Background Keeper / Monitor
 
 ### 2.1 Sui Wallet
 
-Off-chain services (Gas Station, LP Guard Keeper, etc.) require the **deployer address** private key, and that address must be the seed pool `authority`:
+Off-chain services (LP Guard Keeper, etc.) require the **deployer address** private key, and that address must be the seed pool `authority`:
 
 ```
 Deployer: 0x87e487cd6b1c7a53f91999eb3a5372ced201b614b26924ba4cc1d282a2240c07
@@ -71,7 +71,7 @@ sui client active-address   # should match deployer in deploy/testnet-v2.json
 .\scripts\check-gas-balances.ps1
 ```
 
-> **Note:** If you use a non-deployer wallet, Gas Station can still sponsor some transactions, but LP Guard Keeper **cannot** update pool parameters (authority mismatch).
+> **Note:** LP Guard Keeper address must match pool `authority`. Prophet Commit / Unlock / Audit use SUI gas from the user wallet.
 
 ### 2.2 Port Usage
 
@@ -90,7 +90,7 @@ sui client active-address   # should match deployer in deploy/testnet-v2.json
 | Profile | Components | Typical Use |
 |---------|----------|----------|
 | `frontend` | Frontend env + npm only | UI only, direct RPC |
-| `p0` | Gas Station + LP Guard | Prophet free Commit, LP defense |
+| `p0` | LP Guard | LP defense |
 | `p1` | P0 + Monitor + Oracle Relayer + Walrus Relay | **Recommended default** |
 | `p2` | P1 + Postgres + Indexer | Home discovery, leaderboard, IV curve |
 | `full` | P2 + Pricing Engine + Prophet Audit Keeper | Full test stack |
@@ -102,7 +102,7 @@ sui client active-address   # should match deployer in deploy/testnet-v2.json
 Run from repo root:
 
 ```powershell
-# Default: P1 profile (Gas Station + Keeper + Monitor + Relayer + Walrus Relay)
+# Default: P1 profile (Keeper + Monitor + Relayer + Walrus Relay)
 .\scripts\deploy-testnet.ps1
 
 # Frontend only
@@ -157,7 +157,7 @@ For troubleshooting, follow this order.
 ### 5.1 Generate Environment Variables
 
 ```powershell
-# Off-chain services + app/.env.local (includes Gas Station / Walrus Relay URL)
+# Off-chain services + app/.env.local (Walrus Relay URL, etc.)
 .\scripts\bootstrap-services-env.ps1
 
 # Optional: Keeper logs only, no on-chain tx
@@ -171,7 +171,7 @@ Generated `.env.local` files (**do not commit to git**):
 
 | Path | Description |
 |------|------|
-| `services/gas-station/.env.local` | Gas Payer key, Package ID |
+| `services/lp-guard-keeper/.env.local` | Keeper key, Package ID |
 | `services/lp-guard-keeper/.env.local` | Keeper key, pool ID list |
 | `services/chain-monitor/.env.local` | Monitoring + alert webhook |
 | `services/oracle-relayer/.env.local` | Oracle expiry scan |
@@ -184,7 +184,7 @@ Generated `.env.local` files (**do not commit to git**):
 
 ```powershell
 .\scripts\start-services-testnet.ps1           # P0 + P1
-.\scripts\start-services-testnet.ps1 -P0Only   # Gas Station + Keeper only
+.\scripts\start-services-testnet.ps1 -P0Only   # LP Guard Keeper only
 .\scripts\start-services-testnet.ps1 -IncludeP4  # includes Prophet Audit Keeper
 
 .\scripts\verify-services-health.ps1 -IncludeP1
@@ -258,11 +258,11 @@ Full IDs in [deploy/testnet-v2.json](../deploy/testnet-v2.json).
 
 ### P0 / P1
 
-- [ ] `GET http://localhost:8787/health` → `ok: true`
+- [ ] `GET http://localhost:8788/health` → `ok: true`
 - [ ] `GET http://localhost:8788/health` → `ok: true`
 - [ ] `GET http://localhost:8791/health` → `ok: true`
 - [ ] Gas Payer SUI balance sufficient (`check-gas-balances.ps1`)
-- [ ] `/prophet` page `unlock_price=0` free Commit works via Gas Station
+- [ ] `/prophet` Commit / Unlock / Audit works (wallet has enough Testnet SUI)
 - [ ] `.run/lp-guard-keeper.log` shows `lp_guard_tick` (when `LP_GUARD_DRY_RUN=false`)
 
 ### P2
@@ -299,7 +299,7 @@ Full IDs in [deploy/testnet-v2.json](../deploy/testnet-v2.json).
 **`bootstrap-services-env.ps1` key export fails**  
 → Confirm `sui client active-address` matches deployer and keystore is accessible.
 
-**Gas Station `/health` reports low balance**  
+**Keeper `/health` unhealthy**  
 → `.\scripts\fund-gas-payer-testnet.ps1`
 
 **Prophet blob upload fails**  

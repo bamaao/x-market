@@ -19,7 +19,6 @@ import {
   useSuiClient,
   useSuiClientQuery,
 } from "@mysten/dapp-kit";
-import { useSponsoredTransaction } from "@/hooks/useSponsoredTransaction";
 import { EVENT_ROOT_BY_POOL } from "@/lib/event-root";
 import Link from "next/link";
 import { Transaction } from "@mysten/sui/transactions";
@@ -48,6 +47,9 @@ import {
   fetchPublicProphecyContent,
   formatAccuracyPercent,
   formatProphecyPrediction,
+  isPredictionHidden,
+  buildAuditPlaintextBytes,
+  encodePaidProphecyPlain,
   formatScorePercent,
   formatUsdcBaseUnits,
   hashProphecyPlaintext,
@@ -121,14 +123,7 @@ export default function ProphetPage() {
   const t = useT();
   const account = useCurrentAccount();
   const client = useSuiClient();
-  const { mutate: signAndExecute, isPending: walletPending } =
-    useSignAndExecuteTransaction();
-  const {
-    executeSponsored,
-    isPending: sponsorPending,
-    enabled: gasStationEnabled,
-  } = useSponsoredTransaction();
-  const isPending = walletPending || sponsorPending;
+  const { mutate: signAndExecute, isPending } = useSignAndExecuteTransaction();
   const { mutateAsync: signPersonalMessage } = useSignPersonalMessage();
   const [selectedMarket, setSelectedMarket] = useState<ProphetPoolOption | null>(
     null,
@@ -418,15 +413,6 @@ export default function ProphetPage() {
     const msg = successMsg ?? t("prophet.txSubmitted");
     void Promise.resolve(build(tx))
       .then(async () => {
-        if (gasStationEnabled) {
-          try {
-            await executeSponsored(tx);
-            await afterTxSuccess(`${msg}${t("prophet.gasSponsoredSuffix")}`, onDone);
-          } catch (e) {
-            setMsg((e as Error).message ?? t("prophet.sponsorTxFailed"));
-          }
-          return;
-        }
         signAndExecute(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           { transaction: tx as any },
@@ -488,8 +474,9 @@ export default function ProphetPage() {
         predictedLow = pv;
         predictedHigh = pv;
       }
-      const hash = hashProphecyPlaintext(payload);
+      const hash = hashProphecyPlaintext(payload, poolId, price);
       const json = canonicalProphecyJson(payload);
+      const paidPlainBytes = encodePaidProphecyPlain(poolId, payload);
       let blobId: string;
       let sealId: Uint8Array;
       if (isPublicCommit) {
@@ -509,10 +496,7 @@ export default function ProphetPage() {
         storeProphecyPlaintext(`public:${poolId}-${Date.now()}`, json);
       } else {
         sealId = generateSealId();
-        const encrypted = await encryptProphecyPayload(
-          sealId,
-          new TextEncoder().encode(json),
-        );
+        const encrypted = await encryptProphecyPayload(sealId, paidPlainBytes);
         const uploaded = await uploadProphecyBlob(poolId, encrypted);
         if (!uploaded.ok) {
           throw new Error(
@@ -533,9 +517,9 @@ export default function ProphetPage() {
         blobId,
         sealId,
         plaintextHash: hash,
-        predictedValue: payload.predicted_value,
-        predictedLow,
-        predictedHigh,
+        predictedValue: isPublicCommit ? payload.predicted_value : 0,
+        predictedLow: isPublicCommit ? predictedLow : 0,
+        predictedHigh: isPublicCommit ? predictedHigh : 0,
         unlockPrice: price,
         lockTime: maturityTs,
       });
@@ -543,12 +527,8 @@ export default function ProphetPage() {
       const onCommitSuccess = async (digest?: string) => {
         setMsg(
           isPublicCommit
-            ? gasStationEnabled
-              ? t("prophet.committedPublicGas")
-              : t("prophet.committedPublic")
-            : gasStationEnabled
-              ? t("prophet.committedPrivateGas")
-              : t("prophet.committedPrivate"),
+            ? t("prophet.committedPublic")
+            : t("prophet.committedPrivate"),
         );
         const ids = await discoverPropheciesForPoolWithIndexer(
           client,
@@ -571,21 +551,16 @@ export default function ProphetPage() {
         refetchProphecy();
       };
 
-      if (gasStationEnabled) {
-        const result = await executeSponsored(tx);
-        await onCommitSuccess(result.digest);
-      } else {
-        signAndExecute(
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          { transaction: tx as any },
-          {
-            onSuccess: async (result) => {
-              await onCommitSuccess(result.digest);
-            },
-            onError: (e) => setMsg(formatCaughtError(e, t)),
+      signAndExecute(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        { transaction: tx as any },
+        {
+          onSuccess: async (result) => {
+            await onCommitSuccess(result.digest);
           },
-        );
-      }
+          onError: (e) => setMsg(formatCaughtError(e, t)),
+        },
+      );
     } catch (e) {
       setMsg((e as Error).message);
     } finally {
@@ -621,7 +596,12 @@ export default function ProphetPage() {
       setMsg(t("prophet.errPlaintextJson"));
       return;
     }
-    const hashCheck = verifyProphecyPlaintextHash(plaintext, prophecy);
+    const auditBytes = buildAuditPlaintextBytes(prophecy, plaintext);
+    if (!auditBytes) {
+      setMsg(t("prophet.errPlaintextJson"));
+      return;
+    }
+    const hashCheck = verifyProphecyPlaintextHash(auditBytes, prophecy);
     if (!hashCheck.ok) {
       setMsg(
         hashCheck.reasonKey
@@ -643,7 +623,7 @@ export default function ProphetPage() {
           registryId: PROPHET_REGISTRY_ID,
           prophecyId: prophecy.id,
           poolId,
-          plaintext,
+          plaintext: auditBytes,
         });
       },
       preview.outcome === "cheat"
@@ -764,11 +744,7 @@ export default function ProphetPage() {
             })}
           </p>
         )}
-        {gasStationEnabled ? (
-          <p className="hint">{t("prophet.gasEnabled")}</p>
-        ) : (
-          <p className="hint">{t("prophet.gasDisabled")}</p>
-        )}
+        <p className="hint">{t("prophet.gasDisabled")}</p>
       </div>
 
       {!poolId ? (
@@ -909,7 +885,13 @@ export default function ProphetPage() {
                 {isProphet ? t("common.you") : ""}
               </dd>
               <dt>{t("prophet.predictedValueLabel")}</dt>
-              <dd>{formatProphecyPrediction(prophecy, market?.kind)}</dd>
+              <dd>
+                {formatProphecyPrediction(
+                  prophecy,
+                  market?.kind,
+                  t("prophet.predictionHidden"),
+                )}
+              </dd>
               <dt>{t("prophet.unlockPriceLabel")}</dt>
               <dd>{formatUsdcBaseUnits(prophecy.unlockPrice)} USDC</dd>
               <dt>{t("prophet.lockUntil")}</dt>
@@ -1000,7 +982,13 @@ export default function ProphetPage() {
                 </dd>
                 <dt>{t("prophet.predictedValueLabel")}</dt>
                 <dd>
-                  <code>{formatProphecyPrediction(prophecy, market?.kind)}</code>
+                  <code>
+                    {formatProphecyPrediction(
+                      prophecy,
+                      market?.kind,
+                      t("prophet.predictionHidden"),
+                    )}
+                  </code>
                 </dd>
                 <dt>{t("prophet.escrowTotal")}</dt>
                 <dd>

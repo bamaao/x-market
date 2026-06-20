@@ -21,12 +21,22 @@
 
 ## 架构
 
+**公开（`unlock_price=0`）**
+
 ```
-JSON 明文 → Seal.encrypt(seal_id) → POST Indexer /v1/prophecies/blob → Commit(chain)
+canonical JSON 明文 → Indexer /v1/prophecies/blob → Commit（链上存 predicted_* + hash(JSON)）
+```
+
+**付费（`unlock_price>0`）**
+
+```
+ProphecyPayload → BCS（prophet_plain）→ Seal.encrypt(seal_id) → Indexer blob → Commit（链上 predicted_*=0，hash(BCS)）
                     ↓
          seal_approve_prophecy (OR: paid | lock_time | public)
                     ↓
-         Seal.decrypt ← GET idx:/ipfs: blob ← SessionKey 钱包签名
+         Seal.decrypt → BCS 解码 → 展示数字 + 分析
+                    ↓
+         audit_prophecy(BCS bytes) → reveal 链上 predicted_* + 战绩
 ```
 
 链上 `blob_id` 格式：
@@ -74,12 +84,22 @@ Seal Testnet 密钥服务器（配置于 `app/src/lib/seal-prophet.ts` → `SEAL
 
 ## 预言家 Commit
 
-1. 生成 `seal_id`（32 字节随机）
-2. `SealClient.encrypt({ packageId, id: hex(seal_id), data: canonical JSON })`
-3. `POST $INDEXER/v1/prophecies/blob?pool_id=...` 上传密文（或明文）
-4. 响应 `blob_id`（`idx:…` 或 `ipfs:…`）写入 `commit_private_prophecy`
+### 公开练手（`unlock_price = 0`）
 
-链上：`lock_time` = Pool `maturity_ts`；`plaintext_hash` = blake2b256(canonical JSON)。
+1. 构造 canonical JSON（`market_id`, `predicted_value`, `analysis_content`, 可选区间）
+2. `POST $INDEXER/v1/prophecies/blob?pool_id=...` 上传 **明文**
+3. `commit_private_prophecy(..., predicted_* = 真实值, plaintext_hash = blake2b256(JSON), seal_id = [])`
+
+### 加密付费（`unlock_price > 0`）
+
+1. 生成 `seal_id`（32 字节随机）
+2. `BCS encode` → `SealClient.encrypt({ packageId, id: hex(seal_id), data: bcsBytes })`
+3. `POST $INDEXER/v1/prophecies/blob?pool_id=...` 上传密文
+4. `commit_private_prophecy(..., predicted_* = 0, plaintext_hash = blake2b256(BCS), prediction_revealed = false)`
+
+链上：`lock_time` = Pool `maturity_ts`。
+
+本地仍保存 **JSON**（供 UI 审计表单）；提交 audit 时前端/Keeper 将 JSON 重新编码为 BCS 字节。
 
 ## 订阅者解锁 + 解密
 
@@ -92,10 +112,10 @@ Seal Testnet 密钥服务器（配置于 `app/src/lib/seal-prophet.ts` → `SEAL
 
 | 步骤 | 操作 | 说明 |
 | --- | --- | --- |
-| 1. Commit | 预言家填写预测 + 分析 | Seal 加密 → Indexer 上传 → `commit_private_prophecy`；本地保存明文供审计 |
+| 1. Commit | 预言家填写预测 + 分析 | 公开：JSON 明文；付费：BCS + Seal → `predicted_*=0`；本地存 JSON 供审计 |
 | 2. 解锁 | 订阅者支付 USDC | `unlock_prophecy`；成功后页面自动尝试 Seal 解密 |
-| 3. 解密 | Indexer/IPFS GET + Seal | 须满足 `paid_buyers` ∥ `lock_time` 后 ∥ `is_public` |
-| 4. 审计 | Oracle 结算后 | `audit_prophecy` 校验 blake2b256 明文 hash → 战绩 → `is_public` |
+| 3. 解密 | Indexer/IPFS GET + Seal | 付费解密 BCS；须满足 `paid_buyers` ∥ `lock_time` 后 ∥ `is_public` |
+| 4. 审计 | Oracle 结算后 | `audit_prophecy`：公开传 JSON 字节，付费传 **BCS 字节** → hash 校验 → reveal 数字 → 战绩 → `is_public` |
 
 关键前端模块：
 
@@ -116,13 +136,14 @@ Seal Testnet 密钥服务器（配置于 `app/src/lib/seal-prophet.ts` → `SEAL
 
 前置：Pool 已 `resolved` 且 `now >= lock_time`（与 Oracle 页结算对齐，见 [oracle-playbook.md](./oracle-playbook.md)）。
 
-`prophet-audit-keeper` 从 Indexer/IPFS 拉 blob → Seal 解密 → 提交 `audit_prophecy`。
+`prophet-audit-keeper` 从 Indexer/IPFS 拉 blob → Seal 解密 → 按 `unlock_price` 构造 audit 字节（JSON 或 BCS）→ 提交 `audit_prophecy`。
 
 ## 模块
 
 | 模块 | 说明 |
 | --- | --- |
-| `prophet_registry` | Commit / unlock / audit、`seal_approve_prophecy` |
+| `prophet_registry` | Commit / unlock / audit / reveal、`seal_approve_prophecy` |
+| `prophet_plain` | 付费 BCS 明文结构与 hash |
 | `prophet_leaderboard` | Prophet Score |
 | `services/indexer` | `POST/GET /v1/prophecies/blob` |
 | `app/src/lib/seal-prophet.ts` | Seal 加解密 |
@@ -130,5 +151,4 @@ Seal Testnet 密钥服务器（配置于 `app/src/lib/seal-prophet.ts` → `SEAL
 
 ## 待办
 
-- [x] Gas Station 赞助交易（`services/gas-station/`）
 - [x] Prophet Audit Keeper（`services/prophet-audit-keeper/`）

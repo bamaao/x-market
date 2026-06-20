@@ -59,14 +59,14 @@
 | Period cumulative cap | **50%** |
 | Multisig `SlashGovernance` | **Enabled** (created at mainnet init) |
 
-### ZK / Oracle / Prophet / Gas Station
+### ZK / Oracle / Prophet
 
 | Module | Mainnet confirmed value |
 |--------|-------------------------|
 | ZK challenge window | **3600 s**; finalize owner: **protocol ops on-call** |
 | Oracle min bond | **10 USDC**; dispute window **86400 s** |
 | Prophet protocol fee | **5%**; paid unlock gate **3 audited + Score ≥ 40** |
-| Gas Station rate limit / balance alert | **30/min**; **0.5 SUI** |
+| Gas Station | **Removed** — no sign-off needed |
 
 ---
 

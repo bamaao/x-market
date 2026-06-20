@@ -29,7 +29,7 @@ Ordered by **P0 blockers → P1 launch week → P2 30 days → P3 growth → P4 
 | 0.1 | Move external audit | [ ] | Protocol | Close all blockers; archive report |
 | 0.2 | Mainnet contract publish + permission migration | [ ] | Protocol | `AdminCap` / `GlobalConfig` → cold wallet or multisig; Circle USDC |
 | 0.3 | Testnet upgrade verification (`unlock_price=0`) | [x] | Protocol | v3 `0x2e368e…ae6e`; tx `8K2jBvsTUK9FQAmncX7KsbFhTu4RpZvqidL4vMMqWmob` |
-| 0.4 | Gas Station production deployment | [x] | Backend | Testnet staging: `scripts/bootstrap-services-env.ps1` + `start-services-testnet.ps1` |
+| 0.4 | ~~Gas Station~~ (removed) | [x] | — | Prophet uses wallet-paid SUI gas |
 | 0.5 | LP Guard Keeper production deployment | [x] | Backend | Same as above; `LP_GUARD_DRY_RUN=false`; see [services-testnet-runbook.md](./services-testnet-runbook.md) |
 | 0.6 | Governance parameter sign-off edition | [~] | Risk | Baseline locked: `governance-params-baseline.json` + `verify-governance-params.ps1`; **dual sign-off pending** |
 | 0.7 | Emergency drill (with audit trail) | [~] | Ops | A–D on-chain automation passed: [mainnet-drill-2026-06-06.md](./mainnet-drill-2026-06-06.md); E/F see [p0-drill-ef-checklist.md](./p0-drill-ef-checklist.md) |
@@ -64,7 +64,7 @@ See [services-testnet-runbook.md](./services-testnet-runbook.md). For mainnet, m
 | 1.4 | Mainnet Walrus Upload Relay | [x] | 2–4 days | `services/walrus-relay` proxies `PUT /v1/blobs` |
 | 1.5 | RPC high availability | [x] | 1 day | `SUI_RPC_URL_FALLBACK` + `NEXT_PUBLIC_SUI_RPC_URL*` |
 | 1.6 | Frontend mainnet config + 8-page regression | [x] | 1 day | [app/.env.mainnet.example](../app/.env.mainnet.example) + [p0-drill-ef-checklist.md](./p0-drill-ef-checklist.md) |
-| 1.7 | Treasury and key ops | [x] | 1–2 days | `check-gas-balances.ps1` · `fund-gas-payer-testnet.ps1` · Gas Station balance webhook |
+| 1.7 | Treasury and key ops | [x] | 1–2 days | Keeper / relayer wallet balance monitoring |
 
 ### P1 Automated Checks
 
@@ -152,7 +152,7 @@ See [p4-scale-runbook.md](./p4-scale-runbook.md).
 ```
 Week -8 ~ -4   P0.1 External audit
 Week -3        P0.2–0.3 Contract freeze, final Testnet upgrade
-Week -2        P0.4–0.5 Gas Station + LP Guard staging
+Week -2        P0.4–0.5 LP Guard staging
 Week -1        P0.6–0.7 Parameter sign-off + emergency drill; P1.1–1.6 in parallel
 Day 0          P0.2 Mainnet publish → seed markets → gradual rollout
 Day 1–7        P1.7 on-call; mainnet-readiness §8 observation

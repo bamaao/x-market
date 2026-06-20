@@ -21,14 +21,15 @@ import { Transaction } from "@mysten/sui/transactions";
 import { defaultPoolId } from "@/lib/markets";
 import type { SeedMarket } from "@/lib/markets";
 import { appendDepositLiquidity } from "@/lib/lp";
-import { parseUsdcAmount } from "@/lib/usdc";
+import { parseUsdcAmount, formatUsdcBaseUnits } from "@/lib/usdc";
+import type { PoolView } from "@/lib/position-display";
 import { useT } from "@/i18n/context";
 import { MintUsdcButton } from "./MintUsdcButton";
 import { UsdcBalance } from "./UsdcBalance";
 
-type Props = { market: SeedMarket };
+type Props = { market: SeedMarket; pool?: PoolView };
 
-export function LpDepositPanel({ market }: Props) {
+export function LpDepositPanel({ market, pool }: Props) {
   const account = useCurrentAccount();
   const client = useSuiClient();
   const t = useT();
@@ -71,6 +72,13 @@ export function LpDepositPanel({ market }: Props) {
     <div className="card panel">
       <h2>{t("lp.deposit")}</h2>
       <p className="hint">{t("lp.subtitle")}</p>
+      {pool ? (
+        <p className="hint">
+          {t("trade.vaultLabel", {
+            amount: formatUsdcBaseUnits(pool.collateralUsdc),
+          })}
+        </p>
+      ) : null}
       {account && (
         <>
           <UsdcBalance key={balanceKey} />

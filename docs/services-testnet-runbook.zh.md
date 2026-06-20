@@ -15,7 +15,9 @@
 
 # Testnet 链下服务部署 Runbook（P0.4 / P0.5）
 
-Gas Station 与 LP Guard Keeper 的 Testnet 预发/生产化流程。
+LP Guard Keeper 等 P0 链下服务的 Testnet 预发/生产化流程。
+
+> **Prophet 链上交易**（Commit / Unlock / Audit）由**用户钱包自付 SUI Gas**；不再部署 Gas Station。
 
 ---
 
@@ -44,22 +46,18 @@ Gas Station 与 LP Guard Keeper 的 Testnet 预发/生产化流程。
 
 | 服务 | 端口 | 健康检查 | 说明 |
 |------|------|----------|------|
-| Gas Station | 8787 | `GET /health` | `POST /v1/sponsor` 赞助 Prophet PTB |
 | LP Guard Keeper | 8788 | `GET /health` | 轮询种子池并 `set_lp_guard_params` |
-
-前端：`app/.env.local` 中 `NEXT_PUBLIC_GAS_STATION_URL=http://localhost:8787`
 
 ---
 
 ## 3. 生产化开关
 
-| 变量 | Gas Station | LP Guard |
-|------|-------------|----------|
-| 生产模式 | `GAS_STATION_PRODUCTION=true` | `LP_GUARD_PRODUCTION=true` |
-| 密钥 | `GAS_PAYER_PRIVATE_KEY` | `LP_GUARD_KEEPER_SECRET_KEY`（须 = 池 `authority`） |
-| 包 ID | `PACKAGE_ID`（v3） | `X_MARKET_PACKAGE_ID` |
-| CORS | `CORS_ORIGIN=http://localhost:3000` | — |
-| 发链上 tx | — | `LP_GUARD_DRY_RUN=false` |
+| 变量 | LP Guard |
+|------|----------|
+| 生产模式 | `LP_GUARD_PRODUCTION=true` |
+| 密钥 | `LP_GUARD_KEEPER_SECRET_KEY`（须 = 池 `authority`） |
+| 包 ID | `X_MARKET_PACKAGE_ID` |
+| 发链上 tx | `LP_GUARD_DRY_RUN=false` |
 
 ---
 
@@ -75,10 +73,10 @@ docker compose -f docker-compose.services.yml up -d --build
 
 ## 5. 运维检查清单
 
-- [ ] `/health` 返回 `ok: true`，Gas Payer 余额 > `GAS_MIN_BALANCE_MIST`
+- [ ] Keeper `/health` 返回 `ok: true`
 - [ ] Keeper `keeper` 地址与种子池 `authority` 一致
 - [ ] `LP_GUARD_DRY_RUN=false` 后 `.run/lp-guard-keeper.log` 出现 `lp_guard_tick`
-- [ ] `/prophet` 免费 Commit 可走 Gas Station 赞助
+- [ ] `/prophet` Commit / Unlock / Audit 可用（钱包有足够 Testnet SUI）
 - [ ] 密钥仅存在于 `.env.local`（已在 `.gitignore`）
 
 ---
@@ -86,7 +84,6 @@ docker compose -f docker-compose.services.yml up -d --build
 ## 6. 日志
 
 ```
-.run/gas-station.log
 .run/lp-guard-keeper.log
 ```
 

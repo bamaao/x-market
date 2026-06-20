@@ -30,7 +30,7 @@
 浏览器 (localhost:3000)
     │
     ├── Sui RPC (Testnet) ──────────────► 链上合约 v3
-    ├── Gas Station (:8787) ────────────► 赞助 Prophet PTB
+    ├── LP Guard Keeper (:8788) ────────► 种子池动态费率
     ├── Walrus Relay (:8791) ─────────► PUT /v1/blobs → Walrus Publisher
     ├── Indexer API (:8800) ──────────► PostgreSQL (:5432)
     └── Pricing Engine (:8801) ───────► 交易预览报价
@@ -104,7 +104,7 @@ sui client active-address   # 应等于 deploy/testnet-v2.json 中的 deployer
 sui client gas
 ```
 
-> 非 deployer 钱包：Gas Station 可部分工作，LP Guard Keeper **无法**更新池参数。
+> LP Guard Keeper 须与种子池 `authority` 一致；Prophet 由用户钱包自付 SUI Gas。
 
 ### 2.4 端口
 
@@ -112,7 +112,7 @@ sui client gas
 |------|------|
 | 3000 | Next.js 前端 |
 | 5432 | PostgreSQL |
-| 8787–8792 | 链下服务 |
+| 8788–8792 | 链下服务 |
 | 8800 | Indexer API |
 | 8801 | Pricing Engine |
 
@@ -120,7 +120,7 @@ sui client gas
 
 ```bash
 sudo ufw allow 3000/tcp   # 前端（开发）
-sudo ufw allow 8787:8792/tcp
+sudo ufw allow 8788:8792/tcp
 sudo ufw allow 8800:8801/tcp
 ```
 
@@ -131,7 +131,7 @@ sudo ufw allow 8800:8801/tcp
 | Profile | 包含组件 | 典型用途 |
 |---------|----------|----------|
 | `frontend` | 仅前端 env + npm | 只看 UI、直连 RPC |
-| `p0` | Gas Station + LP Guard | Prophet 免费 Commit、LP 防守 |
+| `p0` | LP Guard | LP 防守 |
 | `p1` | P0 + Monitor + Oracle Relayer + Walrus Relay | **推荐默认** |
 | `p2` | P1 + Postgres + Indexer | 首页发现、排行榜、IV 曲线 |
 | `full` | P2 + Pricing Engine + Prophet Audit Keeper | 完整测试栈 |
@@ -197,7 +197,7 @@ npm run dev
 
 | 路径 | 说明 |
 |------|------|
-| `services/gas-station/.env.local` | Gas Payer 私钥 |
+| `services/lp-guard-keeper/.env.local` | Keeper 私钥 |
 | `services/lp-guard-keeper/.env.local` | Keeper 私钥、池 ID |
 | `services/chain-monitor/.env.local` | 监控 |
 | `services/oracle-relayer/.env.local` | Oracle 扫描 |
@@ -247,16 +247,16 @@ docker compose -f docker-compose.services.yml up -d --build
 开发阶段用 `nohup` + `.run/*.pid` 即可。长期运行可写 systemd unit，示例：
 
 ```ini
-# /etc/systemd/system/x-market-gas-station.service
+# /etc/systemd/system/x-market-lp-guard.service
 [Unit]
-Description=X-Market Gas Station (Testnet)
+Description=X-Market LP Guard Keeper (Testnet)
 After=network.target
 
 [Service]
 Type=simple
 User=ubuntu
-WorkingDirectory=/opt/x-market-sui/services/gas-station
-EnvironmentFile=/opt/x-market-sui/services/gas-station/.env.local
+WorkingDirectory=/opt/x-market-sui/services/lp-guard-keeper
+EnvironmentFile=/opt/x-market-sui/services/lp-guard-keeper/.env.local
 ExecStart=/usr/bin/npm start
 Restart=on-failure
 RestartSec=10
@@ -267,7 +267,7 @@ WantedBy=multi-user.target
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable --now x-market-gas-station
+sudo systemctl enable --now x-market-lp-guard
 ```
 
 对其他服务（lp-guard-keeper、walrus-relay 等）复制并修改 `WorkingDirectory` / `EnvironmentFile`。
@@ -290,20 +290,19 @@ sudo systemctl enable --now x-market-gas-station
 
 ```bash
 # P1 健康
-curl -s http://localhost:8787/health | python3 -m json.tool
+curl -s http://localhost:8788/health | python3 -m json.tool
 curl -s http://localhost:8791/health | python3 -m json.tool
 
 # P2 Indexer
 curl -s http://localhost:8800/v1/markets | python3 -m json.tool
 
 # 日志
-tail -f .run/gas-station.log
 tail -f .run/lp-guard-keeper.log
 tail -f .run/indexer.log
 ```
 
-- [ ] Gas Payer SUI 余额充足
-- [ ] `/prophet` 免费 Commit 可走 Gas Station
+- [ ] 演示钱包 SUI 余额充足（Prophet 自付 Gas）
+- [ ] `/prophet` Commit / Unlock / Audit 可用
 - [ ] Prophet Commit 经 Indexer 上传 blob（`:8800`）
 - [ ] Indexer `/v1/markets` 有种子市场（P2+）
 
@@ -316,7 +315,7 @@ tail -f .run/indexer.log
 | `Permission denied` 运行脚本 | `chmod +x scripts/*.sh scripts/lib/*.sh` |
 | `docker: permission denied` | `sudo usermod -aG docker $USER` 后重新登录 |
 | 密钥导出失败 | 确认 `sui client active-address` = deployer |
-| 端口占用 | `./scripts/stop-testnet.sh` 或 `fuser -k 8787/tcp` |
+| 端口占用 | `./scripts/stop-testnet.sh` 或 `fuser -k 8788/tcp` |
 | Indexer 连不上 DB | `docker compose -f docker-compose.indexer.yml ps` |
 | npm 编译 native 模块失败 | `sudo apt install build-essential` |
 

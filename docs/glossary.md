@@ -60,7 +60,7 @@
 | **permille** | On-chain Beta scale: 0–1000 maps to [0, 1]. | `x_permille = 250` → 25% |
 | **Q32.32 fixed-point** | No floats on-chain; probabilities as `u128`, `1.0` = `2^32`. | [fixed_point.move](../sources/math/fixed_point.move) |
 | **USDC / mist** | Settlement and vault unit; Circle native USDC, 6 decimals. | `vault` `Balance<USDC>` |
-| **mist (SUI)** | Smallest SUI unit; Gas Station pays SUI gas, not USDC. | [gas-station-implementation.md](./gas-station-implementation.md) |
+| **mist (SUI)** | Smallest SUI unit; on-chain tx gas is paid in SUI (Prophet: user wallet). | — |
 
 ---
 
@@ -215,7 +215,6 @@
 | Service | Port (typical) | Role |
 | --- | --- | --- |
 | **Indexer** | 8800 | Postgres + REST: discovery, IV, leaderboard, GMV, prophet blobs |
-| **Gas Station** | 8787 | Sponsored SUI gas (dual-signature) |
 | **LP Guard Keeper** | 8788 | Auto LP Guard params |
 | **Oracle Relayer** | — | Auto finalize/nullify |
 | **Brevis ZK Prover** | — | proof_hash → Attestation |
@@ -237,8 +236,8 @@
 
 | Term | Definition |
 | --- | --- |
-| **PTB** | Programmable Transaction Block; Gas Station assembles and dual-signs. |
-| **Sponsored Transaction** | Gas paid by `gasOwner` (Gas Station wallet). |
+| **PTB** | Programmable Transaction Block; Prophet/trading txs are wallet-signed with SUI gas. |
+| **Sponsored Transaction** | Gas paid by a third-party `gasOwner` (**Gas Station removed; not used by default**). |
 | **GMV** | Gross merchandise volume aggregated by Indexer. |
 | **GeoBlock** | Frontend IP country block; does **not** block direct on-chain access or replace KYC. |
 | **Non-custodial** | User assets in own wallet and on-chain objects. |
@@ -280,7 +279,7 @@ See [mainnet-governance-params.md](./mainnet-governance-params.md).
 **D** DataFeed · Digital · Dirichlet · Disputer  
 **E** EventRoot · emergency_void  
 **F** fee_bps · fee_multiplier_bps · finalize_auction  
-**G** Gas Station · GeoBlock · GMV  
+**G** GeoBlock · GMV  
 **I** IV · Interval · Indexer  
 **L** LP · LP Guard · lock_time  
 **M** Macro Oracle · MarketPool · maturity_ts  

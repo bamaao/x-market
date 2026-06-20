@@ -14,7 +14,6 @@
  */
 
 const PROXY_ROUTE_PORTS: Record<string, number> = {
-  "/api/gas": 8787,
   "/api/indexer": 8800,
   "/api/pricing": 8801,
   "/api/walrus": 8791,

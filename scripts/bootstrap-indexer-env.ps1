@@ -54,5 +54,6 @@ if (Test-Path $appLocal) {
   Write-Host "Updated $appLocal"
 }
 
-Write-Host "Next: docker compose -f docker-compose.indexer.yml up -d postgres"
-Write-Host "       .\scripts\start-indexer.ps1"
+Write-Host "Next (native Postgres): .\scripts\init-postgres.ps1 -Mode native"
+Write-Host "                        .\scripts\start-indexer.ps1"
+Write-Host "     (Docker optional): docker compose -f docker-compose.indexer.yml up -d postgres"

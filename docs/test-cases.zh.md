@@ -553,7 +553,7 @@ Signer → execute_slash_request
 | TC-10.1.3 | `/positions` | 与 Drill A 持仓一致 | P0 |
 | TC-10.1.4 | `/lp` | 申购/赎回；paused 态展示 | P1 |
 | TC-10.1.5 | `/oracle` | Feed 只读 | P1 |
-| TC-10.1.6 | `/prophet` | Commit + Gas Station 赞助 | P1 |
+| TC-10.1.6 | `/prophet` | Commit（钱包自付 SUI Gas） | P1 |
 | TC-10.1.7 | `/leaderboard` | 无报错加载 | P2 |
 | TC-10.1.8 | `/margin` | 保证金与池配置一致 | P2 |
 
@@ -561,7 +561,7 @@ Signer → execute_slash_request
 
 | ID | 场景 | 预期 | 优先级 |
 | --- | --- | --- | --- |
-| TC-10.2.1 | verify-services-health | Gas Station :8787 + LP Guard :8788 HTTP 200 | P1 |
+| TC-10.2.1 | verify-services-health | LP Guard :8788 HTTP 200 | P1 |
 | TC-10.2.2 | Gas 不足告警 | /health 含余额告警字段 | P2 |
 | TC-10.2.3 | paused 池 Keeper 日志 | risk 评估出现 | P2 |
 

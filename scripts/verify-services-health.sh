@@ -49,7 +49,6 @@ done
 
 failed=()
 
-check_health gas-station "$GAS_STATION_URL" || failed+=(gas-station)
 check_health lp-guard-keeper "$KEEPER_URL" || failed+=(lp-guard-keeper)
 
 if [[ "$INCLUDE_P1" == "true" ]]; then

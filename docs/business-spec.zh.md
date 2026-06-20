@@ -54,7 +54,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  应用层：Web App · Flutter · Indexer API · Gas Station      │
+│  应用层：Web App · Flutter · Indexer API                    │
 ├─────────────────────────────────────────────────────────────┤
 │  L2 业务模块                                                 │
 │  ┌─────────────────────┐    ┌─────────────────────────┐   │
@@ -207,7 +207,7 @@
 | BE-63 | UMA DVM Relayer | 消费 BE-03 → 链下投票 → 回调 | oracle_arbitrator |
 | BE-64 | Brevis ZK Prover | 生成 proof → `submit_proof` | zk_coprocessor |
 | BE-65 | Indexer Workers | 快照 / IV / GMV / ROI 聚合 | REST API |
-| BE-66 | Gas Station | `POST /v1/sponsor` 赞助 Gas | 前端 PTB |
+| BE-66 | ~~Gas Station~~ | **已移除** — Prophet 由钱包自付 SUI Gas | — |
 | BE-67 | Indexer Prophet blob | `POST /v1/prophecies/blob` 上传 blob | Prophet Commit |
 
 ### 3.4 前端工作流事件（抽象）
@@ -446,7 +446,7 @@ $$\text{Prophet Score} = w_1 \cdot \text{Accuracy} + w_2 \cdot \log(N) + w_3 \cd
 
 ### 4.11 BP-10 前端与服务 E2E
 
-覆盖 Web 全路由、Gas Station 赞助、Indexer 只读 API、Keeper 健康检查。详见 [§6 交互规格](#6-交互规格) 与 [p0-drill-ef-checklist.zh.md](./p0-drill-ef-checklist.zh.md)。
+覆盖 Web 全路由、Indexer 只读 API、Keeper 健康检查。详见 [§6 交互规格](#6-交互规格) 与 [p0-drill-ef-checklist.zh.md](./p0-drill-ef-checklist.zh.md)。
 
 ---
 
@@ -846,20 +846,9 @@ sequenceDiagram
     Note over Chain: BE-31 audit 后 escrow 分账（付费层）
 ```
 
-#### 6.3.7 Gas 赞助买入（前端 E2E）
+#### 6.3.7 链上交易 Gas（已移除 Gas Station）
 
-```mermaid
-sequenceDiagram
-    participant User as 用户
-    participant UI as 前端
-    participant GS as Gas Station
-    participant Chain as Sui
-
-    User->>UI: 发起 buy PTB
-    UI->>GS: POST /v1/sponsor (tx bytes)
-    GS->>Chain: 赞助者签名 + 执行
-    Chain-->>User: Position 到账
-```
+Prophet 与 AMM 买入等链上操作均由**用户钱包自付 SUI Gas**。前端使用 `signAndExecute`；不再调用 `POST /v1/sponsor`。
 
 ---
 

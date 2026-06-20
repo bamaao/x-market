@@ -96,17 +96,15 @@ npm run dev                  # http://localhost:3000
 # 或请部署者：.\scripts\transfer-test-usdc.ps1 -Recipient 0x你的地址
 ```
 
-### 3.3 可选增强（Prophet Gas 赞助）
+### 3.3 Prophet 演示（钱包 Gas）
 
-若演示 `/prophet` 的 **Gas Station 免 Gas Commit**：
+演示 `/prophet` 时，确保演示钱包有足够 **Testnet SUI**（Commit / Unlock / Audit 自付 Gas）：
 
 ```powershell
 .\scripts\bootstrap-services-env.ps1
 .\scripts\start-services-testnet.ps1
-.\scripts\verify-services-health.ps1   # Gas Station :8787 应 200
+.\scripts\verify-services-health.ps1   # LP Guard :8788 应 200
 ```
-
-未启动时 Prophet 仍可用，用户自付 SUI Gas。
 
 ### 3.4 演示素材（建议提前准备）
 

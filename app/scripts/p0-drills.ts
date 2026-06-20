@@ -17,6 +17,7 @@ import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { loadKeeperKeypair } from "./lib/load-keeper-key.js";
 
 const appRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = join(appRoot, "..");
@@ -48,17 +49,12 @@ function loadEnv(path: string) {
   }
 }
 
-function loadKeypair() {
-  const envPath = join(repoRoot, "services/gas-station/.env.local");
-  const line = readFileSync(envPath, "utf8")
-    .split("\n")
-    .find((l) => l.startsWith("GAS_PAYER_PRIVATE_KEY="));
-  if (!line) throw new Error("GAS_PAYER_PRIVATE_KEY missing in gas-station/.env.local");
-  const raw = line.split("=").slice(1).join("=").trim();
-  return { raw, envPath };
-}
-
 async function main() {
+  const { SuiJsonRpcClient, getJsonRpcFullnodeUrl } = await import(
+    "@mysten/sui/jsonRpc"
+  );
+  const { Transaction } = await import("@mysten/sui/transactions");
+
   const steps: DrillStep[] = [];
   const push = (s: DrillStep) => {
     steps.push(s);
@@ -84,17 +80,7 @@ async function main() {
     };
   };
 
-  const { decodeSuiPrivateKey } = await import("@mysten/sui/cryptography");
-  const { Ed25519Keypair } = await import("@mysten/sui/keypairs/ed25519");
-  const { SuiJsonRpcClient, getJsonRpcFullnodeUrl } = await import(
-    "@mysten/sui/jsonRpc"
-  );
-  const { Transaction } = await import("@mysten/sui/transactions");
-  const { fromBase64 } = await import("@mysten/sui/utils");
-
-  const { raw } = loadKeypair();
-  const { secretKey } = decodeSuiPrivateKey(raw.trim());
-  const keypair = Ed25519Keypair.fromSecretKey(secretKey);
+  const keypair = await loadKeeperKeypair();
   const sender = keypair.getPublicKey().toSuiAddress();
   const client = new SuiJsonRpcClient({
     url: getJsonRpcFullnodeUrl("testnet"),

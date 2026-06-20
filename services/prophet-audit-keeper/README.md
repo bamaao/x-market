@@ -49,4 +49,4 @@ npm run dev
 # GET http://localhost:8792/health
 ```
 
-Gas Station allowlist includes `audit_prophecy`; the keeper may also pay SUI directly.
+Gas Station allowlist is removed; the keeper pays SUI directly from its wallet.

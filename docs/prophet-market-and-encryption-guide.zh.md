@@ -16,7 +16,7 @@
 # SuiProphet：创建市场与加密预测操作指南
 
 > **适用：** Testnet / 本地开发 · **关联：** [prophet-playbook.zh.md](./prophet-playbook.zh.md) · [oracle-playbook.zh.md](./oracle-playbook.zh.md) · [business-spec.zh.md](./business-spec.zh.md) §4.10  
-> **更新：** 2026-06-12（v4 包：公开预测 `unlock_price=0`、付费预测 Seal 加密）
+> **更新：** 2026-06-20（v5：付费预测 **赛前数字链上保密** — BCS 密文 + `prediction_revealed`，audit 后 reveal）
 
 ---
 
@@ -27,9 +27,11 @@
 | 层级 | 是否加密 | 说明 |
 | --- | --- | --- |
 | **市场（MarketPool）** | 否 | 标准 AMM + Oracle Feed，链上公开 |
-| **预言（PrivateProphecy）** | 可选 | 分析内容可 **Seal 加密**（付费）或 **Indexer 明文**（公开练手） |
+| **预言（PrivateProphecy）** | 可选 | 分析 +（付费时）预测数字可 **Seal 加密**；公开练手为 Indexer 明文 |
 
-**「加密」指的是 SuiProphet 的私密付费预测**：预言家把分析 JSON 经 Seal 加密后存 Indexer/IPFS，订阅者 USDC 解锁后才能解密；链上只锁定 `plaintext_hash` 与 `predicted_value`。
+**「加密」指的是 SuiProphet 的私密付费预测**：预言家把 **预测数字 + 分析** 编码为 BCS，经 Seal 加密后存 Indexer/IPFS；订阅者 USDC 解锁后才能解密。**链上赛前不存预测数字**（`predicted_* = 0`，`prediction_revealed = false`），只锁定 `plaintext_hash` 与 `seal_id`；Oracle 结算后 `audit_prophecy` 校验 hash 并 **reveal** 数字、更新战绩。
+
+公开练手（`unlock_price = 0`）仍用 **JSON 明文** blob，链上直接存 `predicted_value` / 区间，人人可读。
 
 完整路径分两步：**先建市场 → 再在该市场上发加密预测**。
 
@@ -100,10 +102,12 @@ sui client call --package $PKG --module pool --function create_poisson_pool_with
 
 ### 3.2 两种预测模式
 
-| 模式 | `unlock_price` | 存储 | 可读时机 |
-| --- | --- | --- | --- |
-| **公开练手** | `0` | Indexer **明文** JSON（`idx:` / `ipfs:`） | Commit 后立即可读（`is_public=true`） |
-| **加密付费** | `> 0` | **Seal 加密** → Indexer/IPFS 密文 | 付费解锁 / `lock_time` 后 / audit 后公开 |
+| 模式 | `unlock_price` | Blob 内容 | 链上 `predicted_*` | Hash 算法 | 可读时机 |
+| --- | --- | --- | --- | --- | --- |
+| **公开练手** | `0` | Indexer **JSON 明文**（`idx:` / `ipfs:`） | **明文**写入 | `blake2b256(JSON)` | Commit 后立即可读（`is_public=true`） |
+| **加密付费** | `> 0` | **Seal 加密 BCS**（含数字 + 分析） | **全为 0**，`prediction_revealed=false` | `blake2b256(BCS)` | 付费 unlock / `lock_time` 后解密；**audit 后**链上 reveal 数字 |
+
+> **为何付费必须保密数字？** 若链上明文存 `predicted_value`，任何人可在赛前免费读链，付费解锁失去意义。付费路径采用 **commit–reveal**：赛前只锁 hash，结算审计时提交 BCS 明文校验并写入链上数字。
 
 ### 3.3 加密付费的前置门槛
 
@@ -124,26 +128,28 @@ sui client call --package $PKG --module pool --function create_poisson_pool_with
 3. **解锁价 > 0**（如 `1` USDC）
 4. 点击 **「Seal 加密 → Indexer → Commit 私密预测」**
 
-后台流程：
+后台流程（付费）：
 
 ```
-canonical JSON
+ProphecyPayload → BCS 编码（prophet_plain::PaidProphecyPlain）
   → SealClient.encrypt(seal_id)
   → POST Indexer /v1/prophecies/blob（local 或 IPFS pin）
-  → commit_private_prophecy(registry, pool, blob_id, seal_id, plaintext_hash, …)
+  → commit_private_prophecy(..., predicted_* = 0, plaintext_hash = blake2b256(BCS), …)
 ```
 
-链上锁定：`predicted_value`、`plaintext_hash`（blake2b256）、`lock_time = pool.maturity_ts`。
+链上锁定：`plaintext_hash`、`seal_id`、`lock_time = pool.maturity_ts`；**不**写入预测数字（`prediction_revealed = false`）。
+
+审计时预言家 / `prophet-audit-keeper` 提交 **同一份 BCS 字节** → `audit_prophecy` 校验 hash → `reveal_paid_prediction` 写入 `predicted_*` 并设 `prediction_revealed = true`。
 
 ### 3.5 提交公开练手预测（UI）
 
-同上，但 **解锁价填 `0`** → Indexer 上传**明文**，链上 `is_public=true`、空 `seal_id`，无需 Seal 解密。
+同上，但 **解锁价填 `0`** → Indexer 上传 **JSON 明文**，链上写入真实 `predicted_value` / 区间，`is_public=true`、空 `seal_id`，无需 Seal 解密。
 
 ### 3.6 订阅者阅读加密预测
 
 1. `/prophet` 选择预测 → **解锁**（`unlock_prophecy`，付 USDC）
-2. **Seal 解密**（SessionKey + `seal_approve_prophecy` 链上 gate）
-3. Oracle 结算后 **audit** → 战绩更新、escrow 分账、`is_public=true`
+2. **Seal 解密** BCS → 前端还原为 JSON 展示（含预测数字 + 分析）
+3. Oracle 结算后 **audit** → hash 校验、链上 reveal 数字 → 战绩更新、escrow 分账、`is_public=true`
 
 Seal OR 策略（`seal_access_allowed`）：
 
@@ -162,12 +168,14 @@ Seal OR 策略（`seal_access_allowed`）：
 flowchart LR
     A["/markets/create<br/>建 Pool + Feed"] --> B["/prophet<br/>选市场"]
     B --> C{"unlock_price?"}
-    C -->|0| D["公开预测<br/>Indexer 明文"]
-    C -->|">0 且 paid_unlock_eligible"| E["Seal 加密预测<br/>Indexer/IPFS 密文"]
+    C -->|0| D["公开预测<br/>JSON 明文 + 链上数字"]
+    C -->|">0 且 paid_unlock_eligible"| E["BCS + Seal 加密<br/>链上 predicted_*=0"]
     E --> F["订阅者 unlock USDC"]
-    F --> G["Seal 解密"]
-    G --> H["Oracle 结算 → audit"]
+    F --> G["Seal 解密 BCS"]
+    G --> H["Oracle 结算"]
+    H --> I["audit：hash + reveal 数字 + 战绩"]
     D --> H
+    H --> J["audit：JSON hash + 战绩"]
 ```
 
 ---
@@ -182,7 +190,6 @@ flowchart LR
 | `NEXT_PUBLIC_INDEXER_URL` | **必需**（Prophet blob 上传/读取、市场列表、排行榜） |
 | `NEXT_PUBLIC_IPFS_GATEWAY_URL` | `INDEXER_PROPHET_STORAGE=ipfs` 时解析 `ipfs:` blob |
 | `NEXT_PUBLIC_SEAL_THRESHOLD` | Seal 门限（Testnet 默认 1） |
-| `NEXT_PUBLIC_GAS_STATION_URL` | 可选；练手 Commit 可 Gas 代付 |
 | Indexer + Postgres | Prophet blob、市场元数据、`/leaderboard` |
 | `INDEXER_PROPHET_STORAGE` | Indexer 侧：`local`（磁盘）或 `ipfs`（Pin） |
 | `NEXT_PUBLIC_IPFS_GATEWAY_URL` | `INDEXER_PROPHET_STORAGE=ipfs` 时解析 `ipfs:` blob |
@@ -204,7 +211,10 @@ flowchart LR
    种子市场已通过 `wrap-event-roots-testnet.ps1` 包装 EventRoot；自建市场可直接用 `poolId` Commit，EventRoot 为架构统一项，**非**加密预测前置条件。
 
 4. **重新 publish 包后**  
-   须更新 `NEXT_PUBLIC_PACKAGE_ID`；旧 Seal 密文无法被新包 `seal_approve` 解密，需用新包重新 Commit。
+   须更新 `NEXT_PUBLIC_PACKAGE_ID`；`PrivateProphecy` 新增 `prediction_revealed` 字段，**须重新 publish** 后新 Commit 才走保密逻辑；旧 Seal 密文无法被新包 `seal_approve` 解密，需用新包重新 Commit。
+
+5. **付费 vs 公开 hash 不可混用**  
+   公开：`blake2b256(canonical JSON)`；付费：`blake2b256(BCS bytes)`。审计时必须提交与 Commit 时相同格式的字节，否则判 **作弊** 并退款买家。
 
 ---
 
@@ -228,7 +238,9 @@ flowchart LR
 | 建池 PTB | `app/src/lib/create-market.ts` |
 | Prophet UI | `app/src/app/prophet/page.tsx` |
 | Seal / Indexer blob | `app/src/lib/seal-prophet.ts`, `app/src/lib/prophet-blob.ts`, `app/src/lib/prophet-blob-upload.ts` |
+| 付费 BCS 编解码 | `app/src/lib/prophet-plain.ts`（须与 `sources/prophet_plain.move` 一致） |
 | 预言工作流 | `app/src/lib/prophet.ts` |
 | 市场可选性 | `app/src/lib/prophet-market-eligibility.ts` |
-| 链上 Commit / Audit | `sources/prophet_registry.move` |
+| 链上 Commit / Audit / Reveal | `sources/prophet_registry.move`, `sources/prophet_plain.move` |
+| 审计 Keeper | `services/prophet-audit-keeper/`（付费 BCS audit 字节） |
 | 付费门槛 | `sources/prophet_leaderboard.move` |

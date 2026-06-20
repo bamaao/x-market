@@ -29,7 +29,7 @@
 浏览器 (localhost:3000)
     │
     ├── Sui RPC (Testnet) ──────────────► 链上合约 v3
-    ├── Gas Station (:8787) ────────────► 赞助 Prophet PTB
+    ├── LP Guard Keeper (:8788) ──────────► 种子池动态费率
     ├── Walrus Relay (:8791) ─────────► PUT /v1/blobs → Walrus Publisher
     ├── Indexer API (:8800) ──────────► PostgreSQL (:5432)
     └── Pricing Engine (:8801) ───────► 交易预览报价
@@ -55,7 +55,7 @@
 
 ### 2.1 Sui 钱包
 
-链下服务（Gas Station、LP Guard Keeper 等）需使用 **deployer 地址** 的私钥，且该地址须为种子池 `authority`：
+链下服务（LP Guard Keeper 等）需使用 **deployer 地址** 的私钥，且该地址须为种子池 `authority`：
 
 ```
 Deployer: 0x87e487cd6b1c7a53f91999eb3a5372ced201b614b26924ba4cc1d282a2240c07
@@ -71,7 +71,7 @@ sui client active-address   # 应等于 deploy/testnet-v2.json 中的 deployer
 .\scripts\check-gas-balances.ps1
 ```
 
-> **注意：** 若你使用非 deployer 钱包，Gas Station 仍可赞助部分交易，但 LP Guard Keeper **无法**更新池参数（authority 不匹配）。
+> **注意：** LP Guard Keeper 的 keeper 地址须与种子池 `authority` 一致；Prophet Commit / Unlock / Audit 由用户钱包自付 SUI Gas。
 
 ### 2.2 端口占用
 
@@ -79,7 +79,7 @@ sui client active-address   # 应等于 deploy/testnet-v2.json 中的 deployer
 |------|------|
 | 3000 | Next.js 前端 |
 | 5432 | PostgreSQL |
-| 8787–8792 | 链下服务 |
+| 8788–8792 | 链下服务 |
 | 8800 | Indexer API |
 | 8801 | Pricing Engine |
 
@@ -90,7 +90,7 @@ sui client active-address   # 应等于 deploy/testnet-v2.json 中的 deployer
 | Profile | 包含组件 | 典型用途 |
 |---------|----------|----------|
 | `frontend` | 仅前端 env + npm | 只看 UI、直连 RPC |
-| `p0` | Gas Station + LP Guard | Prophet 免费 Commit、LP 防守 |
+| `p0` | LP Guard | LP 防守 |
 | `p1` | P0 + Monitor + Oracle Relayer + Walrus Relay | **推荐默认** |
 | `p2` | P1 + Postgres + Indexer | 首页发现、排行榜、IV 曲线 |
 | `full` | P2 + Pricing Engine + Prophet Audit Keeper | 完整测试栈 |
@@ -102,7 +102,7 @@ sui client active-address   # 应等于 deploy/testnet-v2.json 中的 deployer
 在仓库根目录执行：
 
 ```powershell
-# 默认：P1 档位（Gas Station + Keeper + Monitor + Relayer + Walrus Relay）
+# 默认：P1 档位（Keeper + Monitor + Relayer + Walrus Relay）
 .\scripts\deploy-testnet.ps1
 
 # 仅前端
@@ -157,7 +157,7 @@ npm run dev
 ### 5.1 生成环境变量
 
 ```powershell
-# 链下服务 + app/.env.local（含 Gas Station / Walrus Relay URL）
+# 链下服务 + app/.env.local（含 Walrus Relay URL 等）
 .\scripts\bootstrap-services-env.ps1
 
 # 可选：Keeper 仅打日志、不发链上 tx
@@ -171,8 +171,7 @@ npm run dev
 
 | 路径 | 说明 |
 |------|------|
-| `services/gas-station/.env.local` | Gas Payer 私钥、Package ID |
-| `services/lp-guard-keeper/.env.local` | Keeper 私钥、池 ID 列表 |
+| `services/lp-guard-keeper/.env.local` | Keeper 私钥、Package ID、池 ID 列表 |
 | `services/chain-monitor/.env.local` | 监控 + 告警 webhook |
 | `services/oracle-relayer/.env.local` | Oracle 到期扫描 |
 | `services/walrus-relay/.env.local` | Walrus 上传代理 |
@@ -184,7 +183,7 @@ npm run dev
 
 ```powershell
 .\scripts\start-services-testnet.ps1           # P0 + P1
-.\scripts\start-services-testnet.ps1 -P0Only   # 仅 Gas Station + Keeper
+.\scripts\start-services-testnet.ps1 -P0Only   # 仅 LP Guard Keeper
 .\scripts\start-services-testnet.ps1 -IncludeP4  # 含 Prophet Audit Keeper
 
 .\scripts\verify-services-health.ps1 -IncludeP1
@@ -258,11 +257,11 @@ docker compose -f docker-compose.indexer.yml --profile full up -d --build
 
 ### P0 / P1
 
-- [ ] `GET http://localhost:8787/health` → `ok: true`
+- [ ] `GET http://localhost:8788/health` → `ok: true`
 - [ ] `GET http://localhost:8788/health` → `ok: true`
 - [ ] `GET http://localhost:8791/health` → `ok: true`
 - [ ] Gas Payer SUI 余额充足（`check-gas-balances.ps1`）
-- [ ] `/prophet` 页 `unlock_price=0` 免费 Commit 可走 Gas Station
+- [ ] `/prophet` 页 Commit / Unlock / Audit 可用（钱包有足够 Testnet SUI）
 - [ ] `.run/lp-guard-keeper.log` 出现 `lp_guard_tick`（`LP_GUARD_DRY_RUN=false` 时）
 
 ### P2
@@ -299,7 +298,7 @@ docker compose -f docker-compose.indexer.yml --profile full up -d --build
 **`bootstrap-services-env.ps1` 报密钥导出失败**  
 → 确认 `sui client active-address` 与 deployer 一致，且 keystore 可访问。
 
-**Gas Station `/health` 报余额不足**  
+**Keeper `/health` 异常**  
 → `.\scripts\fund-gas-payer-testnet.ps1`
 
 **Prophet blob 上传失败**  

@@ -13,7 +13,7 @@
 
 **English** | [简体中文](./phase4-services.zh.md)
 
-# Phase 4 Architecture: EventRoot · Gas Station · Leaderboard
+# Phase 4 Architecture: EventRoot · Leaderboard
 
 > Do stats/rankings require local services?
 
@@ -24,7 +24,6 @@
 | **Track record / Prophet Score** | `ProphetRegistry` → DF `ProphetStats` | **No (MVP)** | Frontend RPC + event scan |
 | **Leaderboard page** | Same | **No (MVP)** | `/leaderboard` reads chain directly |
 | **Subscriber ROI aggregation** | Scattered in `PrivateProphecy` + audit events | **Indexer recommended** | Non-critical path; Phase 4+ |
-| **Gas Station** | None (sponsor signature off-chain) | **Yes** | Requires Gas Payer server |
 | **LP Guard Keeper** | `MarketPool.fee_multiplier_bps`, etc. | **No** | Auto dynamic fees; see `services/lp-guard-keeper/` |
 | **EventRoot** | `event_root.move` shared object | **No** | Pure on-chain; one-time migration script off-chain |
 
@@ -69,14 +68,6 @@ Indexer **does not** participate in paid-unlock eligibility; threshold enforced 
 
 ---
 
-## Gas Station
-
-See [services/gas-station/README.md](../services/gas-station/README.md).
-
-**Local service required:** Holds Gas Payer private key; validates user PTB against whitelist and pays SUI gas.
-
----
-
 ## Prophet paid-unlock threshold (PRD §11.3.7)
 
 On-chain `commit_private_prophecy` when `unlock_price > 0` checks:
@@ -85,10 +76,4 @@ On-chain `commit_private_prophecy` when `unlock_price > 0` checks:
 - `total_audited >= 3`
 - `score_bps >= 4000` (40/100)
 
-New prophets must publish **`unlock_price = 0`** free prophecies first; after Oracle audits accumulate track record, paid unlock is allowed.
-
-### Testnet v3 (upgraded)
-
-**Package v3** (`0x2e368e…ae6e`) fixes free Commit when `unlock_price == 0`. Upgrade tx in `deploy/testnet-v2.json` → `upgradeTx` / `explorer.upgradeV3`.
-
-Gas Station whitelist only sponsors `commit_private_prophecy` with `unlock_price = 0`.
+New prophets must publish **`unlock_price = 0`** free prophecies first; after Oracle audits accumulate track record, paid unlock is allowed. Prophet on-chain txs (Commit / Unlock / Audit) use SUI gas from the user wallet.

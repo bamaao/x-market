@@ -96,17 +96,15 @@ Confirm `.env.local` matches [deploy/testnet-v2.json](../deploy/testnet-v2.json)
 # Or ask deployer: .\scripts\transfer-test-usdc.ps1 -Recipient 0x你的地址
 ```
 
-### 3.3 Optional enhancement (Prophet Gas sponsorship)
+### 3.3 Prophet demo (wallet gas)
 
-If demoing **Gas Station gas-free Commit** on `/prophet`:
+If demoing `/prophet`, ensure the demo wallet has enough **Testnet SUI** (Commit / Unlock / Audit are wallet-paid):
 
 ```powershell
 .\scripts\bootstrap-services-env.ps1
 .\scripts\start-services-testnet.ps1
-.\scripts\verify-services-health.ps1   # Gas Station :8787 should return 200
+.\scripts\verify-services-health.ps1   # LP Guard :8788 should return 200
 ```
-
-If services are not started, Prophet still works; users pay SUI Gas themselves.
 
 ### 3.4 Demo materials (recommended to prepare in advance)
 

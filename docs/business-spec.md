@@ -54,7 +54,7 @@ This document organizes the business specification of the X-Market on Sui produc
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  Application layer: Web App · Flutter · Indexer API · Gas Station      │
+│  Application layer: Web App · Flutter · Indexer API                    │
 ├─────────────────────────────────────────────────────────────┤
 │  L2 business modules                                                 │
 │  ┌─────────────────────┐    ┌─────────────────────────┐   │
@@ -207,7 +207,7 @@ Business events fall into four categories: **explicit on-chain events**, **impli
 | BE-63 | UMA DVM Relayer | Consume BE-03 → off-chain vote → callback | oracle_arbitrator |
 | BE-64 | Brevis ZK Prover | Generate proof → `submit_proof` | zk_coprocessor |
 | BE-65 | Indexer Workers | Snapshot / IV / GMV / ROI aggregation | REST API |
-| BE-66 | Gas Station | `POST /v1/sponsor` gas sponsorship | frontend PTB |
+| BE-66 | ~~Gas Station~~ | **Removed** — Prophet uses wallet-paid SUI gas | — |
 | BE-67 | Indexer Prophet blob | `POST /v1/prophecies/blob` blob upload | Prophet Commit |
 
 ### 3.4 Frontend Workflow Events (abstract)
@@ -446,7 +446,7 @@ Weights (on-chain bps): `w1=6000` · `w2=2000` · `w3=2000`
 
 ### 4.11 BP-10 Frontend and Service E2E
 
-Covers Web full routes, Gas Station sponsorship, Indexer read-only API, Keeper health checks. See [§6 Interaction Specifications](#6-interaction-specifications) and [p0-drill-ef-checklist.md](./p0-drill-ef-checklist.md).
+Covers Web full routes, Indexer read-only API, Keeper health checks. See [§6 Interaction Specifications](#6-interaction-specifications) and [p0-drill-ef-checklist.md](./p0-drill-ef-checklist.md).
 
 ---
 
@@ -846,20 +846,9 @@ sequenceDiagram
     Note over Chain: BE-31 escrow split after audit (paid layer)
 ```
 
-#### 6.3.7 Gas-Sponsored Buy (frontend E2E)
+#### 6.3.7 On-chain gas (Gas Station removed)
 
-```mermaid
-sequenceDiagram
-    participant User as User
-    participant UI as Frontend
-    participant GS as Gas Station
-    participant Chain as Sui
-
-    User->>UI: initiate buy PTB
-    UI->>GS: POST /v1/sponsor (tx bytes)
-    GS->>Chain: sponsor signs + executes
-    Chain-->>User: Position received
-```
+Prophet and AMM buy flows use **wallet-paid SUI gas** via `signAndExecute`. No `POST /v1/sponsor`.
 
 ---
 

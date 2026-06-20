@@ -23,7 +23,7 @@ export async function submitAuditProphecy(
   args: {
     prophecyId: string;
     poolId: string;
-    plaintext: string;
+    plaintext: Uint8Array;
   },
 ): Promise<string> {
   const tx = new Transaction();
@@ -33,7 +33,7 @@ export async function submitAuditProphecy(
       tx.object(config.registryId),
       tx.object(args.prophecyId),
       tx.object(args.poolId),
-      tx.pure.vector("u8", Array.from(new TextEncoder().encode(args.plaintext))),
+      tx.pure.vector("u8", Array.from(args.plaintext)),
       tx.object(SUI_CLOCK_ID),
     ],
   });

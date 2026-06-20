@@ -94,6 +94,17 @@ export const en = {
     notFound: "Market not found",
     notFoundSub: "No market with ID {id}.",
     loading: "Loading market…",
+    poolStatusLoading: "Reading on-chain pool status…",
+    lifecycleHint: {
+      tradingUseTrade:
+        "Pool is in Trading (not Opening Auction) — use Trade / LP Deposit, not auction_bid. Trading only enables buy_*; if Vault is 0, LP deposit is still required for max-loss checks.",
+      auctionUseAuction:
+        "This pool is in Opening Auction — use the Auction panel to bid USDC into buckets.",
+      settled: "Market is settled — trading, LP deposit, and auction are no longer available.",
+      noPool: "No Pool ID configured — on-chain actions are unavailable.",
+      emptyVault:
+        "Pool vault is zero — seed pools need LP deposit before trading. Use the LP Deposit panel below.",
+    },
     coverAlt: "{title} cover",
     seed: {
       "poisson-goals": {
@@ -188,6 +199,9 @@ export const en = {
     buildFailed: "Failed to build transaction",
     success: "Success: {digest}…",
     failed: "Failed: {message}",
+    emptyVault:
+      "Pool vault is empty — buys fail on-chain max-loss check (abort 7). LP-deposit USDC below first, then trade.",
+    vaultLabel: "Vault collateral: {amount} USDC",
     preset: "Preset: {json}",
   },
   auction: {
@@ -599,8 +613,7 @@ export const en = {
     marketSection: "Market",
     lockTimeHint: "lock_time = Pool maturity · unlock closes {minutes} min before maturity for paid_buyers and new predictions",
     stillView: "{reason} — you can still view existing predictions but cannot Commit.",
-    gasEnabled: "Gas Station enabled — Commit / unlock / audit gas sponsored; wallet only moves USDC",
-    gasDisabled: "NEXT_PUBLIC_GAS_STATION_URL not set — you pay SUI gas.",
+    gasDisabled: "Prophet on-chain txs are paid with SUI from your wallet.",
     noMarketSelected: "No market under current filters — pick one from the list.",
     commitPublicTitle: "Indexer → Commit (public prediction)",
     commitPrivateTitle: "Seal → Indexer → Commit (private paid)",
@@ -619,6 +632,7 @@ export const en = {
     status: "Status",
     prophet: "Prophet",
     predictedValueLabel: "Predicted value",
+    predictionHidden: "Hidden (paid — not on-chain until audit)",
     unlockPriceLabel: "Unlock price",
     lockUntil: "Locked until",
     unlockCount: "Unlock count",
@@ -689,7 +703,8 @@ export const en = {
     committedPublicGas: "Committed public prediction (gas sponsored): plaintext on Indexer/IPFS, is_public=true",
     committedPublic: "Committed public prediction: plaintext on Indexer/IPFS, is_public=true",
     committedPrivateGas: "Committed (gas sponsored): ciphertext on Indexer/IPFS, hash + seal_id on-chain",
-    committedPrivate: "Committed: ciphertext on Indexer/IPFS, hash + seal_id on-chain",
+    committedPrivate:
+      "Committed: ciphertext on Indexer/IPFS, hash + seal_id on-chain; prediction hidden until audit reveal",
     commitFailed: "Commit failed",
     unlockSuccess: "Unlock success — auto Seal decrypt…",
     auditCheat: "Audit: cheat — escrow refunded to buyers",
@@ -962,9 +977,10 @@ export const en = {
     maxDecimals: "At most {decimals} decimal places",
     amountMustBePositive: "Amount must be greater than 0",
     noUsdcInWallet: "No USDC in wallet — transfer or claim testnet USDC first",
+    invalidUsdcCoinType:
+      "Invalid NEXT_PUBLIC_USDC_COIN_TYPE ({value}). Use the full type, e.g. 0xa1ec…::usdc::USDC",
     insufficientUsdc: "Insufficient USDC: need {need}, have {have}",
     sealKeyServerNotConfigured: "Seal key server not configured for {network}",
-    gasStationNotConfigured: "Gas Station not configured (NEXT_PUBLIC_GAS_STATION_URL)",
     sponsoredTxFailed: "Sponsored transaction failed",
   },
 } as const;

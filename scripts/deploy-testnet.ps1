@@ -70,12 +70,23 @@ function Bootstrap-AppEnv {
   $deploy = Get-Content $DeployJson -Raw | ConvertFrom-Json
   $text = Get-Content $appLocal -Raw
   $text = $text -replace "NEXT_PUBLIC_PACKAGE_ID=.*", "NEXT_PUBLIC_PACKAGE_ID=$($deploy.packageId)"
-  if ($Profile -ne "frontend") {
-    if ($text -notmatch "NEXT_PUBLIC_GAS_STATION_URL") {
-      $text += "`nNEXT_PUBLIC_GAS_STATION_URL=http://localhost:8787`n"
+  if ($deploy.usdc.coinType) {
+    if ($text -match "NEXT_PUBLIC_USDC_COIN_TYPE=") {
+      $text = $text -replace "NEXT_PUBLIC_USDC_COIN_TYPE=.*", "NEXT_PUBLIC_USDC_COIN_TYPE=$($deploy.usdc.coinType)"
     } else {
-      $text = $text -replace "NEXT_PUBLIC_GAS_STATION_URL=.*", "NEXT_PUBLIC_GAS_STATION_URL=http://localhost:8787"
+      $text += "`nNEXT_PUBLIC_USDC_COIN_TYPE=$($deploy.usdc.coinType)`n"
     }
+  }
+  if ($deploy.seedMarkets.poisson_goals.poolId) {
+    $text = $text -replace "NEXT_PUBLIC_POOL_POISSON=.*", "NEXT_PUBLIC_POOL_POISSON=$($deploy.seedMarkets.poisson_goals.poolId)"
+  }
+  if ($deploy.seedMarkets.dirichlet_wdl.poolId) {
+    $text = $text -replace "NEXT_PUBLIC_POOL_DIRICHLET=.*", "NEXT_PUBLIC_POOL_DIRICHLET=$($deploy.seedMarkets.dirichlet_wdl.poolId)"
+  }
+  if ($deploy.seedMarkets.normal_cpi.poolId) {
+    $text = $text -replace "NEXT_PUBLIC_POOL_NORMAL=.*", "NEXT_PUBLIC_POOL_NORMAL=$($deploy.seedMarkets.normal_cpi.poolId)"
+  }
+  if ($Profile -ne "frontend") {
     if ($text -notmatch "NEXT_PUBLIC_WALRUS_PUBLISHER_URL") {
       $text += "NEXT_PUBLIC_WALRUS_PUBLISHER_URL=http://localhost:8791`n"
     } else {
@@ -181,7 +192,6 @@ Write-Host "=== Deploy complete (profile=$Profile) ===" -ForegroundColor Green
 Write-Host ""
 Write-Host "Endpoints:"
 if ($Profile -ne "frontend") {
-  Write-Host "  Gas Station      http://localhost:8787/health"
   Write-Host "  LP Guard Keeper  http://localhost:8788/health"
 }
 if ($Profile -in @("p1", "p2", "full")) {

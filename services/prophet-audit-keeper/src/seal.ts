@@ -93,7 +93,7 @@ export async function decryptProphecyPlaintext(
     sealIdHex: string;
     encrypted: Uint8Array;
   },
-): Promise<string> {
+): Promise<Uint8Array> {
   const sealClient = getSealClient();
   const suiClient = getSealSuiClient();
   const address = keypair.getPublicKey().toSuiAddress();
@@ -120,5 +120,5 @@ export async function decryptProphecyPlaintext(
     sessionKey,
     txBytes,
   });
-  return new TextDecoder().decode(plain);
+  return plain;
 }

@@ -16,6 +16,7 @@ import type { XMarketRpc } from "./rpc";
 import { PACKAGE_ID, SEED_MARKETS, type MarketKind } from "./markets";
 import { prepareUsdcPayment, type CoinsClient } from "./usdc";
 import { SUI_CLOCK_ID } from "./trade";
+import { hashPaidProphecyPlain, encodePaidProphecyPlain, decodePaidProphecyPlain } from "./prophet-plain";
 
 import {
   createProphetSessionKey,
@@ -89,6 +90,8 @@ export interface ProphecyView {
   paidBuyers: string[];
   status: number;
   isPublic: boolean;
+  /** Paid prophecies: false until audit reveals BCS plaintext. */
+  predictionRevealed: boolean;
   unlockCount: number;
 }
 
@@ -159,10 +162,22 @@ export function formatNormalTenths(v: number): string {
   return `${(v / 10).toFixed(1)}%`;
 }
 
+export function isPredictionHidden(prophecy: ProphecyView): boolean {
+  return (
+    prophecy.unlockPrice > 0n &&
+    !prophecy.predictionRevealed &&
+    prophecy.status === PROPHECY_STATUS_OPEN
+  );
+}
+
 export function formatProphecyPrediction(
   prophecy: ProphecyView,
   poolKind?: MarketKind,
+  hiddenLabel?: string,
 ): string {
+  if (isPredictionHidden(prophecy)) {
+    return hiddenLabel ?? "—";
+  }
   if (poolKind === "normal" && isNormalIntervalProphecy(prophecy)) {
     return `[${formatNormalTenths(prophecy.predictedLow)}, ${formatNormalTenths(prophecy.predictedHigh)}]`;
   }
@@ -240,8 +255,15 @@ export function parseProphecyPayloadJson(
   }
 }
 
-/** Must match on-chain `hash::blake2b256`. */
-export function hashProphecyPlaintext(payload: ProphecyPayload): Uint8Array {
+/** Must match on-chain `hash::blake2b256`. Public = JSON; paid = BCS (`prophet_plain`). */
+export function hashProphecyPlaintext(
+  payload: ProphecyPayload,
+  poolId: string,
+  unlockPrice: bigint,
+): Uint8Array {
+  if (unlockPrice > 0n) {
+    return hashPaidProphecyPlain(poolId, payload);
+  }
   const bytes = new TextEncoder().encode(canonicalProphecyJson(payload));
   return blake2b(bytes, { dkLen: 32 });
 }
@@ -389,15 +411,39 @@ export function buildSettlementPreview(
   return { escrowTotal, protocolFee, prophetPayout, protocolFeeBps };
 }
 
+export function parseProphecyPlaintextBytes(
+  bytes: Uint8Array,
+  unlockPrice: bigint,
+): ProphecyPayload | null {
+  if (unlockPrice > 0n) {
+    try {
+      return decodePaidProphecyPlain(bytes);
+    } catch {
+      return null;
+    }
+  }
+  try {
+    return parseProphecyPayloadJson(new TextDecoder().decode(bytes));
+  } catch {
+    return null;
+  }
+}
+
 export function verifyProphecyPlaintextHash(
-  plaintextJson: string,
+  plaintext: string | Uint8Array,
   prophecy: ProphecyView,
 ): { ok: boolean; reasonKey?: string } {
-  const payload = parseProphecyPayloadJson(plaintextJson);
+  const bytes =
+    typeof plaintext === "string"
+      ? new TextEncoder().encode(plaintext)
+      : plaintext;
+  const payload = parseProphecyPlaintextBytes(bytes, prophecy.unlockPrice);
   if (!payload) {
     return { ok: false, reasonKey: "prophet.hashMissingFields" };
   }
-  const computed = bytesToHex(hashProphecyPlaintext(payload));
+  const computed = bytesToHex(
+    hashProphecyPlaintext(payload, prophecy.marketId, prophecy.unlockPrice),
+  );
   if (computed !== prophecy.plaintextHashHex) {
     return { ok: false, reasonKey: "prophet.hashMismatch" };
   }
@@ -407,7 +453,7 @@ export function verifyProphecyPlaintextHash(
 export function previewAuditOutcome(
   prophecy: ProphecyView,
   resolvedValue: number | null,
-  plaintextJson: string,
+  storedJson: string,
   poolKind?: MarketKind,
 ): {
   outcome: AuditPreviewOutcome;
@@ -415,15 +461,29 @@ export function previewAuditOutcome(
   reasonKey?: string;
   precisionBps?: number;
 } {
-  const hashCheck = verifyProphecyPlaintextHash(plaintextJson, prophecy);
+  const auditBytes = buildAuditPlaintextBytes(prophecy, storedJson);
+  if (!auditBytes) {
+    return { outcome: "cheat", hashOk: false, reasonKey: "prophet.hashMissingFields" };
+  }
+  const hashCheck = verifyProphecyPlaintextHash(auditBytes, prophecy);
   if (!hashCheck.ok) {
     return { outcome: "cheat", hashOk: false, reasonKey: hashCheck.reasonKey };
   }
   if (resolvedValue === null) {
     return { outcome: "loss", hashOk: true, reasonKey: "prophet.noResolvedValue" };
   }
-  const won = prophecyResolvedWon(resolvedValue, prophecy, poolKind);
-  const width = won ? prophecyIntervalWidth(prophecy) : 0;
+  const payload = parseProphecyPlaintextBytes(auditBytes, prophecy.unlockPrice);
+  const viewForOutcome: ProphecyView =
+    payload && isPredictionHidden(prophecy)
+      ? {
+          ...prophecy,
+          predictedValue: payload.predicted_value,
+          predictedLow: payload.predicted_low ?? payload.predicted_value,
+          predictedHigh: payload.predicted_high ?? payload.predicted_value,
+        }
+      : prophecy;
+  const won = prophecyResolvedWon(resolvedValue, viewForOutcome, poolKind);
+  const width = won ? prophecyIntervalWidth(viewForOutcome) : 0;
   return {
     outcome: won ? "win" : "loss",
     hashOk: true,
@@ -547,6 +607,12 @@ export function parseProphecyFields(
     paidBuyers: parseAddressList(fields.paid_buyers),
     status: Number(fields.status ?? 0),
     isPublic: Boolean(fields.is_public),
+    predictionRevealed:
+      fields.prediction_revealed !== undefined
+        ? Boolean(fields.prediction_revealed)
+        : BigInt(String(fields.unlock_price ?? "0")) === 0n ||
+          Number(fields.status ?? 0) !== PROPHECY_STATUS_OPEN ||
+          Number(fields.predicted_value ?? 0) !== 0,
     unlockCount: Number(fields.unlock_count ?? 0),
   };
 }
@@ -902,13 +968,25 @@ export async function appendUnlockProphecy(
   });
 }
 
+export function buildAuditPlaintextBytes(
+  prophecy: ProphecyView,
+  storedJson: string,
+): Uint8Array | null {
+  const payload = parseProphecyPayloadJson(storedJson);
+  if (!payload) return null;
+  if (prophecy.unlockPrice > 0n) {
+    return encodePaidProphecyPlain(prophecy.marketId, payload);
+  }
+  return new TextEncoder().encode(canonicalProphecyJson(payload));
+}
+
 export function appendAuditProphecy(
   tx: Transaction,
   args: {
     registryId: string;
     prophecyId: string;
     poolId: string;
-    plaintext: string;
+    plaintext: Uint8Array;
   },
 ) {
   tx.moveCall({
@@ -917,7 +995,7 @@ export function appendAuditProphecy(
       tx.object(args.registryId),
       tx.object(args.prophecyId),
       tx.object(args.poolId),
-      tx.pure.vector("u8", Array.from(new TextEncoder().encode(args.plaintext))),
+      tx.pure.vector("u8", Array.from(args.plaintext)),
       tx.object(SUI_CLOCK_ID),
     ],
   });
@@ -995,8 +1073,16 @@ export async function decryptProphecyContent(
     sessionKey,
     accountAddress,
   );
-  const json = new TextDecoder().decode(plain);
-  return parseProphecyPlaintextJson(json);
+  const payload = parseProphecyPlaintextBytes(plain, prophecy.unlockPrice);
+  if (!payload) {
+    throw new LocalizedError("prophet.hashMissingFields");
+  }
+  const json = canonicalProphecyJson(payload);
+  return {
+    json,
+    analysis: payload.analysis_content,
+    payload,
+  };
 }
 
 export function loadStoredProphecyPlaintext(sealIdHex: string): string | null {

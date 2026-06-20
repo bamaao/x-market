@@ -61,7 +61,7 @@ GEO_BLOCKED_COUNTRIES=US,CN
 cd mobile/x_market_flutter && flutter run
 ```
 
-`SuiConfig` 含 `network`、`rpcUrl`、`packageId`、种子池、Indexer/Gas Station URL。Phantom deeplink 使用 `SuiConfig.network`。
+`SuiConfig` 含 `network`、`rpcUrl`、`packageId`、种子池、Indexer URL。Phantom deeplink 使用 `SuiConfig.network`。
 
 ## 验证
 

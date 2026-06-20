@@ -37,16 +37,14 @@ Production-grade **mobile client** for the Sui Testnet prediction market, aligne
 - Margin: `open_account` / `register_position` / `unregister_position`
 - Faucet: `mint_to_sender`
 
-### Pricing Engine + Gas Station (P2)
+### Pricing Engine (P2)
 
 | Service | Config | Capabilities |
 | --- | --- | --- |
 | Pricing Engine | `SuiConfig.pricingEngineUrl` (default `:8801`) | Win rate / payout / ROI preview before buy on Trade tab |
-| Gas Station | `SuiConfig.gasStationUrl` (default `:8787`) | Allowlisted PTB dual-sign gas sponsorship (Phantom signOnly + on-chain broadcast) |
 
 ```powershell
 cd pricing-engine && npm start   # :8801
-cd services/gas-station && npm start  # :8787
 .\scripts\bootstrap-mobile-env.ps1
 ```
 

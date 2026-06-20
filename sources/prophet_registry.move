@@ -23,6 +23,7 @@ use x_market::errors;
 use x_market::macro_oracle;
 use x_market::market_pool::{Self, MarketPool};
 use x_market::prophet_leaderboard::{Self, ProphetStats};
+use x_market::prophet_plain;
 use usdc::usdc::USDC;
 
 const PROPHECY_OPEN: u8 = 0;
@@ -67,6 +68,8 @@ public struct PrivateProphecy has key {
     escrow: Balance<USDC>,
     status: u8,
     is_public: bool,
+    /// Paid prophecies: false until audit reveals BCS plaintext; public commits are true at birth.
+    prediction_revealed: bool,
     unlock_count: u64,
 }
 
@@ -227,7 +230,15 @@ public entry fun commit_private_prophecy(
     if (lock_time != maturity) {
         abort errors::out_of_bounds()
     };
-    assert_valid_prediction_interval(pool, predicted_value, predicted_low, predicted_high);
+    let prediction_revealed = if (unlock_price > 0) {
+        if (predicted_value != 0 || predicted_low != 0 || predicted_high != 0) {
+            abort errors::out_of_bounds()
+        };
+        false
+    } else {
+        assert_valid_prediction_interval(pool, predicted_value, predicted_low, predicted_high);
+        true
+    };
     let market_id = market_pool::pool_id(pool);
     let prophecy = PrivateProphecy {
         id: object::new(ctx),
@@ -245,6 +256,7 @@ public entry fun commit_private_prophecy(
         escrow: balance::zero(),
         status: PROPHECY_OPEN,
         is_public,
+        prediction_revealed,
         unlock_count: 0,
     };
     let prophecy_id = object::id(&prophecy);
@@ -330,6 +342,7 @@ public entry fun audit_prophecy(
         refund_escrow_to_buyers(prophecy, ctx);
         return
     };
+    reveal_paid_prediction(prophecy, pool, &plaintext);
     let resolved = market_pool::resolved_value(pool);
     let won = prophecy_resolved_won(pool, prophecy, resolved);
     let interval_width = prophecy_interval_width(prophecy, won);
@@ -348,6 +361,28 @@ public entry fun audit_prophecy(
         interval_width,
         ctx,
     );
+}
+
+fun reveal_paid_prediction(
+    prophecy: &mut PrivateProphecy,
+    pool: &MarketPool,
+    plaintext: &vector<u8>,
+) {
+    if (prophecy.prediction_revealed || prophecy.unlock_price == 0) {
+        return
+    };
+    let plain = prophet_plain::decode(plaintext);
+    if (prophet_plain::pool_id(&plain) != prophecy.market_id) {
+        abort errors::lp_market_mismatch()
+    };
+    let pv = prophet_plain::predicted_value(&plain);
+    let lo = prophet_plain::predicted_low(&plain);
+    let hi = prophet_plain::predicted_high(&plain);
+    assert_valid_prediction_interval(pool, pv, lo, hi);
+    prophecy.predicted_value = pv;
+    prophecy.predicted_low = lo;
+    prophecy.predicted_high = hi;
+    prophecy.prediction_revealed = true;
 }
 
 fun assert_valid_prediction_interval(
@@ -582,6 +617,17 @@ public fun lock_time(prophecy: &PrivateProphecy): u64 {
 
 public fun is_public(prophecy: &PrivateProphecy): bool {
     prophecy.is_public
+}
+
+public fun prediction_revealed(prophecy: &PrivateProphecy): bool {
+    prophecy.prediction_revealed
+}
+
+/// Paid + not yet audited: on-chain prediction digits are hidden (zeros).
+public fun is_prediction_hidden(prophecy: &PrivateProphecy): bool {
+    prophecy.unlock_price > 0 &&
+        !prophecy.prediction_revealed &&
+        prophecy.status == PROPHECY_OPEN
 }
 
 public fun market_id(prophecy: &PrivateProphecy): ID {

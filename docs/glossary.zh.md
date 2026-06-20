@@ -60,7 +60,7 @@
 | **permille（千分比）** | Beta 分布链上刻度，0–1000 表示 [0, 1] 区间端点。 | `x_permille = 250` → 25% |
 | **Q32.32 定点数** | 链上禁止浮点；概率以 `u128` 存储，`1.0` = `2^32`。 | [fixed_point.move](../sources/math/fixed_point.move) |
 | **USDC / mist** | 结算与 Vault 计价单位；Circle 原生 USDC，6 位小数（1 USDC = 10⁶ mist）。 | `vault` `Balance<USDC>` |
-| **mist（SUI）** | Sui 原生代币最小单位；Gas Station 代付的是 SUI Gas，非 USDC。 | [gas-station-implementation.zh.md](./gas-station-implementation.zh.md) |
+| **mist（SUI）** | Sui 原生代币最小单位；链上交易 Gas 以 SUI 支付（Prophet 由用户钱包自付）。 | — |
 
 ---
 
@@ -245,7 +245,6 @@
 | 服务 | 端口（典型） | 职责 |
 | --- | --- | --- |
 | **Indexer** | 8800 | Postgres 索引 + REST：市场发现、IV、排行榜、GMV、Prophet blob |
-| **Gas Station** | 8787 | Sui 赞助交易双签；用户无需自备 SUI Gas |
 | **LP Guard Keeper** | 8788 | 自动调 LP Guard 参数 |
 | **Oracle Relayer** | — | 到期自动 finalize/nullify |
 | **UMA DVM Relayer** | — | 消费争议事件，回调仲裁 |
@@ -272,8 +271,8 @@
 
 | 术语 | 解释 |
 | --- | --- |
-| **PTB（Programmable Transaction Block）** | Sui 可编程交易块；Gas Station 组装完整 PTB 后双签执行。 |
-| **Sponsored Transaction** | Gas 由 `gasOwner`（Gas Station 钱包）代付的交易模式。 |
+| **PTB（Programmable Transaction Block）** | Sui 可编程交易块；Prophet / 交易等由钱包签名并支付 SUI Gas。 |
+| **Sponsored Transaction** | Gas 由第三方 `gasOwner` 代付的交易模式（**本产品已移除 Gas Station，默认不使用**）。 |
 | **GMV** | Indexer 统计的总成交额（Gross Merchandise Volume）。 |
 | **GeoBlock** | 前端按 IP 国家限制 Web 访问；**不**阻止直接链上交互，**不**替代 KYC。 |
 | **非托管** | 用户资产在自有钱包与链上对象中，协议不托管私钥。 |
@@ -326,7 +325,7 @@
 **D** DataFeed(8) · deposit_cutoff_bps(6) · Digital(4) · Dirichlet(3) · Disputer(8)  
 **E** EventRoot(1) · emergency_void(6)  
 **F** fee_bps(6) · fee_multiplier_bps(6) · FeedRegistry(8) · finalize_auction(5)  
-**G** Gas Station(12) · GeoBlock(14) · GMV(14)  
+**G** GeoBlock(14) · GMV(14)  
 **I** IV(7) · Interval(4) · Indexer(12)  
 **K** Keeper(6)  
 **L** lock_time(8) · LP(5) · LP Guard(6) · LpShare(5) · LUT(3)  

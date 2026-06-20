@@ -45,7 +45,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-services=(gas-station lp-guard-keeper)
+services=(lp-guard-keeper)
 if [[ "$P0_ONLY" != "true" ]]; then
   services+=(chain-monitor oracle-relayer walrus-relay)
 fi

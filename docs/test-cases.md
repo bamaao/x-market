@@ -553,7 +553,7 @@ On-chain → lock_time = pool.maturity_ts
 | TC-10.1.3 | `/positions` | Matches Drill A positions | P0 |
 | TC-10.1.4 | `/lp` | Subscribe/redeem; paused state | P1 |
 | TC-10.1.5 | `/oracle` | Feed read-only | P1 |
-| TC-10.1.6 | `/prophet` | Commit + Gas Station sponsor | P1 |
+| TC-10.1.6 | `/prophet` | Commit (wallet-paid SUI gas) | P1 |
 | TC-10.1.7 | `/leaderboard` | Loads without error | P2 |
 | TC-10.1.8 | `/margin` | Margin matches pool config | P2 |
 
@@ -561,7 +561,7 @@ On-chain → lock_time = pool.maturity_ts
 
 | ID | Scenario | Expected | Priority |
 | --- | --- | --- | --- |
-| TC-10.2.1 | verify-services-health | Gas Station :8787 + LP Guard :8788 HTTP 200 | P1 |
+| TC-10.2.1 | verify-services-health | LP Guard :8788 HTTP 200 | P1 |
 | TC-10.2.2 | Low gas alert | /health includes balance alert field | P2 |
 | TC-10.2.3 | Paused pool Keeper log | risk evaluation appears | P2 |
 

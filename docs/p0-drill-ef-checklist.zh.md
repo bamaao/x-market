@@ -30,7 +30,7 @@
 | E3 | `/positions` | 持仓列表与 Drill A 买入记录一致 | [ ] |
 | E4 | `/lp` | LP 存入/赎回 UI；paused 池显示暂停状态 | [ ] |
 | E5 | `/oracle` | DataFeed / 断言状态只读展示 | [ ] |
-| E6 | `/prophet` | 预言提交、Gas Station 赞助 commit（`unlock_price=0`） | [ ] |
+| E6 | `/prophet` | 预言提交（钱包自付 SUI Gas；公开/付费路径） | [ ] |
 | E7 | `/leaderboard` | Prophet 排行加载无报错 | [ ] |
 | E8 | `/margin` | 保证金页加载、与池配置一致 | [ ] |
 
@@ -40,7 +40,7 @@
 
 ## F. 告警链路与值班响应（Testnet 预发）
 
-**前置：** `start-services-testnet.ps1` 已启动 Gas Station (`:8787`) 与 LP Guard (`:8788`)。
+**前置：** `start-services-testnet.ps1` 已启动 LP Guard (`:8788`)。
 
 | # | 场景 | 操作 | 预期 | 通过 |
 |---|------|------|------|------|
@@ -54,7 +54,7 @@
 
 | 事件 | 动作 |
 |------|------|
-| Gas Station down | `stop-services-testnet.ps1` → 查 `services/gas-station` 日志 → `start-services-testnet.ps1` |
+| LP Guard Keeper 宕机 | `stop-services-testnet.ps1` → 查 `services/lp-guard-keeper` 日志 → `start-services-testnet.ps1` |
 | LP Guard 连续失败 | 确认 `LP_GUARD_DRY_RUN`、池 authority 地址、RPC 可达 |
 | 池 `paused=true` | 查 SlashRecord；timelock 后 `unslash_resume_pool`（Admin） |
 | ZK 争议窗口 | 3600s 后 Admin `finalize_verification` |

@@ -11,7 +11,6 @@
 
 # 检查链下服务健康端点（P0 + 可选 P1）
 param(
-  [string]$GasStationUrl = "http://localhost:8787",
   [string]$KeeperUrl = "http://localhost:8788",
   [string]$MonitorUrl = "http://localhost:8789",
   [string]$RelayerUrl = "http://localhost:8790",
@@ -43,7 +42,6 @@ function Check-Health($name, $url) {
   }
 }
 
-if (-not (Check-Health "gas-station" $GasStationUrl)) { $failed += "gas-station" }
 if (-not (Check-Health "lp-guard-keeper" $KeeperUrl)) { $failed += "lp-guard-keeper" }
 
 if ($IncludeP1) {

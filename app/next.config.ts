@@ -22,7 +22,6 @@ function backendProxyRewrites():
   const origin = (port: number) => `${scheme}://${bare}:${port}`;
 
   return [
-    { source: "/api/gas/:path*", destination: `${origin(8787)}/:path*` },
     { source: "/api/indexer/:path*", destination: `${origin(8800)}/:path*` },
     { source: "/api/pricing/:path*", destination: `${origin(8801)}/:path*` },
     { source: "/api/walrus/:path*", destination: `${origin(8791)}/:path*` },

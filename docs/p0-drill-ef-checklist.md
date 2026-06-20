@@ -30,7 +30,7 @@
 | E3 | `/positions` | Position list matches Drill A buy records | [ ] |
 | E4 | `/lp` | LP deposit/redeem UI; paused pools show paused state | [ ] |
 | E5 | `/oracle` | DataFeed / assertion status read-only display | [ ] |
-| E6 | `/prophet` | Prophecy commit, Gas Station sponsored commit (`unlock_price=0`) | [ ] |
+| E6 | `/prophet` | Prophecy commit (wallet-paid SUI gas; public/paid paths) | [ ] |
 | E7 | `/leaderboard` | Prophet leaderboard loads without errors | [ ] |
 | E8 | `/margin` | Margin page loads, consistent with pool config | [ ] |
 
@@ -40,7 +40,7 @@
 
 ## F. Alert Pipeline & On-call Response (Testnet Staging)
 
-**Prerequisites:** `start-services-testnet.ps1` has started Gas Station (`:8787`) and LP Guard (`:8788`).
+**Prerequisites:** `start-services-testnet.ps1` has started LP Guard (`:8788`).
 
 | # | Scenario | Action | Expected | Pass |
 |---|------|------|------|------|
@@ -54,7 +54,7 @@
 
 | Event | Action |
 |------|------|
-| Gas Station down | `stop-services-testnet.ps1` → check `services/gas-station` logs → `start-services-testnet.ps1` |
+| LP Guard Keeper down | `stop-services-testnet.ps1` → check `services/lp-guard-keeper` logs → `start-services-testnet.ps1` |
 | LP Guard repeated failures | Confirm `LP_GUARD_DRY_RUN`, pool authority address, RPC reachable |
 | Pool `paused=true` | Check SlashRecord; after timelock, Admin `unslash_resume_pool` |
 | ZK dispute window | After 3600s, Admin `finalize_verification` |

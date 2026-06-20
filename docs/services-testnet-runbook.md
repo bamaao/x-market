@@ -13,22 +13,24 @@
 
 **English** | [简体中文](./services-testnet-runbook.zh.md)
 
-# Testnet Off-chain Services Deployment Runbook (P0.4 / P0.5)
+# Testnet Off-Chain Services Runbook (P0.4 / P0.5)
 
-Testnet staging/production workflow for Gas Station and LP Guard Keeper.
+Testnet staging/production workflow for LP Guard Keeper and other P0 services.
+
+> **Prophet on-chain txs** (Commit / Unlock / Audit) are **paid with SUI from the user wallet**; Gas Station is no longer deployed.
 
 ---
 
-## 1. One-click Deployment
+## 1. One-Click Deploy
 
 ```powershell
-# Generate .env.local (from deploy/testnet-v2.json + sui active address key export; do not commit to git)
+# Generate .env.local (from deploy/testnet-v2.json + active sui address key; do not commit)
 .\scripts\bootstrap-services-env.ps1
 
-# First run: use DRY_RUN to observe Keeper logs
+# Optional: DRY_RUN first to observe Keeper logs
 .\scripts\bootstrap-services-env.ps1 -DryRunKeeper
 
-# Install dependencies and start in background
+# Install deps and start in background
 .\scripts\start-services-testnet.ps1
 
 # Health check
@@ -42,24 +44,20 @@ Testnet staging/production workflow for Gas Station and LP Guard Keeper.
 
 ## 2. Endpoints
 
-| Service | Port | Health Check | Description |
-|------|------|----------|------|
-| Gas Station | 8787 | `GET /health` | `POST /v1/sponsor` sponsors Prophet PTB |
-| LP Guard Keeper | 8788 | `GET /health` | Polls seed pools and calls `set_lp_guard_params` |
-
-Frontend: `NEXT_PUBLIC_GAS_STATION_URL=http://localhost:8787` in `app/.env.local`
+| Service | Port | Health | Description |
+|---------|------|--------|-------------|
+| LP Guard Keeper | 8788 | `GET /health` | Poll seed pools and call `set_lp_guard_params` |
 
 ---
 
-## 3. Production Switches
+## 3. Production Flags
 
-| Variable | Gas Station | LP Guard |
-|------|-------------|----------|
-| Production mode | `GAS_STATION_PRODUCTION=true` | `LP_GUARD_PRODUCTION=true` |
-| Keys | `GAS_PAYER_PRIVATE_KEY` | `LP_GUARD_KEEPER_SECRET_KEY` (must = pool `authority`) |
-| Package ID | `PACKAGE_ID` (v3) | `X_MARKET_PACKAGE_ID` |
-| CORS | `CORS_ORIGIN=http://localhost:3000` | — |
-| On-chain tx | — | `LP_GUARD_DRY_RUN=false` |
+| Variable | LP Guard |
+|----------|----------|
+| Production mode | `LP_GUARD_PRODUCTION=true` |
+| Secret key | `LP_GUARD_KEEPER_SECRET_KEY` (must match pool `authority`) |
+| Package ID | `X_MARKET_PACKAGE_ID` |
+| Send on-chain tx | `LP_GUARD_DRY_RUN=false` |
 
 ---
 
@@ -75,18 +73,17 @@ docker compose -f docker-compose.services.yml up -d --build
 
 ## 5. Ops Checklist
 
-- [ ] `/health` returns `ok: true`, Gas Payer balance > `GAS_MIN_BALANCE_MIST`
-- [ ] Keeper `keeper` address matches seed pool `authority`
+- [ ] Keeper `/health` returns `ok: true`
+- [ ] Keeper address matches seed pool `authority`
 - [ ] After `LP_GUARD_DRY_RUN=false`, `.run/lp-guard-keeper.log` shows `lp_guard_tick`
-- [ ] `/prophet` free Commit works via Gas Station sponsorship
-- [ ] Keys exist only in `.env.local` (listed in `.gitignore`)
+- [ ] `/prophet` Commit / Unlock / Audit works (wallet has enough Testnet SUI)
+- [ ] Secrets only in `.env.local` (gitignored)
 
 ---
 
 ## 6. Logs
 
 ```
-.run/gas-station.log
 .run/lp-guard-keeper.log
 ```
 

@@ -1,21 +1,11 @@
-// Copyright (c) 2026 zouyc zouyccq@gmail.com.
-// All rights reserved.
-//
-// Licensed under the Business Source License 1.1 (BSL 1.1).
-// You may not use this file except in compliance with the License.
-//
-// Change Date: 2031-01-01
-// On the Change Date, or the fourth anniversary of the first publicly available
-// distribution of the code under the BSL, whichever comes first, the code
-// automatically becomes available under the Apache License 2.0.
-
 /**
- * E2E: Seal → Indexer blob → Gas Station 赞助 Commit（等同 /prophet 页流程）
+ * E2E: Seal → Indexer blob → 钱包 Commit（等同 /prophet 页流程）
  * 用法: npx tsx scripts/e2e-commit.ts
  */
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { loadKeeperKeypair } from "./lib/load-keeper-key.js";
 
 const appRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -34,39 +24,21 @@ function loadEnvFile(path: string) {
 loadEnvFile(join(appRoot, ".env.local"));
 
 async function main() {
-  const { decodeSuiPrivateKey } = await import("@mysten/sui/cryptography");
-  const { Ed25519Keypair } = await import("@mysten/sui/keypairs/ed25519");
   const { SuiJsonRpcClient, getJsonRpcFullnodeUrl } = await import(
     "@mysten/sui/jsonRpc"
   );
   const { Transaction } = await import("@mysten/sui/transactions");
-  const { fromBase64 } = await import("@mysten/sui/utils");
   const {
     appendCommitPrivateProphecy,
     buildProphecyPayload,
     canonicalProphecyJson,
     extractProphecyIdFromTx,
     hashProphecyPlaintext,
-  } = await import("../src/lib/prophet");
-  const { buildTransactionKind, requestSponsor } = await import(
-    "../src/lib/gas-station"
-  );
+  } = await import("../src/lib/prophet.js");
   const { encryptProphecyPayload, generateSealId } = await import(
-    "../src/lib/seal-prophet"
+    "../src/lib/seal-prophet.js"
   );
-  const { uploadProphecyBlob } = await import("../src/lib/prophet-blob-upload");
-
-  function loadGasPayerKey() {
-    const envPath = join(appRoot, "../services/gas-station/.env.local");
-    const text = readFileSync(envPath, "utf8");
-    const line = text
-      .split("\n")
-      .find((l) => l.startsWith("GAS_PAYER_PRIVATE_KEY="));
-    if (!line) throw new Error("GAS_PAYER_PRIVATE_KEY not found");
-    const raw = line.split("=").slice(1).join("=").trim();
-    const { secretKey } = decodeSuiPrivateKey(raw);
-    return Ed25519Keypair.fromSecretKey(secretKey);
-  }
+  const { uploadProphecyBlob } = await import("../src/lib/prophet-blob-upload.js");
 
   const registryId = process.env.NEXT_PUBLIC_PROPHET_REGISTRY_ID;
   const poolId = process.env.NEXT_PUBLIC_POOL_POISSON;
@@ -76,11 +48,10 @@ async function main() {
   }
   console.log("package:", packageId);
 
-  const keypair = loadGasPayerKey();
+  const keypair = await loadKeeperKeypair();
   const sender = keypair.getPublicKey().toSuiAddress();
   const client = new SuiJsonRpcClient({
     url: getJsonRpcFullnodeUrl("testnet"),
-    network: "testnet",
   });
 
   const poolObj = await client.getObject({
@@ -90,27 +61,26 @@ async function main() {
   const fields = (poolObj.data?.content as { fields?: { maturity_ts?: string } })
     ?.fields;
   const maturity = Number(fields?.maturity_ts ?? 0);
-  if (!maturity) throw new Error("pool maturity_ts missing");
+  if (!maturity) throw new Error("Could not read pool maturity_ts");
 
-  const analysis = `E2E commit ${new Date().toISOString()} — Phase 4 Gas Station`;
-  const payload = buildProphecyPayload(poolId, 2, analysis);
-  const hash = hashProphecyPlaintext(payload);
+  const payload = buildProphecyPayload(poolId, 2, "e2e-commit test analysis");
   const json = canonicalProphecyJson(payload);
+  const hash = hashProphecyPlaintext(payload, poolId, 0n);
   const sealId = generateSealId();
 
-  console.log("[1/5] Seal 加密…");
+  console.log("[1/4] Seal 加密…");
   const encrypted = await encryptProphecyPayload(
     sealId,
     new TextEncoder().encode(json),
   );
 
-  console.log("[2/5] Indexer 上传 blob…");
+  console.log("[2/4] Indexer 上传 blob…");
   const uploaded = await uploadProphecyBlob(poolId, encrypted);
   if (!uploaded.ok) throw new Error(uploaded.error);
   const blobId = uploaded.blobId;
   console.log("  blobId:", blobId);
 
-  console.log("[3/5] 构建 PTB + 请求 Gas Station…");
+  console.log("[3/4] 构建 PTB 并签名…");
   const tx = new Transaction();
   appendCommitPrivateProphecy(tx, {
     registryId,
@@ -124,20 +94,14 @@ async function main() {
     unlockPrice: 0n,
     lockTime: maturity,
   });
+  tx.setSender(sender);
+  const bytes = await tx.build({ client });
+  const { signature } = await keypair.signTransaction(bytes);
 
-  const kindBytes = await buildTransactionKind(tx, client, sender);
-  const sponsored = await requestSponsor(kindBytes, sender);
-  const bytes = fromBase64(sponsored.transactionBytes);
-
-  console.log("[4/5] 双签并执行…");
-  const { signature: userSignature } = await keypair.signTransaction(bytes);
-  const signatures =
-    sender === sponsored.gasOwner
-      ? [userSignature]
-      : [userSignature, sponsored.sponsorSignature];
+  console.log("[4/4] 执行链上 Commit…");
   const result = await client.executeTransactionBlock({
     transactionBlock: bytes,
-    signature: signatures,
+    signature,
     options: { showEffects: true, showObjectChanges: true },
   });
 
@@ -145,7 +109,6 @@ async function main() {
     throw new Error(result.effects?.status.error ?? "execute failed");
   }
 
-  console.log("[5/5] 链上确认");
   console.log("  digest:", result.digest);
   let prophecyId: string | null = null;
   prophecyId = await extractProphecyIdFromTx(

@@ -29,7 +29,7 @@
 | 0.1 | Move 外部专项审计 | [ ] | 协议 | 关闭所有阻断项；报告归档 |
 | 0.2 | 主网合约发布 + 权限迁移 | [ ] | 协议 | `AdminCap` / `GlobalConfig` → 冷钱包或多签；Circle USDC |
 | 0.3 | Testnet 升级验证（`unlock_price=0`） | [x] | 协议 | v3 `0x2e368e…ae6e`；tx `8K2jBvsTUK9FQAmncX7KsbFhTu4RpZvqidL4vMMqWmob` |
-| 0.4 | Gas Station 生产部署 | [x] | 后端 | Testnet 预发：`scripts/bootstrap-services-env.ps1` + `start-services-testnet.ps1` |
+| 0.4 | ~~Gas Station~~（已移除） | [x] | — | Prophet 由钱包自付 SUI Gas |
 | 0.5 | LP Guard Keeper 生产部署 | [x] | 后端 | 同上；`LP_GUARD_DRY_RUN=false`；见 [services-testnet-runbook.zh.md](./services-testnet-runbook.zh.md) |
 | 0.6 | 治理参数签字版 | [~] | 风控 | 基线已锁定：`governance-params-baseline.json` + `verify-governance-params.ps1`；**双人签字待完成** |
 | 0.7 | 应急演练（留痕） | [~] | 运维 | A–D 链上自动化通过：[mainnet-drill-2026-06-06.zh.md](./mainnet-drill-2026-06-06.zh.md)；E/F 见 [p0-drill-ef-checklist.zh.md](./p0-drill-ef-checklist.zh.md) |
@@ -64,7 +64,7 @@
 | 1.4 | 主网 Walrus Upload Relay | [x] | 2–4 天 | `services/walrus-relay` 代理 `PUT /v1/blobs` |
 | 1.5 | RPC 高可用 | [x] | 1 天 | `SUI_RPC_URL_FALLBACK` + `NEXT_PUBLIC_SUI_RPC_URL*` |
 | 1.6 | 前端主网配置 + 8 页回归 | [x] | 1 天 | [app/.env.mainnet.example](../app/.env.mainnet.example) + [p0-drill-ef-checklist.zh.md](./p0-drill-ef-checklist.zh.md) |
-| 1.7 | 资金与密钥运维 | [x] | 1–2 天 | `check-gas-balances.ps1` · `fund-gas-payer-testnet.ps1` · Gas Station 余额 webhook |
+| 1.7 | 资金与密钥运维 | [x] | 1–2 天 | Keeper / Relayer 钱包余额监控 |
 
 ### P1 自动化检查
 
@@ -152,7 +152,7 @@ cd pricing-engine && npm start
 ```
 Week -8 ~ -4   P0.1 外部审计
 Week -3        P0.2–0.3 合约冻结、Testnet 最终升级
-Week -2        P0.4–0.5 Gas Station + LP Guard staging
+Week -2        P0.4–0.5 LP Guard staging
 Week -1        P0.6–0.7 参数签字 + 应急演练；P1.1–1.6 并行
 Day 0          P0.2 主网发包 → 种子市场 → 灰度
 Day 1–7        P1.7 on-call；mainnet-readiness §8 观察

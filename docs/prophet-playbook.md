@@ -21,12 +21,22 @@ Paid knowledge prophecy module (PRD §11). Shares L0 Oracle settlement; no separ
 
 ## Architecture
 
+**Public (`unlock_price=0`)**
+
 ```
-JSON plaintext → Seal.encrypt(seal_id) → POST Indexer /v1/prophecies/blob → Commit(chain)
+canonical JSON plaintext → Indexer /v1/prophecies/blob → Commit (on-chain predicted_* + hash(JSON))
+```
+
+**Paid (`unlock_price>0`)**
+
+```
+ProphecyPayload → BCS (prophet_plain) → Seal.encrypt(seal_id) → Indexer blob → Commit (on-chain predicted_*=0, hash(BCS))
                     ↓
          seal_approve_prophecy (OR: paid | lock_time | public)
                     ↓
-         Seal.decrypt ← GET idx:/ipfs: blob ← SessionKey wallet signature
+         Seal.decrypt → BCS decode → show numbers + analysis
+                    ↓
+         audit_prophecy(BCS bytes) → reveal on-chain predicted_* + track record
 ```
 
 On-chain `blob_id` format:
@@ -74,12 +84,22 @@ Seal Testnet key servers (configured in `app/src/lib/seal-prophet.ts` → `SEAL_
 
 ## Prophet Commit
 
-1. Generate `seal_id` (32 random bytes)
-2. `SealClient.encrypt({ packageId, id: hex(seal_id), data: canonical JSON })`
-3. `POST $INDEXER/v1/prophecies/blob?pool_id=...` upload ciphertext (or plaintext)
-4. Write response `blob_id` (`idx:…` or `ipfs:…`) to `commit_private_prophecy`
+### Public practice (`unlock_price = 0`)
 
-On-chain: `lock_time` = Pool `maturity_ts`; `plaintext_hash` = blake2b256(canonical JSON).
+1. Build canonical JSON (`market_id`, `predicted_value`, `analysis_content`, optional interval)
+2. `POST $INDEXER/v1/prophecies/blob?pool_id=...` upload **plaintext**
+3. `commit_private_prophecy(..., predicted_* = actual values, plaintext_hash = blake2b256(JSON), seal_id = [])`
+
+### Encrypted paid (`unlock_price > 0`)
+
+1. Generate `seal_id` (32 random bytes)
+2. `BCS encode` → `SealClient.encrypt({ packageId, id: hex(seal_id), data: bcsBytes })`
+3. `POST $INDEXER/v1/prophecies/blob?pool_id=...` upload ciphertext
+4. `commit_private_prophecy(..., predicted_* = 0, plaintext_hash = blake2b256(BCS), prediction_revealed = false)`
+
+On-chain: `lock_time` = Pool `maturity_ts`.
+
+Locally still save **JSON** (for UI audit form); on audit, frontend/keeper re-encodes JSON to BCS bytes for paid prophecies.
 
 ## Subscriber unlock + decrypt
 
@@ -92,10 +112,10 @@ On-chain: `lock_time` = Pool `maturity_ts`; `plaintext_hash` = blake2b256(canoni
 
 | Step | Action | Notes |
 | --- | --- | --- |
-| 1. Commit | Prophet fills prediction + analysis | Seal encrypt → Indexer upload → `commit_private_prophecy`; save plaintext locally for audit |
+| 1. Commit | Prophet fills prediction + analysis | Public: JSON plaintext; paid: BCS + Seal → `predicted_*=0`; save JSON locally for audit |
 | 2. Unlock | Subscriber pays USDC | `unlock_prophecy`; page auto-attempts Seal decrypt on success |
-| 3. Decrypt | Indexer/IPFS GET + Seal | Requires `paid_buyers` ∥ after `lock_time` ∥ `is_public` |
-| 4. Audit | After Oracle settlement | `audit_prophecy` validates blake2b256 plaintext hash → track record → `is_public` |
+| 3. Decrypt | Indexer/IPFS GET + Seal | Paid: decrypt BCS; requires `paid_buyers` ∥ after `lock_time` ∥ `is_public` |
+| 4. Audit | After Oracle settlement | `audit_prophecy`: public submits JSON bytes, paid submits **BCS bytes** → hash check → reveal numbers → track record → `is_public` |
 
 Key frontend modules:
 
@@ -116,13 +136,14 @@ Dual-wallet Testnet acceptance: wallet A Commit → wallet B Unlock (auto decryp
 
 Prerequisite: Pool `resolved` and `now >= lock_time` (aligned with Oracle settlement page; see [oracle-playbook.md](./oracle-playbook.md)).
 
-`prophet-audit-keeper` pulls blob from Indexer/IPFS → Seal decrypt → submits `audit_prophecy`.
+`prophet-audit-keeper` pulls blob from Indexer/IPFS → Seal decrypt → builds audit bytes per `unlock_price` (JSON or BCS) → submits `audit_prophecy`.
 
 ## Modules
 
 | Module | Description |
 | --- | --- |
-| `prophet_registry` | Commit / unlock / audit, `seal_approve_prophecy` |
+| `prophet_registry` | Commit / unlock / audit / reveal, `seal_approve_prophecy` |
+| `prophet_plain` | Paid BCS plaintext struct and hash |
 | `prophet_leaderboard` | Prophet Score |
 | `services/indexer` | `POST/GET /v1/prophecies/blob` |
 | `app/src/lib/seal-prophet.ts` | Seal encrypt/decrypt |
@@ -130,5 +151,4 @@ Prerequisite: Pool `resolved` and `now >= lock_time` (aligned with Oracle settle
 
 ## Done
 
-- [x] Gas Station sponsored txs (`services/gas-station/`)
 - [x] Prophet Audit Keeper (`services/prophet-audit-keeper/`)

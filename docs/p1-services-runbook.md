@@ -21,7 +21,6 @@
 
 | Service | Port | Purpose | P1 Items |
 |------|------|------|-------|
-| gas-station | 8787 | Prophet commit sponsorship | 0.4 / 1.7 |
 | lp-guard-keeper | 8788 | LP risk parameter tuning | 0.5 |
 | chain-monitor | 8789 | Event / pool state / service health monitoring | 1.1 |
 | oracle-relayer | 8790 | DataFeed expiry proposal reminders | 1.3 |
@@ -42,7 +41,6 @@ P0 only: `.\scripts\start-services-testnet.ps1 -P0Only`
 
 | URL | Description |
 |-----|------|
-| `:8787/health` | Gas payer balance |
 | `:8788/health` | Keeper balance and pool count |
 | `:8789/health` | Monitor errors and open alert count |
 | `:8789/metrics` | 24h event count, paused pools, SlashRecord count |
@@ -68,7 +66,7 @@ NEXT_PUBLIC_SUI_RPC_URL_FALLBACK=
 
 ## Alert Webhook (P1.1 / 1.7)
 
-Set in `.env.local` for `gas-station`, `chain-monitor`, and `oracle-relayer`:
+Set in `.env.local` for `chain-monitor` and `oracle-relayer`:
 
 ```
 ALERT_WEBHOOK_URL=https://hooks.slack.com/services/...
@@ -103,4 +101,4 @@ docker compose -f docker-compose.services.yml up -d --build
 
 ## Logs
 
-`.run/gas-station.log` · `lp-guard-keeper.log` · `chain-monitor.log` · `oracle-relayer.log` · `walrus-relay.log`
+`.run/lp-guard-keeper.log` · `chain-monitor.log` · `oracle-relayer.log` · `walrus-relay.log`

@@ -30,7 +30,7 @@ Full deployment on Ubuntu test machines: frontend, off-chain services (P0–P1),
 Browser (localhost:3000)
     │
     ├── Sui RPC (Testnet) ──────────────► On-chain contracts v3
-    ├── Gas Station (:8787) ────────────► Sponsor Prophet PTB
+    ├── LP Guard Keeper (:8788) ────────► Seed pool dynamic fees
     ├── Walrus Relay (:8791) ─────────► PUT /v1/blobs → Walrus Publisher
     ├── Indexer API (:8800) ──────────► PostgreSQL (:5432)
     └── Pricing Engine (:8801) ───────► Trade preview quotes
@@ -104,7 +104,7 @@ sui client active-address   # should match deployer in deploy/testnet-v2.json
 sui client gas
 ```
 
-> Non-deployer wallet: Gas Station may partially work; LP Guard Keeper **cannot** update pool parameters.
+> LP Guard Keeper must match pool `authority`. Prophet uses wallet-paid SUI gas.
 
 ### 2.4 Ports
 
@@ -112,7 +112,7 @@ sui client gas
 |------|------|
 | 3000 | Next.js frontend |
 | 5432 | PostgreSQL |
-| 8787–8792 | Off-chain services |
+| 8788–8792 | Off-chain services |
 | 8800 | Indexer API |
 | 8801 | Pricing Engine |
 
@@ -120,7 +120,7 @@ Firewall (if exposing externally):
 
 ```bash
 sudo ufw allow 3000/tcp   # frontend (dev)
-sudo ufw allow 8787:8792/tcp
+sudo ufw allow 8788:8792/tcp
 sudo ufw allow 8800:8801/tcp
 ```
 
@@ -131,7 +131,7 @@ sudo ufw allow 8800:8801/tcp
 | Profile | Components | Typical Use |
 |---------|----------|----------|
 | `frontend` | Frontend env + npm only | UI only, direct RPC |
-| `p0` | Gas Station + LP Guard | Prophet free Commit, LP defense |
+| `p0` | LP Guard | LP defense |
 | `p1` | P0 + Monitor + Oracle Relayer + Walrus Relay | **Recommended default** |
 | `p2` | P1 + Postgres + Indexer | Home discovery, leaderboard, IV curve |
 | `full` | P2 + Pricing Engine + Prophet Audit Keeper | Full test stack |
@@ -197,7 +197,7 @@ Generated files (**do not commit to git**):
 
 | Path | Description |
 |------|------|
-| `services/gas-station/.env.local` | Gas Payer key |
+| `services/lp-guard-keeper/.env.local` | Keeper key |
 | `services/lp-guard-keeper/.env.local` | Keeper key, pool IDs |
 | `services/chain-monitor/.env.local` | Monitoring |
 | `services/oracle-relayer/.env.local` | Oracle scan |
@@ -247,16 +247,16 @@ docker compose -f docker-compose.services.yml up -d --build
 For development, `nohup` + `.run/*.pid` is sufficient. For long-running hosts, write systemd units, e.g.:
 
 ```ini
-# /etc/systemd/system/x-market-gas-station.service
+# /etc/systemd/system/x-market-lp-guard.service
 [Unit]
-Description=X-Market Gas Station (Testnet)
+Description=X-Market LP Guard Keeper (Testnet)
 After=network.target
 
 [Service]
 Type=simple
 User=ubuntu
-WorkingDirectory=/opt/x-market-sui/services/gas-station
-EnvironmentFile=/opt/x-market-sui/services/gas-station/.env.local
+WorkingDirectory=/opt/x-market-sui/services/lp-guard-keeper
+EnvironmentFile=/opt/x-market-sui/services/lp-guard-keeper/.env.local
 ExecStart=/usr/bin/npm start
 Restart=on-failure
 RestartSec=10
@@ -267,7 +267,7 @@ WantedBy=multi-user.target
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable --now x-market-gas-station
+sudo systemctl enable --now x-market-lp-guard
 ```
 
 Duplicate for other services (lp-guard-keeper, walrus-relay, etc.) with different `WorkingDirectory` / `EnvironmentFile`.
@@ -290,20 +290,20 @@ Full IDs in [deploy/testnet-v2.json](../deploy/testnet-v2.json).
 
 ```bash
 # P1 health
-curl -s http://localhost:8787/health | python3 -m json.tool
+curl -s http://localhost:8788/health | python3 -m json.tool
 curl -s http://localhost:8791/health | python3 -m json.tool
 
 # P2 Indexer
 curl -s http://localhost:8800/v1/markets | python3 -m json.tool
 
 # Logs
-tail -f .run/gas-station.log
 tail -f .run/lp-guard-keeper.log
 tail -f .run/indexer.log
 ```
 
 - [ ] Gas Payer SUI balance sufficient
-- [ ] `/prophet` free Commit works via Gas Station
+- [ ] Demo wallet has enough SUI (Prophet self-paid gas)
+- [ ] `/prophet` Commit / Unlock / Audit works
 - [ ] Prophet Commit uploads blob via Indexer (`:8800`)
 - [ ] Indexer `/v1/markets` has seed markets (P2+)
 
@@ -316,7 +316,7 @@ tail -f .run/indexer.log
 | `Permission denied` running scripts | `chmod +x scripts/*.sh scripts/lib/*.sh` |
 | `docker: permission denied` | `sudo usermod -aG docker $USER` then re-login |
 | Key export fails | Confirm `sui client active-address` = deployer |
-| Port in use | `./scripts/stop-testnet.sh` or `fuser -k 8787/tcp` |
+| Port in use | `./scripts/stop-testnet.sh` or `fuser -k 8788/tcp` |
 | Indexer cannot connect to DB | `docker compose -f docker-compose.indexer.yml ps` |
 | npm native module build fails | `sudo apt install build-essential` |
 

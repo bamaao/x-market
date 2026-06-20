@@ -333,6 +333,33 @@ export function isPoolVoided(pool: PoolView | undefined): boolean {
   return pool?.status === STATUS_VOIDED;
 }
 
+/** Opening auction bid / finalize (pool.status === 0). Beta markets never use auction. */
+export function canAuctionBid(
+  pool: PoolView | undefined,
+  marketKind?: MarketKind,
+): boolean {
+  if (marketKind === "beta") return false;
+  return pool?.status === STATUS_AUCTION;
+}
+
+/** buy_* entry functions (pool.status === 1, not resolved/paused). */
+export function canTrade(pool: PoolView | undefined): boolean {
+  return (
+    pool?.status === STATUS_TRADING &&
+    !pool.resolved &&
+    !pool.paused
+  );
+}
+
+export function canDepositLp(pool: PoolView | undefined): boolean {
+  return canTrade(pool);
+}
+
+/** Trading pools with zero vault cannot pass max-loss checks on buy (PRD §4.5). */
+export function poolNeedsLiquidity(pool: PoolView | undefined): boolean {
+  return canTrade(pool) && (pool?.collateralUsdc ?? 0n) === 0n;
+}
+
 export function formatUnixTs(ts: number, locale = "en-US"): string {
   if (!ts) return "—";
   return new Date(ts * 1000).toLocaleString(locale, {

@@ -155,12 +155,28 @@ bootstrap_app_env() {
   [[ -f "$app_example" ]] || { echo "Missing ${app_example}" >&2; exit 1; }
   [[ -f "$app_local" ]] || cp "$app_example" "$app_local"
 
-  local package_id
+  local package_id pool_poisson pool_dirichlet pool_normal usdc_type
   package_id="$(deploy_json_get packageId)"
+  pool_poisson="$(deploy_json_optional seedMarkets.poisson_goals.poolId)"
+  pool_dirichlet="$(deploy_json_optional seedMarkets.dirichlet_wdl.poolId)"
+  pool_normal="$(deploy_json_optional seedMarkets.normal_cpi.poolId)"
+  usdc_type="$(deploy_json_optional usdc.coinType)"
   env_set_line "$app_local" "NEXT_PUBLIC_PACKAGE_ID" "$package_id"
 
+  if [[ -n "$pool_poisson" ]]; then
+    env_set_line "$app_local" "NEXT_PUBLIC_POOL_POISSON" "$pool_poisson"
+  fi
+  if [[ -n "$pool_dirichlet" ]]; then
+    env_set_line "$app_local" "NEXT_PUBLIC_POOL_DIRICHLET" "$pool_dirichlet"
+  fi
+  if [[ -n "$pool_normal" ]]; then
+    env_set_line "$app_local" "NEXT_PUBLIC_POOL_NORMAL" "$pool_normal"
+  fi
+  if [[ -n "$usdc_type" ]]; then
+    env_set_line "$app_local" "NEXT_PUBLIC_USDC_COIN_TYPE" "$usdc_type"
+  fi
+
   if [[ "$profile" != "frontend" ]]; then
-    env_set_line "$app_local" "NEXT_PUBLIC_GAS_STATION_URL" "http://localhost:8787"
     env_set_line "$app_local" "NEXT_PUBLIC_INDEXER_URL" "http://localhost:8800"
   fi
   if [[ "$profile" == "p2" || "$profile" == "full" ]]; then

@@ -16,7 +16,7 @@
 # SuiProphet: Market Creation and Encrypted Prophecy Guide
 
 > **Applies to:** Testnet / local development · **Related:** [prophet-playbook.md](./prophet-playbook.md) · [oracle-playbook.md](./oracle-playbook.md) · [business-spec.md](./business-spec.md) §4.10  
-> **Updated:** 2026-06-12 (v4 package: public prophecies `unlock_price=0`, paid prophecies Seal encrypted)
+> **Updated:** 2026-06-20 (v5: **paid predictions hide numbers on-chain until audit** — BCS ciphertext + `prediction_revealed`, reveal on audit)
 
 ---
 
@@ -27,9 +27,11 @@ There is **no separate "encrypted market" type** in this product.
 | Layer | Encrypted? | Description |
 | --- | --- | --- |
 | **Market (MarketPool)** | No | Standard AMM + Oracle Feed, public on-chain |
-| **Prophecy (PrivateProphecy)** | Optional | Analysis content may be **Seal encrypted** (paid) or **Indexer plaintext** (public practice) |
+| **Prophecy (PrivateProphecy)** | Optional | Analysis + (when paid) prediction numbers may be **Seal encrypted**; public practice uses Indexer plaintext |
 
-**"Encryption" refers to SuiProphet private paid prophecies:** prophets encrypt analysis JSON via Seal, store in Indexer/IPFS; subscribers decrypt after USDC unlock; on-chain only locks `plaintext_hash` and `predicted_value`.
+**"Encryption" refers to SuiProphet private paid prophecies:** prophets encode **prediction numbers + analysis** as BCS, encrypt via Seal, store in Indexer/IPFS; subscribers decrypt after USDC unlock. **On-chain numbers are hidden before the event** (`predicted_* = 0`, `prediction_revealed = false`); only `plaintext_hash` and `seal_id` are locked. After Oracle settlement, `audit_prophecy` verifies the hash and **reveals** numbers and updates track record.
+
+Public practice (`unlock_price = 0`) still uses **JSON plaintext** blobs; `predicted_value` / interval are stored on-chain and readable by anyone.
 
 Full path is two steps: **create market first → publish encrypted prophecy on that market**.
 
@@ -100,10 +102,12 @@ Open **`/prophet`** → select target market in **Prophet market selector** (sel
 
 ### 3.2 Two Prophecy Modes
 
-| Mode | `unlock_price` | Storage | Readable when |
-| --- | --- | --- | --- |
-| **Public practice** | `0` | Indexer **plaintext** JSON (`idx:` / `ipfs:`) | Immediately after Commit (`is_public=true`) |
-| **Encrypted paid** | `> 0` | **Seal encrypted** → Indexer/IPFS ciphertext | After paid unlock / after `lock_time` / after audit public |
+| Mode | `unlock_price` | Blob content | On-chain `predicted_*` | Hash | Readable when |
+| --- | --- | --- | --- | --- | --- |
+| **Public practice** | `0` | Indexer **JSON plaintext** (`idx:` / `ipfs:`) | **Plaintext** on-chain | `blake2b256(JSON)` | Immediately after Commit (`is_public=true`) |
+| **Encrypted paid** | `> 0` | **Seal-encrypted BCS** (numbers + analysis) | **All zero**, `prediction_revealed=false` | `blake2b256(BCS)` | Paid unlock / after `lock_time`; **after audit** numbers revealed on-chain |
+
+> **Why hide numbers for paid prophecies?** If `predicted_value` were stored in plaintext on-chain, anyone could read it before the event for free, defeating paid unlock. Paid path uses **commit–reveal**: only the hash is locked pre-event; audit submits BCS bytes for verification and writes numbers on-chain.
 
 ### 3.3 Prerequisites for Encrypted Paid
 
@@ -124,26 +128,28 @@ If not eligible, only **`unlock_price = 0`** public practice prophecies; build t
 3. **Unlock price > 0** (e.g. `1` USDC)
 4. Click **"Seal encrypt → Indexer → Commit private prophecy"**
 
-Backend flow:
+Backend flow (paid):
 
 ```
-canonical JSON
+ProphecyPayload → BCS encode (prophet_plain::PaidProphecyPlain)
   → SealClient.encrypt(seal_id)
   → POST Indexer /v1/prophecies/blob (local or IPFS pin)
-  → commit_private_prophecy(registry, pool, blob_id, seal_id, plaintext_hash, …)
+  → commit_private_prophecy(..., predicted_* = 0, plaintext_hash = blake2b256(BCS), …)
 ```
 
-On-chain locks: `predicted_value`, `plaintext_hash` (blake2b256), `lock_time = pool.maturity_ts`.
+On-chain locks: `plaintext_hash`, `seal_id`, `lock_time = pool.maturity_ts`; **does not** store prediction numbers (`prediction_revealed = false`).
+
+On audit, prophet or `prophet-audit-keeper` submits the **same BCS bytes** → `audit_prophecy` verifies hash → `reveal_paid_prediction` writes `predicted_*` and sets `prediction_revealed = true`.
 
 ### 3.5 Submit Public Practice Prophecy (UI)
 
-Same as above, but **unlock price = `0`** → Indexer uploads **plaintext**; on-chain `is_public=true`, empty `seal_id`, no Seal decrypt needed.
+Same as above, but **unlock price = `0`** → Indexer uploads **JSON plaintext**; on-chain stores real `predicted_value` / interval, `is_public=true`, empty `seal_id`, no Seal decrypt needed.
 
 ### 3.6 Subscriber Reading Encrypted Prophecy
 
 1. `/prophet` select prophecy → **Unlock** (`unlock_prophecy`, pay USDC)
-2. **Seal decrypt** (SessionKey + `seal_approve_prophecy` on-chain gate)
-3. After Oracle settlement **audit** → track record update, escrow split, `is_public=true`
+2. **Seal decrypt** BCS → frontend renders JSON view (numbers + analysis)
+3. After Oracle settlement **audit** → hash check, on-chain number reveal → track record update, escrow split, `is_public=true`
 
 Seal OR policy (`seal_access_allowed`):
 
@@ -162,12 +168,14 @@ See [prophet-playbook.md](./prophet-playbook.md).
 flowchart LR
     A["/markets/create<br/>Create Pool + Feed"] --> B["/prophet<br/>Select market"]
     B --> C{"unlock_price?"}
-    C -->|0| D["Public prophecy<br/>Indexer plaintext"]
-    C -->|">0 and paid_unlock_eligible"| E["Seal encrypted prophecy<br/>Indexer/IPFS ciphertext"]
+    C -->|0| D["Public prophecy<br/>JSON + on-chain numbers"]
+    C -->|">0 and paid_unlock_eligible"| E["BCS + Seal encrypt<br/>on-chain predicted_*=0"]
     E --> F["Subscriber unlock USDC"]
-    F --> G["Seal decrypt"]
-    G --> H["Oracle settlement → audit"]
+    F --> G["Seal decrypt BCS"]
+    G --> H["Oracle settlement"]
+    H --> I["audit: hash + reveal + track record"]
     D --> H
+    H --> J["audit: JSON hash + track record"]
 ```
 
 ---
@@ -182,7 +190,6 @@ flowchart LR
 | `NEXT_PUBLIC_INDEXER_URL` | **Required** (Prophet blob upload/read, market list, leaderboard) |
 | `NEXT_PUBLIC_IPFS_GATEWAY_URL` | Resolve `ipfs:` blob when `INDEXER_PROPHET_STORAGE=ipfs` |
 | `NEXT_PUBLIC_SEAL_THRESHOLD` | Seal threshold (Testnet default 1) |
-| `NEXT_PUBLIC_GAS_STATION_URL` | Optional; practice Commit may use gas sponsorship |
 | Indexer + Postgres | Prophet blob, market metadata, `/leaderboard` |
 | `INDEXER_PROPHET_STORAGE` | Indexer side: `local` (disk) or `ipfs` (Pin) |
 | `NEXT_PUBLIC_IPFS_GATEWAY_URL` | Resolve `ipfs:` blob when `INDEXER_PROPHET_STORAGE=ipfs` |
@@ -204,7 +211,10 @@ Local Postgres (no Docker): `.\scripts\bootstrap-local-postgres.ps1` → `.\scri
    Seed markets wrapped via `wrap-event-roots-testnet.ps1`; self-created markets can Commit directly with `poolId`. EventRoot is architectural unification, **not** prerequisite for encrypted prophecy.
 
 4. **After republishing package**  
-   Must update `NEXT_PUBLIC_PACKAGE_ID`; old Seal ciphertext cannot be decrypted by new package `seal_approve`; re-Commit with new package.
+   Update `NEXT_PUBLIC_PACKAGE_ID`; `PrivateProphecy` adds `prediction_revealed` — **republish required** for new commits to use hidden-number logic; old Seal ciphertext cannot be decrypted by new package `seal_approve`; re-Commit with new package.
+
+5. **Paid vs public hash formats are not interchangeable**  
+   Public: `blake2b256(canonical JSON)`; paid: `blake2b256(BCS bytes)`. Audit must submit bytes in the same format as Commit, or **cheat** is recorded and buyers are refunded.
 
 ---
 
@@ -228,7 +238,9 @@ Local Postgres (no Docker): `.\scripts\bootstrap-local-postgres.ps1` → `.\scri
 | Create pool PTB | `app/src/lib/create-market.ts` |
 | Prophet UI | `app/src/app/prophet/page.tsx` |
 | Seal / Indexer blob | `app/src/lib/seal-prophet.ts`, `app/src/lib/prophet-blob.ts`, `app/src/lib/prophet-blob-upload.ts` |
+| Paid BCS codec | `app/src/lib/prophet-plain.ts` (must match `sources/prophet_plain.move`) |
 | Prophecy workflow | `app/src/lib/prophet.ts` |
 | Market eligibility | `app/src/lib/prophet-market-eligibility.ts` |
-| On-chain Commit / Audit | `sources/prophet_registry.move` |
+| On-chain Commit / Audit / Reveal | `sources/prophet_registry.move`, `sources/prophet_plain.move` |
+| Audit keeper | `services/prophet-audit-keeper/` (paid BCS audit bytes) |
 | Paid unlock threshold | `sources/prophet_leaderboard.move` |

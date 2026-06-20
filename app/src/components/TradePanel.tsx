@@ -29,21 +29,27 @@ import {
 import { MintUsdcButton } from "./MintUsdcButton";
 import { UsdcBalance } from "./UsdcBalance";
 import { fetchQuotePreview, type QuotePreview } from "@/lib/pricing";
+import {
+  poolNeedsLiquidity,
+  type PoolView,
+} from "@/lib/position-display";
+import { formatUsdcBaseUnits } from "@/lib/usdc";
 import { useT } from "@/i18n/context";
 
-type Props = { market: SeedMarket };
+type Props = { market: SeedMarket; pool?: PoolView };
 
-export function TradePanel({ market }: Props) {
+export function TradePanel({ market, pool }: Props) {
   const t = useT();
   const account = useCurrentAccount();
   const client = useSuiClient();
   const { mutate: signAndExecute, isPending } = useSignAndExecuteTransaction();
   const [poolId, setPoolId] = useState(() => defaultPoolId(market));
   const [mode, setMode] = useState<ContractMode>("interval");
-  const [stakeUsdc, setStakeUsdc] = useState("1");
+  const [stakeUsdc, setStakeUsdc] = useState("0.01");
   const [status, setStatus] = useState<string | null>(null);
   const [balanceKey, setBalanceKey] = useState(0);
   const [quote, setQuote] = useState<QuotePreview | null>(null);
+  const vaultEmpty = poolNeedsLiquidity(pool);
 
   const [poissonA, setPoissonA] = useState("2");
   const [poissonB, setPoissonB] = useState("3");
@@ -108,6 +114,10 @@ export function TradePanel({ market }: Props) {
     }
     if (!poolId) {
       setStatus(t("common.fillPoolId"));
+      return;
+    }
+    if (vaultEmpty) {
+      setStatus(t("trade.emptyVault"));
       return;
     }
     if (market.kind === "normal" && mode === "structured_note") {
@@ -178,6 +188,16 @@ export function TradePanel({ market }: Props) {
         <p className="hint">{t("trade.connectHint")}</p>
       )}
       {modeHint && <p className="hint">{modeHint}</p>}
+      {pool ? (
+        <p className="hint">
+          {t("trade.vaultLabel", {
+            amount: formatUsdcBaseUnits(pool.collateralUsdc),
+          })}
+        </p>
+      ) : null}
+      {vaultEmpty ? (
+        <p className="hint">{t("trade.emptyVault")}</p>
+      ) : null}
       {account && (
         <>
           <UsdcBalance key={balanceKey} />
@@ -356,7 +376,7 @@ export function TradePanel({ market }: Props) {
       <button
         type="button"
         className="primary"
-        disabled={!account || isPending}
+        disabled={!account || isPending || vaultEmpty}
         onClick={() => void buildBuyTx()}
       >
         {isPending ? t("trade.signing") : t("trade.buyUsdc")}

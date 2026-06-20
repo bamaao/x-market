@@ -70,16 +70,6 @@ if (-not $SkipMoveTest) {
   Write-Host "[SKIP] sui move test" -ForegroundColor Yellow
 }
 
-Assert-Ok "gas-station typecheck" {
-  Push-Location services/gas-station
-  try {
-    npm run typecheck 2>&1 | Out-Null
-    if ($LASTEXITCODE -ne 0) { throw "typecheck failed" }
-  } finally {
-    Pop-Location
-  }
-}
-
 Assert-Ok "lp-guard-keeper test + typecheck" {
   Push-Location services/lp-guard-keeper
   try {
@@ -92,23 +82,11 @@ Assert-Ok "lp-guard-keeper test + typecheck" {
   }
 }
 
-Assert-Ok "gas-station .env.example" {
-  if (-not (Test-Path "services/gas-station/.env.example")) { throw "missing" }
-}
-
 Assert-Ok "lp-guard-keeper .env.example" {
   if (-not (Test-Path "services/lp-guard-keeper/.env.example")) { throw "missing" }
 }
 
 if ($CheckServices) {
-  Assert-Ok "gas-station /health" {
-    $r = Invoke-RestMethod -Uri "http://localhost:8787/health" -TimeoutSec 5
-    if (-not $r.service) { throw "unexpected response" }
-    if (-not $r.ok) {
-      Write-Host "  health warnings: $($r.errors -join '; ')" -ForegroundColor Yellow
-    }
-  }
-
   Assert-Ok "lp-guard-keeper /health" {
     $r = Invoke-RestMethod -Uri "http://localhost:8788/health" -TimeoutSec 5
     if (-not $r.service) { throw "unexpected response" }

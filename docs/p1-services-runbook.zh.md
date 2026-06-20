@@ -21,7 +21,6 @@
 
 | 服务 | 端口 | 用途 | P1 项 |
 |------|------|------|-------|
-| gas-station | 8787 | Prophet commit 赞助 | 0.4 / 1.7 |
 | lp-guard-keeper | 8788 | LP 风险参数调控 | 0.5 |
 | chain-monitor | 8789 | 事件/池状态/服务健康监控 | 1.1 |
 | oracle-relayer | 8790 | DataFeed 到期提议提醒 | 1.3 |
@@ -42,7 +41,6 @@
 
 | URL | 说明 |
 |-----|------|
-| `:8787/health` | Gas payer 余额 |
 | `:8788/health` | Keeper 余额与池数量 |
 | `:8789/health` | 监控器错误与开放告警数 |
 | `:8789/metrics` | 24h 事件计数、paused 池、SlashRecord 数 |
@@ -68,7 +66,7 @@ NEXT_PUBLIC_SUI_RPC_URL_FALLBACK=
 
 ## 告警 Webhook（P1.1 / 1.7）
 
-在 `gas-station`、`chain-monitor`、`oracle-relayer` 的 `.env.local` 设置：
+在 `chain-monitor`、`oracle-relayer` 的 `.env.local` 设置：
 
 ```
 ALERT_WEBHOOK_URL=https://hooks.slack.com/services/...
@@ -103,4 +101,4 @@ docker compose -f docker-compose.services.yml up -d --build
 
 ## 日志
 
-`.run/gas-station.log` · `lp-guard-keeper.log` · `chain-monitor.log` · `oracle-relayer.log` · `walrus-relay.log`
+`.run/lp-guard-keeper.log` · `chain-monitor.log` · `oracle-relayer.log` · `walrus-relay.log`

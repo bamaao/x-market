@@ -12,6 +12,7 @@
 import type { Transaction } from "@mysten/sui/transactions";
 import type { MarketKind } from "./markets";
 import { PACKAGE_ID } from "./markets";
+import type { UsdcPaymentArg } from "./usdc";
 
 export type ContractMode =
   | "interval"
@@ -51,7 +52,7 @@ export interface TradeParams {
 export function appendBuyMoveCall(
   tx: Transaction,
   kind: MarketKind,
-  payment: ReturnType<Transaction["splitCoins"]>,
+  payment: UsdcPaymentArg,
   poolId: string,
   params: TradeParams,
 ) {

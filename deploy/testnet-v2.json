@@ -1,19 +1,19 @@
 ﻿{
-    "maturityTs":  1784280588,
-    "adminCap":  "0x6dd04c263f50d95902d4a3e1d4df5794f0aed4b6265321374b29eb5d1a0083cd",
-    "upgradeCap":  "0x2a837493d9392ac94da7e12e3a69e2114c4bddbbe9c6c9f8acddd22cfe67e4b5",
+    "maturityTs":  1784542050,
+    "adminCap":  "0xb6a0ca03e9575b234d3f71df1a7dcbe89ad7cb814e2ed7c21d2feb5f4b241bb9",
+    "upgradeCap":  "0xf942fc383c157ed4e8986eec61dfe9272b0f8994dbecdb567f3b2689aba6375c",
     "features":  {
                      "note":  "emergency_cancel::emergency_void_market + claim_position_refund",
                      "emergencyVoid":  true
                  },
-    "publishedAt":  "2026-06-17",
+    "publishedAt":  "2026-06-20",
     "superseded":  {
-                       "packageId":  "0x083d470a44ce73a290368ec18a8ee96c49cc3491e29117737e62c9f57dbec57d",
+                       "packageId":  "0x67a441faf576adec29d0b279c959893c6024acd4224c1a9751031d4bc12c5b98",
                        "note":  "previous testnet-v2 package superseded by fresh publish"
                    },
     "seedMarkets":  {
                         "dirichlet_wdl":  {
-                                              "poolId":  "0x02652d2a061a8699d9943576a153e4206a32f5d78e281fcebd3daae4764d0b06",
+                                              "poolId":  "0x704cee806efe4f5456e9395aef0efceedf2296ee36af1261885af81c34bc25fe",
                                               "alphas":  [
                                                              10,
                                                              10,
@@ -21,33 +21,33 @@
                                                          ]
                                           },
                         "normal_cpi":  {
-                                           "poolId":  "0x91b36284552331d7bc5678fd298aa44fb0fcd2bf41c4475ed96a281be5ddf200",
+                                           "poolId":  "0xc35d64fcd23ec2bc4c89d42dcee0c25a045fa6b6e94be212ebfd1cd0ffa03d21",
                                            "muTenths":  25,
                                            "sigmaTenths":  4
                                        },
                         "poisson_goals":  {
                                               "lambdaTenths":  25,
-                                              "poolId":  "0x92fbd45afa0216fce84a057beb05e69b59b33f851034ab10154720da818cf71d"
+                                              "poolId":  "0x5d38ee35bba07b559e969c9f5e191d94573d98f4a952a1c67de7c9e13ff53aeb"
                                           }
                     },
     "explorer":  {
-                     "package":  "https://testnet.suivision.xyz/package/0x67a441faf576adec29d0b279c959893c6024acd4224c1a9751031d4bc12c5b98"
+                     "package":  "https://testnet.suivision.xyz/package/0xcec159cec19874629cc57d75db9cb77616532dd6bbb466b4cf302f9d7e2d8a48"
                  },
     "deployer":  "0x87e487cd6b1c7a53f91999eb3a5372ced201b614b26924ba4cc1d282a2240c07",
-    "publishTx":  "GKXgdd9f8ZK7puwmoxdRicGfYf28wv3qxzvECL9GYuoT",
+    "publishTx":  "6DLsULyN9kahShDyNocDgnPpTRJWK5EH6YPMd3QXxjPA",
     "oracle":  {
-                   "feedRegistryId":  "0x53ce167c52c3de88f17588c364b0ece5e35e0156ffebb98510df42c11faa00e6",
-                   "oracleArbitratorId":  "0xf76f5cc19251c0fce424bf2ed44ff28fdcd9d3c458bd5ffd8f6462d3c34ed168",
-                   "oracleConfigId":  "0x177d8de95dfd97ac3e543feca2f4abad63b6c689be4ece1215a9930dd6615e47"
+                   "feedRegistryId":  "0x1c615bfb10ef4075c7d0f24f284d837a0467be35d53815296d6b0b5c147fa74f",
+                   "oracleArbitratorId":  "0xc17192ca69389c5f4e1f2e983b73268c265724a79e3b178e79238dcacce808e0",
+                   "oracleConfigId":  "0x9943df447e24c3a7a71c14b88521bcac62b33b3aa060f300651988ad02ee729b"
                },
     "prophet":  {
-                    "registryId":  "0x54ff2266605070ef26549113a9a1824013cbd6d615dddd5e140bf531adfa8880"
+                    "registryId":  "0x4b21ce672273439a19d21f665422380c516e8262df95ffc357635c61fea79484"
                 },
     "usdc":  {
                  "coinType":  "0xa1ec7fc00a6f40db9693ad1415d0c193ad3906494428cf252621037bd7117e29::usdc::USDC",
                  "source":  "circle-native"
              },
-    "globalConfig":  "0x46730d3318637baeec980b4bc11a576fb8d34fba68dc20e84973ca45e80b5912",
-    "packageId":  "0x67a441faf576adec29d0b279c959893c6024acd4224c1a9751031d4bc12c5b98",
+    "globalConfig":  "0x035d78d9c99032aa99d8ea74a0dc192cddc91376dc72f5e77f8341b9847a3d35",
+    "packageId":  "0xcec159cec19874629cc57d75db9cb77616532dd6bbb466b4cf302f9d7e2d8a48",
     "network":  "testnet"
 }

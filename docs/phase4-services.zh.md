@@ -13,7 +13,7 @@
 
 **简体中文** | [English](./phase4-services.md)
 
-# Phase 4 架构：EventRoot · Gas Station · 排行榜
+# Phase 4 架构：EventRoot · 排行榜
 
 > 回答：统计/排行是否必须本地服务？
 
@@ -24,7 +24,6 @@
 | **战绩 / Prophet Score** | `ProphetRegistry` → DF `ProphetStats` | **否（MVP）** | 前端 RPC + 事件扫描即可 |
 | **排行榜页** | 同上 | **否（MVP）** | `/leaderboard` 直读链上 |
 | **订阅者 ROI 聚合** | 分散在 `PrivateProphecy` + 审计事件 | **建议 Indexer** | 非关键路径，可 Phase 4+ |
-| **Gas Station** | 无（赞助签名为链下） | **是** | 必须 Gas Payer 服务端 |
 | **LP Guard Keeper** | `MarketPool.fee_multiplier_bps` 等 | **否** | 动态费率自动调控；见 `services/lp-guard-keeper/` |
 | **EventRoot** | `event_root.move` shared object | **否** | 纯链上；迁移脚本链下一次性 |
 
@@ -69,14 +68,6 @@ Indexer **不参与**付费开通判定；门槛由链上 `paid_unlock_eligible`
 
 ---
 
-## Gas Station
-
-见 [services/gas-station/README.md](../services/gas-station/README.md)。
-
-**必须本地服务：** 持有 Gas Payer 私钥，对用户 PTB 做白名单校验后代付 SUI。
-
----
-
 ## 预言家付费开通门槛（PRD §11.3.7）
 
 链上 `commit_private_prophecy` 当 `unlock_price > 0` 时检查：
@@ -85,10 +76,4 @@ Indexer **不参与**付费开通判定；门槛由链上 `paid_unlock_eligible`
 - `total_audited >= 3`
 - `score_bps >= 4000`（40/100）
 
-新预言家须先发布 **`unlock_price = 0`** 免费预测，经 Oracle 审计积累战绩后方可收费。
-
-### Testnet v3（已升级）
-
-**Package v3**（`0x2e368e…ae6e`）已修复 `unlock_price == 0` 免费 Commit。升级交易见 `deploy/testnet-v2.json` → `upgradeTx` / `explorer.upgradeV3`。
-
-Gas Station 白名单仅允许赞助 `unlock_price = 0` 的 `commit_private_prophecy`。
+新预言家须先发布 **`unlock_price = 0`** 免费预测，经 Oracle 审计积累战绩后方可收费。Prophet 链上交易（Commit / Unlock / Audit）由用户钱包自付 SUI Gas。

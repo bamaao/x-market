@@ -87,6 +87,19 @@ function formatTimestamp(value: string | number | null | undefined): string {
   return String(value);
 }
 
+function formatIndexerPrediction(
+  row: IndexerProphecyRow,
+  t: ReturnType<typeof useT>,
+): string {
+  const unlock = BigInt(row.unlock_price ?? "0");
+  const status = Number(row.status ?? 0);
+  const pv = row.predicted_value;
+  if (unlock > 0n && status === 0 && (pv == null || pv === "0")) {
+    return t("prophet.predictionHidden");
+  }
+  return pv ?? t("common.dash");
+}
+
 function prophecyRowFromChain(p: ProphecyView): IndexerProphecyRow {
   return {
     prophecy_id: p.id,
@@ -382,7 +395,7 @@ export default function ProphetProfilePage() {
                       <code>{shortAddress(row.pool_id, 8, 4)}</code>
                     </Link>
                   </td>
-                  <td>{row.predicted_value ?? t("common.dash")}</td>
+                  <td>{formatIndexerPrediction(row, t)}</td>
                   <td>{unlockPriceLabel(row.unlock_price)}</td>
                   <td>{localizedProphecyStatus(row.status, t)}</td>
                   <td>{row.unlock_count}</td>

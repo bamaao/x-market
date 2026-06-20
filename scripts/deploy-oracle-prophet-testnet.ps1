@@ -187,7 +187,6 @@ NEXT_PUBLIC_ORACLE_ARBITRATOR_ID=$arbitratorId
 NEXT_PUBLIC_PROPHET_REGISTRY_ID=$prophetRegistryId
 NEXT_PUBLIC_SEAL_THRESHOLD=1
 NEXT_PUBLIC_USDC_COIN_TYPE=$circleUsdc
-NEXT_PUBLIC_GAS_STATION_URL=http://localhost:8787
 NEXT_PUBLIC_INDEXER_URL=http://localhost:8800
 "@
 $envLocal | Set-Content (Join-Path $root "app/.env.local") -Encoding utf8

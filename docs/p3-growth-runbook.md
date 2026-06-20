@@ -61,7 +61,7 @@ See [compliance-geoblock.md](./compliance-geoblock.md) for details.
 cd mobile/x_market_flutter && flutter run
 ```
 
-`SuiConfig` includes `network`, `rpcUrl`, `packageId`, seed pools, Indexer/Gas Station URL. Phantom deeplink uses `SuiConfig.network`.
+`SuiConfig` includes `network`, `rpcUrl`, `packageId`, seed pools, Indexer URL. Phantom deeplink uses `SuiConfig.network`.
 
 ## Verification
 

@@ -127,7 +127,8 @@ export function loadConfig(): IndexerConfig {
   );
   let seedDeploy: IndexerConfig["seedDeploy"] = null;
   if (existsSync(deployPath)) {
-    seedDeploy = JSON.parse(readFileSync(deployPath, "utf8")) as IndexerConfig["seedDeploy"];
+    const raw = readFileSync(deployPath, "utf8").replace(/^\uFEFF/, "");
+    seedDeploy = JSON.parse(raw) as IndexerConfig["seedDeploy"];
   }
 
   return {

@@ -31,7 +31,7 @@
 Ubuntu 24.04
     ├── Nginx :443（/gas /indexer /pricing /walrus）
     └── Docker Compose（127.0.0.1:8787–8801 + Postgres）
-            ├── Gas Station / Keeper / Monitor / Oracle / Walrus
+            ├── LP Guard / Monitor / Oracle / Walrus
             ├── PostgreSQL + Indexer（p2+）
             └── Pricing Engine（full）
 ```
@@ -42,7 +42,7 @@ Ubuntu 24.04
 Ubuntu 24.04
     ├── Nginx :443
     ├── Node.js 进程（npm start，日志 .run/ 或 systemd）
-    │       └── Gas Station / Keeper / Monitor / Oracle / Walrus / Indexer / Pricing
+    │       └── Keeper / Monitor / Oracle / Walrus / Indexer / Pricing
     └── PostgreSQL
             ├── docker   — 仅 Postgres 用 Docker（默认，混合部署）
             ├── native   — apt 安装 PostgreSQL
@@ -52,7 +52,7 @@ Ubuntu 24.04
 | 组件 | 部署位置 | 公网路径示例 |
 |------|----------|--------------|
 | 前端 | Vercel | `https://x-market.vercel.app` |
-| Gas Station | Ubuntu | `https://api.example.com/gas` |
+| LP Guard Keeper | Ubuntu | `https://api.example.com/lp-guard`（示例） |
 | Indexer | Ubuntu | `https://api.example.com/indexer` |
 | Pricing Engine | Ubuntu | `https://api.example.com/pricing` |
 
@@ -131,14 +131,13 @@ Vercel 环境变量（脚本会自动推送）：
 
 | 变量 | 示例 | 可见性 |
 |------|------|--------|
-| `NEXT_PUBLIC_GAS_STATION_URL` | `/api/gas` | 浏览器 |
 | `NEXT_PUBLIC_INDEXER_URL` | `/api/indexer` | 浏览器 |
 | `BACKEND_PROXY_HOST` | `203.0.113.10` | **仅 Vercel 构建/运行时** |
 | `BACKEND_PROXY_SCHEME` | `http` | 仅服务端 |
 
 本地开发：在 `app/.env.local` 同样设置上述变量即可启用 `next.config.ts` rewrites。
 
-> **安全提示：** 8787–8801 对公网开放后，他人若猜到 IP 可直接调用 Gas Station。请依赖服务内置限流，并尽快加防火墙白名单或改用域名 + Nginx。
+> **安全提示：** 8788–8801 对公网开放后，请尽快加防火墙白名单或改用域名 + Nginx。
 
 ### 3.1 后端 — Docker 模式（有域名）
 
@@ -194,7 +193,7 @@ export XMARKET_DEPLOYER_PRIVATE_KEY='suiprivkey1...'
 
 **停止：** `./scripts/stop-backend-production.sh --mode native --profile p2`
 
-**日志：** `tail -f .run/gas-station.log` 或 `journalctl -u x-market-gas-station -f`
+**日志：** `tail -f .run/lp-guard-keeper.log` 或 `journalctl -u x-market-lp-guard -f`
 
 ### 3.3 前端（Vercel）
 
@@ -302,8 +301,8 @@ curl -s https://api.example.com/gas/health
 curl -s https://api.example.com/indexer/health
 ```
 
-- [ ] Vercel 部署成功，`NEXT_PUBLIC_GAS_STATION_URL` 指向公网 API
-- [ ] 浏览器连接钱包，Prophet Commit 可走 Gas Station
+- [ ] Vercel 部署成功
+- [ ] 浏览器连接钱包，Prophet Commit 可用（钱包有足够 SUI）
 - [ ] Indexer `/v1/markets` 有种子市场数据
 
 ---
@@ -312,7 +311,7 @@ curl -s https://api.example.com/indexer/health
 
 ```bash
 # 查看日志
-docker compose -f docker-compose.production.yml logs -f gas-station
+docker compose -f docker-compose.production.yml logs -f lp-guard-keeper
 docker compose -f docker-compose.production.yml logs -f indexer
 
 # 停止
@@ -353,7 +352,7 @@ git pull
 
 | Profile | 内容 |
 |---------|------|
-| `p1` | Gas Station + Keeper + Monitor + Oracle + Walrus |
+| `p1` | Keeper + Monitor + Oracle + Walrus |
 | `p2` | P1 + Postgres + Indexer（**推荐**） |
 | `full` | P2 + Pricing Engine |
 
@@ -363,7 +362,6 @@ git pull
 
 | 现象 | 处理 |
 |------|------|
-| Gas Station CORS 错误 | 确认 `CORS_ORIGIN` = Vercel 前端 URL（无尾斜杠） |
 | 前端连不上 API | 检查 Nginx、`NEXT_PUBLIC_*` 是否为 `https://api.../gas` 形式 |
 | Indexer 无数据 | `docker compose logs indexer`；确认 Postgres healthy |
 | certbot 失败 | 域名 DNS 是否已生效；80 端口是否可达 |

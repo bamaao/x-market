@@ -23,7 +23,7 @@ Set-Location $root
 $runDir = Join-Path $root ".run"
 New-Item -ItemType Directory -Force -Path $runDir | Out-Null
 
-$services = @("gas-station", "lp-guard-keeper")
+$services = @("lp-guard-keeper")
 if (-not $P0Only) {
   $services += @("chain-monitor", "oracle-relayer", "walrus-relay")
 }

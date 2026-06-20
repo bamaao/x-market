@@ -37,9 +37,36 @@ export const CIRCLE_USDC_COIN_TYPE = {
     "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC",
 } as const;
 
+const USDC_STRUCT_SUFFIX = "::usdc::USDC";
+
+/** Coin argument produced by {@link prepareUsdcPayment}. */
+export type UsdcPaymentArg = ReturnType<Transaction["coin"]>;
+
+/**
+ * Circle USDC must be a full Move struct tag (`0x…::usdc::USDC`).
+ * Bare package IDs (common misconfiguration) are normalized automatically.
+ */
+export function normalizeUsdcCoinType(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    throw new LocalizedError("errors.invalidUsdcCoinType", { value: raw });
+  }
+  if (trimmed.includes("::")) {
+    const parts = trimmed.split("::");
+    if (parts.length >= 3 && parts[0] && parts[1] && parts[2]) {
+      return trimmed;
+    }
+    throw new LocalizedError("errors.invalidUsdcCoinType", { value: raw });
+  }
+  if (/^0x[0-9a-fA-F]+$/.test(trimmed)) {
+    return `${trimmed.toLowerCase()}${USDC_STRUCT_SUFFIX}`;
+  }
+  throw new LocalizedError("errors.invalidUsdcCoinType", { value: raw });
+}
+
 export function usdcType(): string {
   const override = process.env.NEXT_PUBLIC_USDC_COIN_TYPE?.trim();
-  if (override) return override;
+  if (override) return normalizeUsdcCoinType(override);
   return NETWORK === "mainnet"
     ? CIRCLE_USDC_COIN_TYPE.mainnet
     : CIRCLE_USDC_COIN_TYPE.testnet;
@@ -70,12 +97,13 @@ export async function listUsdcCoins(
   owner: string,
   coinType: string = usdcType(),
 ): Promise<{ id: string; balance: bigint }[]> {
+  const resolvedType = normalizeUsdcCoinType(coinType);
   const out: { id: string; balance: bigint }[] = [];
   let cursor: string | null | undefined = null;
   do {
     const page = await client.getCoins({
       owner,
-      coinType,
+      coinType: resolvedType,
       cursor: cursor ?? undefined,
     });
     for (const c of page.data) {
@@ -96,7 +124,7 @@ export async function totalUsdcBalance(
 }
 
 /**
- * Merge wallet USDC coins if needed, then split `amount` for `buy_*` payment.
+ * Resolve `amount` USDC from the wallet (coins or address balance) for `buy_*` / auction payment.
  */
 export async function prepareUsdcPayment(
   tx: Transaction,
@@ -104,15 +132,15 @@ export async function prepareUsdcPayment(
   owner: string,
   amount: bigint,
   coinType: string = usdcType(),
-) {
+): Promise<UsdcPaymentArg> {
   if (amount <= 0n) {
     throw new LocalizedError("errors.amountMustBePositive");
   }
-  const coins = await listUsdcCoins(client, owner, coinType);
-  if (coins.length === 0) {
+  const type = normalizeUsdcCoinType(coinType);
+  const total = await totalUsdcBalance(client, owner, type);
+  if (total === 0n) {
     throw new LocalizedError("errors.noUsdcInWallet");
   }
-  const total = coins.reduce((s, c) => s + c.balance, 0n);
   if (total < amount) {
     throw new LocalizedError("errors.insufficientUsdc", {
       need: formatUsdcBaseUnits(amount),
@@ -120,17 +148,9 @@ export async function prepareUsdcPayment(
     });
   }
 
-  const sorted = [...coins].sort((a, b) =>
-    a.balance === b.balance ? 0 : a.balance > b.balance ? -1 : 1,
-  );
-  const primary = sorted[0].id;
-  const mergeSources = sorted
-    .slice(1)
-    .map((c) => tx.object(c.id));
-
-  if (mergeSources.length > 0) {
-    tx.mergeCoins(tx.object(primary), mergeSources);
-  }
-
-  return tx.splitCoins(tx.object(primary), [tx.pure.u64(amount)]);
+  return tx.coin({
+    type,
+    balance: amount,
+    useGasCoin: false,
+  });
 }

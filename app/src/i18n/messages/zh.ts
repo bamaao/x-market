@@ -94,6 +94,16 @@ export const zh = {
     notFound: "市场不存在",
     notFoundSub: "未找到 ID 为 {id} 的市场。",
     loading: "加载市场中…",
+    poolStatusLoading: "读取链上池状态…",
+    lifecycleHint: {
+      tradingUseTrade:
+        "当前池为 Trading 状态（非 Opening 竞价），应使用「交易」/「LP 注入」面板，而非竞价。Trading 只表示允许调用 buy_*；若 Vault 为 0，仍须先 LP 注入才能通过 max-loss 校验。",
+      auctionUseAuction: "当前池处于 Opening 竞价期，请使用「竞价」面板向各桶注资。",
+      settled: "市场已结算，不可再交易、注入或竞价。",
+      noPool: "未配置 Pool ID，无法进行链上操作。",
+      emptyVault:
+        "池 Vault 为 0：种子池需先 LP 注入才能交易；请使用下方「LP 注入」面板。",
+    },
     coverAlt: "{title} 封面",
     seed: {
       "poisson-goals": {
@@ -188,6 +198,9 @@ export const zh = {
     buildFailed: "交易构建失败",
     success: "成功: {digest}…",
     failed: "失败: {message}",
+    emptyVault:
+      "池 Vault 为 0，无法买入（链上 max-loss 校验 abort 7）。请先在下方「LP 注入」存入 USDC，再交易。",
+    vaultLabel: "Vault 抵押: {amount} USDC",
     preset: "预设: {json}",
   },
   auction: {
@@ -600,8 +613,7 @@ export const zh = {
     marketSection: "市场",
     lockTimeHint: "lock_time = Pool maturity · 解锁截止前 {minutes} 分钟关闭 paid_buyers 与新预测提交",
     stillView: "{reason} — 仍可查看该市场已有预测，但无法 Commit。",
-    gasEnabled: "Gas Station 已启用 — Commit / 解锁 / 审计由协议代付 SUI Gas，钱包仅变动 USDC",
-    gasDisabled: "未配置 NEXT_PUBLIC_GAS_STATION_URL，交易将自付 SUI Gas。",
+    gasDisabled: "Prophet 链上交易由钱包支付 SUI Gas。",
     noMarketSelected: "当前筛选下无已选市场 — 请切换主题/分布，或从列表中选择一项后继续。",
     commitPublicTitle: "Indexer → Commit（公开预测）",
     commitPrivateTitle: "Seal → Indexer → Commit（私密付费）",
@@ -620,6 +632,7 @@ export const zh = {
     status: "状态",
     prophet: "预言家",
     predictedValueLabel: "预测值",
+    predictionHidden: "保密（付费预测，审计前链上不可见）",
     unlockPriceLabel: "解锁价",
     lockUntil: "锁定至",
     unlockCount: "已解锁人数",
@@ -690,7 +703,7 @@ export const zh = {
     committedPublicGas: "已 Commit 公开预测（Gas 代付）：分析明文存 Indexer/IPFS，链上 is_public=true",
     committedPublic: "已 Commit 公开预测：分析明文存 Indexer/IPFS，链上 is_public=true",
     committedPrivateGas: "已 Commit（Gas 代付）：密文在 Indexer/IPFS，链上锁定 hash + seal_id",
-    committedPrivate: "已 Commit：密文在 Indexer/IPFS，链上锁定 hash + seal_id",
+    committedPrivate: "已 Commit：密文在 Indexer/IPFS，链上锁定 hash + seal_id；预测数字赛前保密，审计后 reveal",
     commitFailed: "Commit 失败",
     unlockSuccess: "解锁成功，正在自动 Seal 解密…",
     auditCheat: "审计：作弊判定，托管款将退还买家",
@@ -963,9 +976,10 @@ export const zh = {
     maxDecimals: "最多 {decimals} 位小数",
     amountMustBePositive: "金额须大于 0",
     noUsdcInWallet: "钱包中没有 USDC，请先转入或领取测试网 USDC",
+    invalidUsdcCoinType:
+      "NEXT_PUBLIC_USDC_COIN_TYPE 配置无效（{value}）。请使用完整类型，例如 0xa1ec…::usdc::USDC",
     insufficientUsdc: "USDC 不足：需要 {need}，持有 {have}",
     sealKeyServerNotConfigured: "未配置 {network} Seal 密钥服务器",
-    gasStationNotConfigured: "Gas Station 未配置（NEXT_PUBLIC_GAS_STATION_URL）",
     sponsoredTxFailed: "赞助交易执行失败",
   },
 } as const;

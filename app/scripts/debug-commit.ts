@@ -54,7 +54,7 @@ async function main() {
       : undefined;
   const maturity = Number(fields?.maturity_ts ?? 0);
   const payload = buildProphecyPayload(poolId, 25, "debug");
-  const hash = hashProphecyPlaintext(payload);
+  const hash = hashProphecyPlaintext(payload, poolId, 0n);
   const sealId = new Uint8Array(32).fill(7);
 
   console.log({

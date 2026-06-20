@@ -97,17 +97,9 @@
 
 ---
 
-## 6. Gas Station (off-chain)
+## 6. Gas Station (removed)
 
-| Parameter | Testnet pre-release | Mainnet confirmed value |
-|------|--------------|------------|
-| Sponsorship rate limit / address / minute | 30 | **30** |
-| Gas balance alert | 500_000_000 mist | **0.5 SUI** |
-| Production package ID validation | Enabled | **Required** |
-| CORS | `http://localhost:3000` | **Production frontend domain** (fill in for mainnet) |
-
-**Sign-off:** _______________ Date:________  
-**Review:** _______________ Date:________
+Gas Station sponsored transactions have been removed. Prophet Commit / Unlock / Audit use SUI gas from the user wallet; no `NEXT_PUBLIC_GAS_STATION_URL` or `:8787` service.
 
 ---
 

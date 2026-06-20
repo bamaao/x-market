@@ -12,13 +12,13 @@
 import { Transaction } from "@mysten/sui/transactions";
 import type { MarketKind } from "./markets";
 import { PACKAGE_ID } from "./markets";
-import { prepareUsdcPayment } from "./usdc";
+import { prepareUsdcPayment, type UsdcPaymentArg } from "./usdc";
 import type { CoinsClient } from "./usdc";
 
 export function appendAuctionBid(
   tx: Transaction,
   poolId: string,
-  payment: ReturnType<Transaction["splitCoins"]>,
+  payment: UsdcPaymentArg,
   bucketIndex: number,
   clockId: string,
 ) {

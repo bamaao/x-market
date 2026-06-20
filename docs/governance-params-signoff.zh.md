@@ -59,14 +59,14 @@
 | 周期累计上限 | **50%** |
 | 多签 `SlashGovernance` | **启用**（主网初始化时创建） |
 
-### ZK / Oracle / Prophet / Gas Station
+### ZK / Oracle / Prophet
 
 | 模块 | 主网确认值 |
 |------|------------|
 | ZK challenge 窗口 | **3600 s**；finalize 责任人：**协议运营 on-call** |
 | Oracle 最低押金 | **10 USDC**；争议窗口 **86400 s** |
 | Prophet 协议费 | **5%**；付费门槛 **3 场审计 + Score ≥ 40** |
-| Gas Station 限流 / 余额告警 | **30/min**；**0.5 SUI** |
+| Gas Station | **已移除** — 无需 sign-off |
 
 ---
 

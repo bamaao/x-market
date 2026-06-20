@@ -23,7 +23,7 @@ No shared contracts, liquidity, or deployments with [X-Market on Solana](../x-ma
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  Application: Next.js Web · Flutter Mobile · Gas Station · Indexer │
+│  Application: Next.js Web · Flutter Mobile · Indexer              │
 ├─────────────────────────────────────────────────────────────────┤
 │  Business Modules                                                │
 │  ┌──────────────────────┐    ┌────────────────────────────┐    │
@@ -44,7 +44,7 @@ No shared contracts, liquidity, or deployments with [X-Market on Solana](../x-ma
 | On-chain contracts | `sources/` | Move modules: AMM, Oracle, Prophet, LP, margin, etc. |
 | Web frontend | `app/` | Next.js 15 + `@mysten/dapp-kit` |
 | Mobile | `mobile/x_market_flutter/` | Flutter + Rust pricing bridge |
-| Off-chain services | `services/` | Gas Station, Indexer, LP Guard, Oracle Relayer, etc. |
+| Off-chain services | `services/` | Indexer, LP Guard, Oracle Relayer, Prophet Audit Keeper, etc. |
 | Pricing engine | `pricing-engine/` | Off-chain preview (aligned with `math-spec`) |
 | Math spec | `math-spec/` | Q32.32 fixed-point spec and test vectors |
 | Deployment | `scripts/`、`deploy/` | Testnet seed markets, service bootstrap |
@@ -59,7 +59,6 @@ x-market-sui/
 ├── mobile/x_market_flutter/  # Flutter mobile client
 ├── services/
 │   ├── indexer/              # PostgreSQL on-chain indexer + REST API
-│   ├── gas-station/          # Gas sponsorship (Prophet whitelist PTBs)
 │   ├── lp-guard-keeper/      # LP dynamic fee adjustment
 │   ├── chain-monitor/        # Service health aggregation
 │   ├── oracle-relayer/       # Oracle proposal relay
@@ -132,7 +131,6 @@ docker compose -f docker-compose.services.yml up -d --build
 
 | Service | Port | Description |
 | --- | --- | --- |
-| Gas Station | 8787 | Gas sponsorship for free Prophet commits |
 | LP Guard Keeper | 8788 | Dynamic fee tuning for seed pools |
 | Chain Monitor | 8789 | Service health aggregation |
 | Oracle Relayer | 8790 | Oracle proposal relay |
@@ -235,7 +233,7 @@ The protocol uses **Circle native USDC** (not a custom test token):
 | Private prophecy commit (Seal encryption) | ✅ `prophet_registry` |
 | Track record / Prophet Score | ✅ `prophet_leaderboard` |
 | Leaderboard (on-chain + Indexer) | ✅ `/leaderboard` |
-| Gas Station free commit sponsorship | ✅ |
+| Paid prophecy pre-event number hiding (BCS + audit reveal) | ✅ `prophet_plain` + `prophet_registry` |
 | EventRoot market root abstraction | ✅ `event_root` (migration in progress) |
 
 ## Vault
@@ -290,7 +288,6 @@ USDC is held in the shared object `MarketPool.vault: Balance<USDC>`. Settlement 
 - [docs/tier2-decision.md](./docs/tier2-decision.md)
 - [docs/slash-and-attestation.md](./docs/slash-and-attestation.md)
 - [docs/deferred-features.md](./docs/deferred-features.md)
-- [docs/gas-station-implementation.md](./docs/gas-station-implementation.md)
 - [docs/demo-walkthrough.md](./docs/demo-walkthrough.md)
 
 ## License
