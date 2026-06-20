@@ -10,14 +10,30 @@
 // automatically becomes available under the Apache License 2.0.
 
 import { pinyin } from "pinyin-pro";
-import {
-  SLUG_MAX_LEN,
-  fallbackMarketSlug,
-  isValidSlug,
-  sanitizeSlug,
-} from "../../../services/shared/market-slug";
 
-export { SLUG_MAX_LEN, fallbackMarketSlug, isValidSlug, sanitizeSlug };
+// Keep in sync with services/shared/market-slug.ts (indexer cover paths use the same rules).
+export const SLUG_MAX_LEN = 48;
+const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+/** Strip to URL-safe slug (lowercase a-z, digits, hyphens). */
+export function sanitizeSlug(input: string, maxLen = SLUG_MAX_LEN): string {
+  return input
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, maxLen)
+    .replace(/-+$/g, "");
+}
+
+export function isValidSlug(slug: string): boolean {
+  return SLUG_PATTERN.test(slug);
+}
+
+export function fallbackMarketSlug(): string {
+  return `market-${Date.now().toString(36)}`;
+}
 
 /** Convert CJK to hyphenated pinyin; keep Latin/digits, drop other symbols. */
 function transliterateTitle(title: string): string {
