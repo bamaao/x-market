@@ -31,6 +31,9 @@ app/out/
 app/.turbo/
 *.tsbuildinfo
 
+# Indexer local runtime data (covers, prophecy blobs, etc.)
+services/indexer/data/
+
 # Rust / Python cache
 target/
 __pycache__/

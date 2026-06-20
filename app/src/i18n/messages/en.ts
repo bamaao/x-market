@@ -974,7 +974,7 @@ export const en = {
       slugRequired: "Enter a slug",
       slugFormat: "Slug: lowercase letters, digits, and hyphens only",
       maturityRequired: "Enter a valid maturity time",
-      maturityMinHour: "Maturity must be at least 1 hour from now (stored as UTC Unix seconds on-chain)",
+      maturityMinLead: "Maturity must be at least 5 minutes from now (stored as UTC Unix seconds on-chain)",
       feeRange: "Fee must be between 0–500 bps",
       feedRequired: "Enter an Oracle Feed identifier",
       oracleConfigMissing: "NEXT_PUBLIC_ORACLE_CONFIG_ID is not configured",

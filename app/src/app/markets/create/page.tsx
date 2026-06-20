@@ -28,6 +28,7 @@ import {
   validateCreateMarketParams,
   type CreateMarketParams,
 } from "@/lib/create-market";
+import { sanitizeSlug } from "@/lib/market-slug";
 import { defaultMaturityZonedInput, detectUserTimezone, parseZonedDatetimeInput } from "@/lib/market-maturity-time";
 import { MaturityTimeField } from "@/components/MaturityTimeField";
 import { saveUserMarket } from "@/lib/market-catalog";
@@ -60,7 +61,17 @@ export default function CreateMarketPage() {
   const router = useRouter();
   const account = useCurrentAccount();
   const client = useSuiClient();
-  const { mutate: signAndExecute, isPending } = useSignAndExecuteTransaction();
+  const { mutate: signAndExecute, isPending } = useSignAndExecuteTransaction({
+    execute: async ({ bytes, signature }) =>
+      client.executeTransactionBlock({
+        transactionBlock: bytes,
+        signature,
+        options: {
+          showRawEffects: true,
+          showObjectChanges: true,
+        },
+      }),
+  });
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -91,7 +102,7 @@ export default function CreateMarketPage() {
   const [status, setStatus] = useState<string | null>(null);
   const [step, setStep] = useState<"idle" | "upload" | "chain" | "register">("idle");
 
-  const effectiveSlug = slug.trim() || slugifyTitle(title);
+  const effectiveSlug = sanitizeSlug(slug) || slugifyTitle(title);
   const effectiveFeedId = feedIdentifier.trim() || effectiveSlug;
 
   useEffect(() => {
@@ -230,6 +241,7 @@ export default function CreateMarketPage() {
                 client,
                 result.digest,
                 MARKET_POOL_TYPE,
+                result.objectChanges,
               );
               if (!poolId) {
                 setStatus(t("createMarket.errPoolIdParse", { digest: result.digest.slice(0, 18) }));
@@ -340,7 +352,7 @@ export default function CreateMarketPage() {
             value={slug}
             onChange={(e) => {
               setSlugTouched(true);
-              setSlug(e.target.value);
+              setSlug(sanitizeSlug(e.target.value));
             }}
             placeholder={effectiveSlug || "auto-from-title"}
           />

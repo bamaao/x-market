@@ -13,6 +13,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { mkdir, writeFile, readFile, access } from "node:fs/promises";
 import { constants } from "node:fs";
 import { join, extname } from "node:path";
+import { sanitizeSlug } from "../../shared/market-slug.js";
 
 const MAX_COVER_BYTES = 2 * 1024 * 1024;
 
@@ -33,12 +34,7 @@ const EXT_TO_MIME: Record<string, string> = {
 };
 
 export function sanitizeCoverSlug(slug: string): string {
-  return slug
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9-]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 48);
+  return sanitizeSlug(slug);
 }
 
 export function coverExtension(contentType: string): string | null {

@@ -973,7 +973,7 @@ export const zh = {
       slugRequired: "请填写 slug",
       slugFormat: "slug 仅允许小写字母、数字与连字符",
       maturityRequired: "请填写有效的到期时间",
-      maturityMinHour: "到期时间须至少 1 小时后（链上按 UTC Unix 秒存储）",
+      maturityMinLead: "到期时间须至少 5 分钟后（链上按 UTC Unix 秒存储）",
       feeRange: "费率须在 0–500 bps",
       feedRequired: "请填写 Oracle Feed 标识",
       oracleConfigMissing: "未配置 NEXT_PUBLIC_ORACLE_CONFIG_ID",

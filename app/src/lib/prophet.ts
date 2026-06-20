@@ -13,6 +13,10 @@ import { LocalizedError } from "@/i18n/core";
 import { blake2b } from "@noble/hashes/blake2b";
 import { Transaction } from "@mysten/sui/transactions";
 import type { XMarketRpc } from "./rpc";
+import {
+  fetchTransactionObjectChanges,
+  parseCreatedObjectIdByTypeSuffix,
+} from "./tx-effects";
 import { PACKAGE_ID, SEED_MARKETS, type MarketKind } from "./markets";
 import { prepareUsdcPayment, type CoinsClient } from "./usdc";
 import { SUI_CLOCK_ID } from "./trade";
@@ -1099,24 +1103,14 @@ export function storeProphecyPlaintext(sealIdHex: string, json: string): void {
 export async function extractProphecyIdFromTx(
   client: XMarketRpc,
   digest: string,
+  objectChanges?: readonly unknown[],
 ): Promise<string | null> {
-  if (!client.getTransactionBlock) return null;
-  const tx = await client.getTransactionBlock({
-    digest,
-    options: { showObjectChanges: true },
-  });
   const typeSuffix = "prophet_registry::PrivateProphecy";
-  for (const change of tx.objectChanges ?? []) {
-    if (
-      change.type === "created" &&
-      "objectType" in change &&
-      String(change.objectType).includes(typeSuffix) &&
-      "objectId" in change
-    ) {
-      return change.objectId;
-    }
-  }
-  return null;
+  const fromResult = parseCreatedObjectIdByTypeSuffix(objectChanges, typeSuffix);
+  if (fromResult) return fromResult;
+
+  const changes = await fetchTransactionObjectChanges(client, digest);
+  return parseCreatedObjectIdByTypeSuffix(changes, typeSuffix);
 }
 
 export { parseUsdcAmount, formatUsdcBaseUnits } from "./usdc";

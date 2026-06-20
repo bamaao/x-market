@@ -12,12 +12,18 @@
 import { Transaction } from "@mysten/sui/transactions";
 import type { MarketKind } from "./markets";
 import { PACKAGE_ID } from "./markets";
+import { isValidSlug } from "./market-slug";
 import {
   appendCreatePoissonPoolWithFeed,
   ORACLE_CONFIG_ID,
 } from "./oracle";
 
+export { sanitizeSlug, slugifyTitle } from "./market-slug";
+
 export const MARKET_POOL_TYPE = `${PACKAGE_ID}::market_pool::MarketPool`;
+
+/** Minimum lead time before maturity when creating a market (frontend guard). */
+export const MIN_MATURITY_LEAD_SECS = 300;
 
 export type LaunchMode = "trading";
 
@@ -41,16 +47,6 @@ export interface CreateMarketParams {
   tags?: string[];
 }
 
-export function slugifyTitle(title: string): string {
-  const base = title
-    .trim()
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 48);
-  return base || `market-${Date.now().toString(36)}`;
-}
-
 export function textToBytes(text: string): number[] {
   return [...new TextEncoder().encode(text)];
 }
@@ -58,14 +54,14 @@ export function textToBytes(text: string): number[] {
 export function validateCreateMarketParams(p: CreateMarketParams): string | null {
   if (!p.title.trim()) return "createMarket.validation.titleRequired";
   if (!p.slug.trim()) return "createMarket.validation.slugRequired";
-  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(p.slug)) {
+  if (!isValidSlug(p.slug)) {
     return "createMarket.validation.slugFormat";
   }
   if (!Number.isFinite(p.maturityTs) || p.maturityTs <= 0) {
     return "createMarket.validation.maturityRequired";
   }
-  if (p.maturityTs <= Math.floor(Date.now() / 1000) + 3600) {
-    return "createMarket.validation.maturityMinHour";
+  if (p.maturityTs <= Math.floor(Date.now() / 1000) + MIN_MATURITY_LEAD_SECS) {
+    return "createMarket.validation.maturityMinLead";
   }
   if (p.feeBps < 0 || p.feeBps > 500) return "createMarket.validation.feeRange";
   if (!p.feedIdentifier.trim()) return "createMarket.validation.feedRequired";

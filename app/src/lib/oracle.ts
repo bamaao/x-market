@@ -11,6 +11,10 @@
 
 import { Transaction } from "@mysten/sui/transactions";
 import type { XMarketRpc } from "./rpc";
+import {
+  fetchTransactionObjectChanges,
+  parseCreatedObjectIdFromChanges,
+} from "./tx-effects";
 import { PACKAGE_ID, GLOBAL_CONFIG_ID, SEED_MARKETS, type MarketKind } from "./markets";
 import { SUI_CLOCK_ID } from "./trade";
 
@@ -329,23 +333,13 @@ export async function extractCreatedObjectIdFromTx(
   client: XMarketRpc,
   digest: string,
   objectType: string,
+  objectChanges?: readonly unknown[] | null,
 ): Promise<string | null> {
-  if (!client.getTransactionBlock) return null;
-  const tx = await client.getTransactionBlock({
-    digest,
-    options: { showObjectChanges: true },
-  });
-  for (const change of tx.objectChanges ?? []) {
-    if (
-      change.type === "created" &&
-      "objectType" in change &&
-      change.objectType === objectType &&
-      "objectId" in change
-    ) {
-      return change.objectId;
-    }
-  }
-  return null;
+  const fromResult = parseCreatedObjectIdFromChanges(objectChanges ?? undefined, objectType);
+  if (fromResult) return fromResult;
+
+  const changes = await fetchTransactionObjectChanges(client, digest);
+  return parseCreatedObjectIdFromChanges(changes, objectType);
 }
 
 function normalizeId(value: unknown): string {

@@ -20,5 +20,7 @@ export type XMarketRpc = {
   queryEvents?: (input: any) => Promise<any>;
   getCoins?: (input: any) => Promise<any>;
   getTransactionBlock?: (input: any) => Promise<any>;
+  waitForTransaction?: (input: any) => Promise<any>;
+  executeTransactionBlock?: (input: any) => Promise<any>;
   getDynamicFieldObject?: (input: any) => Promise<any>;
 };
