@@ -1,53 +1,53 @@
-﻿{
-    "maturityTs":  1784542050,
-    "adminCap":  "0xb6a0ca03e9575b234d3f71df1a7dcbe89ad7cb814e2ed7c21d2feb5f4b241bb9",
-    "upgradeCap":  "0xf942fc383c157ed4e8986eec61dfe9272b0f8994dbecdb567f3b2689aba6375c",
-    "features":  {
-                     "note":  "emergency_cancel::emergency_void_market + claim_position_refund",
-                     "emergencyVoid":  true
-                 },
-    "publishedAt":  "2026-06-20",
-    "superseded":  {
-                       "packageId":  "0x67a441faf576adec29d0b279c959893c6024acd4224c1a9751031d4bc12c5b98",
-                       "note":  "previous testnet-v2 package superseded by fresh publish"
-                   },
-    "seedMarkets":  {
-                        "dirichlet_wdl":  {
-                                              "poolId":  "0x704cee806efe4f5456e9395aef0efceedf2296ee36af1261885af81c34bc25fe",
-                                              "alphas":  [
-                                                             10,
-                                                             10,
-                                                             10
-                                                         ]
-                                          },
-                        "normal_cpi":  {
-                                           "poolId":  "0xc35d64fcd23ec2bc4c89d42dcee0c25a045fa6b6e94be212ebfd1cd0ffa03d21",
-                                           "muTenths":  25,
-                                           "sigmaTenths":  4
-                                       },
-                        "poisson_goals":  {
-                                              "lambdaTenths":  25,
-                                              "poolId":  "0x5d38ee35bba07b559e969c9f5e191d94573d98f4a952a1c67de7c9e13ff53aeb"
-                                          }
-                    },
-    "explorer":  {
-                     "package":  "https://testnet.suivision.xyz/package/0xcec159cec19874629cc57d75db9cb77616532dd6bbb466b4cf302f9d7e2d8a48"
-                 },
-    "deployer":  "0x87e487cd6b1c7a53f91999eb3a5372ced201b614b26924ba4cc1d282a2240c07",
-    "publishTx":  "6DLsULyN9kahShDyNocDgnPpTRJWK5EH6YPMd3QXxjPA",
-    "oracle":  {
-                   "feedRegistryId":  "0x1c615bfb10ef4075c7d0f24f284d837a0467be35d53815296d6b0b5c147fa74f",
-                   "oracleArbitratorId":  "0xc17192ca69389c5f4e1f2e983b73268c265724a79e3b178e79238dcacce808e0",
-                   "oracleConfigId":  "0x9943df447e24c3a7a71c14b88521bcac62b33b3aa060f300651988ad02ee729b"
-               },
-    "prophet":  {
-                    "registryId":  "0x4b21ce672273439a19d21f665422380c516e8262df95ffc357635c61fea79484"
-                },
-    "usdc":  {
-                 "coinType":  "0xa1ec7fc00a6f40db9693ad1415d0c193ad3906494428cf252621037bd7117e29::usdc::USDC",
-                 "source":  "circle-native"
-             },
-    "globalConfig":  "0x035d78d9c99032aa99d8ea74a0dc192cddc91376dc72f5e77f8341b9847a3d35",
-    "packageId":  "0xcec159cec19874629cc57d75db9cb77616532dd6bbb466b4cf302f9d7e2d8a48",
-    "network":  "testnet"
+{
+  "explorer": {
+    "package": "https://testnet.suivision.xyz/package/0x56ff7a85c8a3a8d32a96c6271cfb7f8c3c86caf8c98bce9ec3292e12b3d56aa7"
+  },
+  "superseded": {
+    "note": "previous testnet-v2 package superseded by fresh publish",
+    "packageId": "0xcec159cec19874629cc57d75db9cb77616532dd6bbb466b4cf302f9d7e2d8a48"
+  },
+  "adminCap": "0x39b3e497460f3ff0bd199845cb7d61b0e45d2670bedc8024dbbf0584ba02d488",
+  "seedMarkets": {
+    "normal_cpi": {
+      "muTenths": 25,
+      "sigmaTenths": 4,
+      "poolId": "0x64573de19336bb53cb0a6825b0c2c5ff5c8f1542fa0705c3d3aeefa2915be904"
+    },
+    "dirichlet_wdl": {
+      "poolId": "0xb2086a0e45b891d2380889175a0bb2aef5e5063609ea29ecce7113bfdccfcf98",
+      "alphas": [
+        10,
+        10,
+        10
+      ]
+    },
+    "poisson_goals": {
+      "lambdaTenths": 25,
+      "poolId": "0x31f1d439bee742b6144a4041c571ef88ee7f95ffef937fae2263d0e104d4da09"
+    }
+  },
+  "deployer": "0x87e487cd6b1c7a53f91999eb3a5372ced201b614b26924ba4cc1d282a2240c07",
+  "usdc": {
+    "coinType": "0xa1ec7fc00a6f40db9693ad1415d0c193ad3906494428cf252621037bd7117e29::usdc::USDC",
+    "source": "circle-native"
+  },
+  "globalConfig": "0xabfb57120cf1a82e26c86fb50708b78a1a5d018f1e95037e45acd0524f1a88c8",
+  "network": "testnet",
+  "maturityTs": 1784566682,
+  "features": {
+    "emergencyVoid": true,
+    "note": "emergency_cancel::emergency_void_market + claim_position_refund"
+  },
+  "prophet": {
+    "registryId": "0xaa2e163f4c35c6482a939b9359260f69cc31dc6e1236202bf25e3d509f633bfe"
+  },
+  "oracle": {
+    "feedRegistryId": "0x53a88028aab538318852429119d8d11261d39f99fa4c34696c6727bd6c99bd71",
+    "oracleConfigId": "0x97fcf50bc751ca15c9e5431724c1db295a8ede8aec3d54aed9977abae2a125db",
+    "oracleArbitratorId": "0xa9e7518c7ce1f402591a6558780232feea81fce4ca3649f2ffaa3970bf182794"
+  },
+  "publishedAt": "2026-06-21",
+  "packageId": "0x56ff7a85c8a3a8d32a96c6271cfb7f8c3c86caf8c98bce9ec3292e12b3d56aa7",
+  "publishTx": "Duca498qf454wdfHtLsp4E4kBMAgBVidGMyreUCLLgdd",
+  "upgradeCap": "0x58b47f53d3bd33f468fa6e55d3d781b23c0b64de41a92e8d9a6572c167a728a0"
 }
