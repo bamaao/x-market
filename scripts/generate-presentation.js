@@ -73,35 +73,49 @@ function addStatBox(slide, pres, x, y, w, value, label, color) {
   });
 }
 
-function addPillarSlide(slide, pres, header, sub, pillars) {
+function addPillarSlide(slide, pres, header, sub, pillars, isZh = true) {
   slide.background = { color: C.light };
   addHeaderBar(slide, pres, header, sub);
+  const slideH = 5.625;
+  const contentTop = 1.18;
+  const bottomMargin = 0.12;
+  const colGap = 4.8;
+  const cardW = 4.4;
+  const rowGap = 0.08;
+  const rows = Math.ceil(pillars.length / 2);
+  const cardH = (slideH - contentTop - bottomMargin - rowGap * (rows - 1)) / rows;
+  const titleFontSize = isZh ? 14 : 11;
+  const titleH = isZh ? 0.36 : 0.46;
+  const itemFontSize = isZh ? 10 : 7.5;
+  const itemsTop = isZh ? 0.56 : 0.64;
+  const itemsH = cardH - itemsTop - 0.08;
   pillars.forEach((p, i) => {
     const col = i % 2;
     const row = Math.floor(i / 2);
-    const x = 0.4 + col * 4.8;
-    const y = 1.3 + row * 2.05;
+    const x = 0.4 + col * colGap;
+    const y = contentTop + row * (cardH + rowGap);
     slide.addShape(pres.shapes.RECTANGLE, {
-      x, y, w: 4.4, h: 1.85,
+      x, y, w: cardW, h: cardH,
       fill: { color: C.white }, line: { color: "E2E8F0", width: 1 }, shadow: makeShadow(),
     });
     slide.addShape(pres.shapes.OVAL, {
-      x: x + 0.2, y: y + 0.2, w: 0.55, h: 0.55, fill: { color: p.color },
+      x: x + 0.18, y: y + 0.16, w: 0.5, h: 0.5, fill: { color: p.color },
     });
     slide.addText(p.icon, {
-      x: x + 0.2, y: y + 0.2, w: 0.55, h: 0.55,
-      fontSize: 16, align: "center", valign: "middle", margin: 0,
+      x: x + 0.18, y: y + 0.16, w: 0.5, h: 0.5,
+      fontSize: 14, align: "center", valign: "middle", margin: 0,
     });
     slide.addText(p.title, {
-      x: x + 0.85, y: y + 0.18, w: 3.4, h: 0.4,
-      fontSize: 14, fontFace: "Arial", bold: true, color: C.deep, margin: 0,
+      x: x + 0.78, y: y + 0.12, w: cardW - 0.88, h: titleH,
+      fontSize: titleFontSize, fontFace: "Arial", bold: true, color: C.deep, margin: 0, valign: "top",
     });
     const items = p.items.map((item, j) => ({
       text: item,
-      options: { bullet: true, breakLine: j < p.items.length - 1, fontSize: 10, color: C.darkText },
+      options: { bullet: true, breakLine: j < p.items.length - 1, fontSize: itemFontSize, color: C.darkText },
     }));
     slide.addText(items, {
-      x: x + 0.2, y: y + 0.75, w: 4.0, h: 1.0, fontFace: "Arial", valign: "top",
+      x: x + 0.16, y: y + itemsTop, w: cardW - 0.28, h: itemsH,
+      fontFace: "Arial", valign: "top", margin: 0,
     });
   });
 }
@@ -198,24 +212,36 @@ function buildDeck(lang) {
   slide = pres.addSlide();
   slide.background = { color: C.light };
   addHeaderBar(slide, pres, t.value.title, t.value.sub);
-  content.value.stakeholders.forEach((s, i) => {
-    const y = 1.3 + i * 1.25;
-    slide.addShape(pres.shapes.RECTANGLE, { x: 0.4, y, w: 1.8, h: 1.05, fill: { color: [C.deep, C.teal, C.mint, C.navy][i] } });
+  const stakeholders = content.value.stakeholders;
+  const valueSlideH = 5.625;
+  const valueTop = 1.18;
+  const valueBottom = 0.12;
+  const valueGap = 0.06;
+  const roleW = 1.65;
+  const roleX = 0.35;
+  const panelX = roleX + roleW + 0.1;
+  const panelW = 10 - roleX - panelX;
+  const valueRowH = (valueSlideH - valueTop - valueBottom - valueGap * (stakeholders.length - 1)) / stakeholders.length;
+  const benefitSize = isZh ? 9 : 9.5;
+  const detailSize = isZh ? 7.5 : 8;
+  stakeholders.forEach((s, i) => {
+    const y = valueTop + i * (valueRowH + valueGap);
+    slide.addShape(pres.shapes.RECTANGLE, { x: roleX, y, w: roleW, h: valueRowH, fill: { color: [C.deep, C.teal, C.mint, C.navy][i] } });
     slide.addText(s.role, {
-      x: 0.4, y: y + 0.3, w: 1.8, h: 0.5,
-      fontSize: 12, fontFace: "Arial", bold: true, color: C.white, align: "center", margin: 0,
+      x: roleX, y, w: roleW, h: valueRowH,
+      fontSize: isZh ? 10 : 10, fontFace: "Arial", bold: true, color: C.white, align: "center", valign: "middle", margin: 0,
     });
     slide.addShape(pres.shapes.RECTANGLE, {
-      x: 2.35, y, w: 7.25, h: 1.05,
+      x: panelX, y, w: panelW, h: valueRowH,
       fill: { color: C.white }, line: { color: "E2E8F0", width: 1 },
     });
     slide.addText(s.benefit, {
-      x: 2.5, y: y + 0.12, w: 3.4, h: 0.85,
-      fontSize: 11, fontFace: "Arial", bold: true, color: C.deep, margin: 0, valign: "middle",
+      x: panelX + 0.1, y: y + 0.06, w: panelW - 0.2, h: valueRowH * 0.38,
+      fontSize: benefitSize, fontFace: "Arial", bold: true, color: C.deep, margin: 0, valign: "top",
     });
     slide.addText(s.detail, {
-      x: 5.9, y: y + 0.12, w: 3.5, h: 0.85,
-      fontSize: 10, fontFace: "Arial", color: C.slate, margin: 0, valign: "middle",
+      x: panelX + 0.1, y: y + 0.06 + valueRowH * 0.38, w: panelW - 0.2, h: valueRowH * 0.56,
+      fontSize: detailSize, fontFace: "Arial", color: C.slate, margin: 0, valign: "top",
     });
   });
 
@@ -265,28 +291,28 @@ function buildDeck(lang) {
   addPillarSlide(
     pres.addSlide(), pres,
     t.performance.title, t.performance.sub,
-    content.performance.pillars
+    content.performance.pillars, isZh
   );
 
   // ── 8 Security ──
   addPillarSlide(
     pres.addSlide(), pres,
     t.security.title, t.security.sub,
-    content.security.pillars
+    content.security.pillars, isZh
   );
 
   // ── 9 Reliability ──
   addPillarSlide(
     pres.addSlide(), pres,
     t.reliability.title, t.reliability.sub,
-    content.reliability.pillars
+    content.reliability.pillars, isZh
   );
 
   // ── 10 Usability ──
   addPillarSlide(
     pres.addSlide(), pres,
     t.usability.title, t.usability.sub,
-    content.usability.pillars
+    content.usability.pillars, isZh
   );
 
   // ── 11 Business Model ──
@@ -326,39 +352,53 @@ function buildDeck(lang) {
   addPillarSlide(
     pres.addSlide(), pres,
     t.future.title, t.future.sub,
-    content.future.pillars
+    content.future.pillars, isZh
   );
 
   // ── 14 Roadmap ──
   slide = pres.addSlide();
   slide.background = { color: C.light };
   addHeaderBar(slide, pres, t.roadmap.title, t.roadmap.sub);
-  content.roadmap.phases.forEach((phase, i) => {
-    const x = 0.35 + i * 2.35;
+  const phases = content.roadmap.phases;
+  const slideW = 10;
+  const slideH = 5.625;
+  const marginX = 0.25;
+  const gap = 0.08;
+  const cardW = (slideW - marginX * 2 - gap * (phases.length - 1)) / phases.length;
+  const cardTop = 1.2;
+  const noteH = 0.3;
+  const noteGap = 0.06;
+  const cardH = slideH - cardTop - noteH - noteGap - 0.12;
+  const itemFontSize = isZh ? 7 : 7.5;
+  phases.forEach((phase, i) => {
+    const x = marginX + i * (cardW + gap);
     const statusColor = phase.done ? "16A34A" : phase.active ? C.teal : C.slate;
     slide.addShape(pres.shapes.RECTANGLE, {
-      x, y: 1.35, w: 2.15, h: 3.65,
+      x, y: cardTop, w: cardW, h: cardH,
       fill: { color: phase.done || phase.active ? C.white : "F1F5F9" },
       line: { color: phase.done ? C.mint : phase.active ? C.teal : "CBD5E1", width: phase.done || phase.active ? 2 : 1 },
       shadow: phase.done || phase.active ? makeShadow() : undefined,
     });
     slide.addText(phase.name, {
-      x, y: 1.5, w: 2.15, h: 0.4,
-      fontSize: 11, fontFace: "Arial", bold: true, color: C.deep, align: "center", margin: 0,
+      x, y: cardTop + 0.12, w: cardW, h: 0.32,
+      fontSize: 9, fontFace: "Arial", bold: true, color: C.deep, align: "center", margin: 0,
     });
     slide.addText(phase.status, {
-      x, y: 1.9, w: 2.15, h: 0.3,
-      fontSize: 9, fontFace: "Arial", color: statusColor, align: "center", margin: 0,
+      x, y: cardTop + 0.42, w: cardW, h: 0.26,
+      fontSize: 7.5, fontFace: "Arial", color: statusColor, align: "center", margin: 0,
     });
     const items = phase.items.map((item, j) => ({
       text: item,
-      options: { bullet: true, breakLine: j < phase.items.length - 1, fontSize: 8, color: C.darkText },
+      options: { bullet: true, breakLine: j < phase.items.length - 1, fontSize: itemFontSize, color: C.darkText },
     }));
-    slide.addText(items, { x: x + 0.1, y: 2.3, w: 1.95, h: 2.5, fontFace: "Arial", valign: "top" });
+    slide.addText(items, {
+      x: x + 0.06, y: cardTop + 0.72, w: cardW - 0.12, h: cardH - 0.82,
+      fontFace: "Arial", valign: "top", margin: 0,
+    });
   });
   slide.addText(content.roadmap.note, {
-    x: 0.4, y: 5.1, w: 9.2, h: 0.35,
-    fontSize: 9, fontFace: "Arial", italic: true, color: C.slate, margin: 0,
+    x: marginX, y: cardTop + cardH + noteGap, w: slideW - marginX * 2, h: noteH,
+    fontSize: 7.5, fontFace: "Arial", italic: true, color: C.slate, margin: 0,
   });
 
   // ── 15 KPI ──
@@ -864,17 +904,17 @@ function getEnContent() {
         {
           icon: "🚀", color: C.deep, title: "Mainnet & Compliance",
           items: [
-            "External security audit completion · governance multisig + Slash timelock",
+            "External security audit · governance multisig + Slash timelock",
             "Circle USDC Mainnet · GeoBlock compliance framework",
-            "mainnet-readiness drill documentation (Slash/ZK/settlement)",
-            "UMA DVM optional arbitration adapter (coexists with built-in committee)",
+            "mainnet-readiness drills (Slash / ZK / settlement)",
+            "UMA DVM optional adapter (with built-in committee)",
           ],
         },
         {
           icon: "⚙", color: C.navy, title: "Infrastructure & Institutional",
           items: [
-            "EventRoot wrap migration (no hard fork) · Indexer EventRoot index",
-            "Brevis off-chain supervision (optional): maps proof_hash; on-chain remains attestation + challenge window",
+            "EventRoot wrap migration · Indexer EventRoot index",
+            "Brevis off-chain supervision (opt.): proof_hash mapping",
             "LP Guard Keeper production · Chain Monitor alerting",
             "Institutional AUM target ≥$5M · Flutter mainnet dual-platform",
           ],
@@ -906,10 +946,10 @@ function getEnContent() {
 
 async function main() {
   console.log("Generating business-focused presentations...");
-  const zhFile = await buildDeck("zh");
-  console.log("Created:", zhFile);
   const enFile = await buildDeck("en");
   console.log("Created:", enFile);
+  const zhFile = await buildDeck("zh");
+  console.log("Created:", zhFile);
   console.log("Done.");
 }
 
