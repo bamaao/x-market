@@ -1114,3 +1114,4 @@ export async function extractProphecyIdFromTx(
 }
 
 export { parseUsdcAmount, formatUsdcBaseUnits } from "./usdc";
+export { encodePaidProphecyPlain } from "./prophet-plain";
