@@ -32,6 +32,7 @@ const rewrites = backendProxyRewrites();
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  transpilePackages: ["pinyin-pro"],
   ...(rewrites ? { async rewrites() { return rewrites; } } : {}),
 };
 
