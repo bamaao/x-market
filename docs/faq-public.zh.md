@@ -16,7 +16,7 @@
 # X-Market 对外 FAQ（精简版）
 
 > 面向官网、社媒、路演的短版问答。  
-> 如需工程细节，请查看 `PRD.md`、`docs/qa.md` 与各阶段 playbook。
+> 名词解释见 [glossary.zh.md](./glossary.zh.md)；工程细节见 `PRD.md`、`docs/qa.md` 与各阶段 playbook。
 
 ---
 

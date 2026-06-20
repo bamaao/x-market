@@ -249,6 +249,7 @@ USDC is held in the shared object `MarketPool.vault: Balance<USDC>`. Settlement 
 - [PRD.md](./PRD.md) — Product requirements
 - [math-spec/SPEC.md](./math-spec/SPEC.md) — Tier 1 on-chain math spec
 - [docs/business-spec.md](./docs/business-spec.md) — Business specification
+- [docs/glossary.md](./docs/glossary.md) — System glossary
 - [docs/qa.md](./docs/qa.md) — Q&A
 - [docs/faq-public.md](./docs/faq-public.md) — Public FAQ
 

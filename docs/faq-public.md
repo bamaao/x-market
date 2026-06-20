@@ -16,7 +16,8 @@
 **English** | [简体中文](./faq-public.zh.md)
 
 > Short Q&A for website, social media, and demos.  
-> For engineering details, see `PRD.md`, `docs/qa.md`, and phase playbooks.
+> Short Q&A for website, social, and demos.  
+> Term definitions: [glossary.md](./glossary.md). Engineering details: `PRD.md`, `docs/qa.md`, and phase playbooks.
 
 ---
 
