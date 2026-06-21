@@ -358,8 +358,12 @@ export async function extractCreatedObjectIdFromTx(
   );
   if (fromResult) return fromResult;
 
-  const changes = await fetchTransactionObjectChanges(client, digest);
-  return parseCreatedObjectIdFromAnyChanges(changes, objectType);
+  try {
+    const changes = await fetchTransactionObjectChanges(client, digest);
+    return parseCreatedObjectIdFromAnyChanges(changes, objectType);
+  } catch {
+    return null;
+  }
 }
 
 function normalizeId(value: unknown): string {

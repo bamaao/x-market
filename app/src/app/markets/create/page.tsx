@@ -22,8 +22,9 @@ import {
 import { Transaction } from "@mysten/sui/transactions";
 import {
   appendCreateMarketPoolWithFeed,
-  MARKET_POOL_TYPE,
+  type CreateMarketChainResult,
   paramsToSeedMarket,
+  resolveMarketPoolIdAfterCreate,
   slugifyTitle,
   supportsOpeningAuction,
   validateCreateMarketParams,
@@ -47,7 +48,6 @@ import {
 import { uploadMarketCover } from "@/lib/market-cover-upload";
 import { PACKAGE_ID, type MarketKind } from "@/lib/markets";
 import {
-  extractCreatedObjectIdFromTx,
   ORACLE_CONFIG_ID,
   resolveFeedRegistryId,
 } from "@/lib/oracle";
@@ -63,10 +63,7 @@ const KIND_OPTIONS: { value: MarketKind; label: string }[] = [
   { value: "beta", label: "Beta" },
 ];
 
-type ChainExecuteResult = {
-  digest?: string;
-  objectChanges?: readonly unknown[] | null;
-};
+type ChainExecuteResult = CreateMarketChainResult;
 
 export default function CreateMarketPage() {
   const t = useT();
@@ -74,7 +71,7 @@ export default function CreateMarketPage() {
   const account = useCurrentAccount();
   const client = useSuiClient();
   const lastChainResultRef = useRef<ChainExecuteResult | null>(null);
-  const { mutate: signAndExecute, isPending } = useSignAndExecuteTransaction({
+  const { mutateAsync: signAndExecuteAsync, isPending } = useSignAndExecuteTransaction({
     execute: async ({ bytes, signature }) => {
       const result = await client.executeTransactionBlock({
         transactionBlock: bytes,
@@ -267,98 +264,100 @@ export default function CreateMarketPage() {
       const tx = new Transaction();
       appendCreateMarketPoolWithFeed(tx, ORACLE_CONFIG_ID, registryId, params);
 
-      signAndExecute(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        { transaction: tx as any },
-        {
-          onSuccess: async (result) => {
-            try {
-              if (!result.digest) {
-                setStatus(t("createMarket.errNoDigest"));
-                setStep("idle");
-                return;
-              }
-              const objectChanges =
-                result.objectChanges ??
-                lastChainResultRef.current?.objectChanges;
-              const poolId = await extractCreatedObjectIdFromTx(
-                client,
-                result.digest,
-                MARKET_POOL_TYPE,
-                objectChanges,
-              );
-              if (!poolId) {
-                setStatus(t("createMarket.errPoolIdParse", { digest: result.digest.slice(0, 18) }));
-                setStep("idle");
-                return;
-              }
+      let chainResult: ChainExecuteResult;
+      try {
+        chainResult = await signAndExecuteAsync(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          { transaction: tx as any },
+        );
+      } catch (e) {
+        setStatus(
+          t("createMarket.errChain", {
+            message: e instanceof Error ? e.message : String(e),
+          }),
+        );
+        setStep("idle");
+        return;
+      }
 
-              setStep("register");
-              setStatus(t("createMarket.registeringMeta"));
+      const digest =
+        chainResult.digest ?? lastChainResultRef.current?.digest ?? "";
+      if (!digest) {
+        setStatus(t("createMarket.errNoDigest"));
+        setStep("idle");
+        return;
+      }
 
-              const seed = paramsToSeedMarket(params, poolId, imageRef);
-              saveUserMarket(seed);
+      const txSnapshot: CreateMarketChainResult = {
+        digest,
+        objectChanges:
+          chainResult.objectChanges ??
+          lastChainResultRef.current?.objectChanges,
+        effects: chainResult.effects ?? lastChainResultRef.current?.effects,
+      };
 
-              const reg = await registerMarketMetadata({
-                pool_id: poolId,
-                slug: params.slug,
-                title: params.title.trim(),
-                description: params.description.trim(),
-                kind: params.kind,
-                image_url: imageRef ?? null,
-                fee_bps: params.feeBps,
-                maturity_ts: params.maturityTs,
-                package_id: PACKAGE_ID,
-                authority: account.address,
-                launch_mode: params.launchMode,
-                auction_end_ts:
-                  params.launchMode === "auction" ? (params.auctionEndTs ?? null) : null,
-                lambda_tenths:
-                  params.kind === "poisson" && params.launchMode === "trading"
-                    ? (params.lambdaTenths ?? null)
-                    : null,
-                mu_tenths:
-                  params.kind === "normal" && params.launchMode === "trading"
-                    ? (params.muTenths ?? null)
-                    : null,
-                sigma_tenths:
-                  params.kind === "normal" && params.launchMode === "trading"
-                    ? (params.sigmaTenths ?? null)
-                    : null,
-                tags: params.tags,
-              });
-
-              if (!reg.ok) {
-                setStatus(
-                  t("createMarket.errIndexerPartial", {
-                    pool: poolId.slice(0, 10),
-                    error: localizeLibMessage(reg.error ?? "", t) || t("common.unknown"),
-                  }),
-                );
-              } else {
-                setStatus(
-                  params.launchMode === "auction"
-                    ? t("createMarket.successAuction", { pool: poolId.slice(0, 10) })
-                    : t("createMarket.success", { pool: poolId.slice(0, 10) }),
-                );
-              }
-
-              router.push(`/markets/${params.slug}`);
-            } catch (e) {
-              setStatus(
-                t("createMarket.errPostProcess", {
-                  error: e instanceof Error ? e.message : String(e),
-                }),
-              );
-              setStep("idle");
-            }
-          },
-          onError: (e) => {
-            setStatus(t("createMarket.errChain", { message: e.message }));
-            setStep("idle");
-          },
-        },
+      const poolId = await resolveMarketPoolIdAfterCreate(
+        client,
+        digest,
+        txSnapshot,
       );
+      if (!poolId) {
+        setStatus(t("createMarket.errPoolIdParse", { digest: digest.slice(0, 18) }));
+        setStep("idle");
+        return;
+      }
+
+      setStep("register");
+      setStatus(t("createMarket.registeringMeta"));
+
+      const seed = paramsToSeedMarket(params, poolId, imageRef);
+      saveUserMarket(seed);
+
+      const reg = await registerMarketMetadata({
+        pool_id: poolId,
+        slug: params.slug,
+        title: params.title.trim(),
+        description: params.description.trim(),
+        kind: params.kind,
+        image_url: imageRef ?? null,
+        fee_bps: params.feeBps,
+        maturity_ts: params.maturityTs,
+        package_id: PACKAGE_ID,
+        authority: account.address,
+        launch_mode: params.launchMode,
+        auction_end_ts:
+          params.launchMode === "auction" ? (params.auctionEndTs ?? null) : null,
+        lambda_tenths:
+          params.kind === "poisson" && params.launchMode === "trading"
+            ? (params.lambdaTenths ?? null)
+            : null,
+        mu_tenths:
+          params.kind === "normal" && params.launchMode === "trading"
+            ? (params.muTenths ?? null)
+            : null,
+        sigma_tenths:
+          params.kind === "normal" && params.launchMode === "trading"
+            ? (params.sigmaTenths ?? null)
+            : null,
+        tags: params.tags,
+      });
+
+      if (!reg.ok) {
+        setStatus(
+          t("createMarket.errIndexerPartial", {
+            pool: poolId.slice(0, 10),
+            error: localizeLibMessage(reg.error ?? "", t) || t("common.unknown"),
+          }),
+        );
+      } else {
+        setStatus(
+          params.launchMode === "auction"
+            ? t("createMarket.successAuction", { pool: poolId.slice(0, 10) })
+            : t("createMarket.success", { pool: poolId.slice(0, 10) }),
+        );
+      }
+
+      router.push(`/markets/${params.slug}`);
     } catch (e) {
       setStatus(e instanceof Error ? e.message : String(e));
       setStep("idle");

@@ -15,9 +15,21 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function errorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (err && typeof err === "object") {
+    const nested = err as { message?: unknown; error?: unknown };
+    if (typeof nested.message === "string") return nested.message;
+    if (typeof nested.error === "string") return nested.error;
+  }
+  return String(err);
+}
+
 function isTxNotFoundError(err: unknown): boolean {
-  const msg = err instanceof Error ? err.message : String(err);
-  return /could not find|not found|transaction not found/i.test(msg);
+  const msg = errorMessage(err);
+  return /could not find|not found|transaction not found|referenced transaction/i.test(
+    msg,
+  );
 }
 
 export function parseCreatedObjectIdFromChanges(
@@ -62,53 +74,33 @@ export function parseCreatedObjectIdByTypeSuffix(
   return null;
 }
 
-/** Wait for a digest to be queryable and return object changes (RPC indexing lag safe). */
+/** Poll until a digest is queryable; never throws (RPC indexing lag safe). */
 export async function fetchTransactionObjectChanges(
   client: XMarketRpc,
   digest: string,
 ): Promise<readonly unknown[] | undefined> {
-  const clientEx = client as XMarketRpc & {
-    waitForTransaction?: (input: {
-      digest: string;
-      options?: { showObjectChanges?: boolean };
-      timeout?: number;
-    }) => Promise<{ objectChanges?: unknown[] }>;
-    waitForTransactionBlock?: (input: {
-      digest: string;
-      options?: { showObjectChanges?: boolean };
-      timeout?: number;
-    }) => Promise<{ objectChanges?: unknown[] }>;
-  };
-
-  const waitFn = clientEx.waitForTransactionBlock ?? clientEx.waitForTransaction;
-  if (waitFn) {
-    try {
-      const waited = await waitFn({
-        digest,
-        options: { showObjectChanges: true },
-        timeout: 60_000,
-      });
-      if (waited.objectChanges?.length) return waited.objectChanges;
-    } catch (e) {
-      if (!isTxNotFoundError(e)) throw e;
-    }
-  }
-
   if (!client.getTransactionBlock) return undefined;
 
-  await sleep(300);
-  const maxAttempts = 24;
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    try {
-      const tx = await client.getTransactionBlock({
-        digest,
-        options: { showObjectChanges: true },
-      });
-      if (tx.objectChanges?.length) return tx.objectChanges;
-    } catch (e) {
-      if (!isTxNotFoundError(e)) throw e;
+  try {
+    await sleep(400);
+    const maxAttempts = 30;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        const tx = await client.getTransactionBlock({
+          digest,
+          options: { showObjectChanges: true },
+        });
+        if (tx.objectChanges?.length) return tx.objectChanges;
+      } catch (e) {
+        if (!isTxNotFoundError(e)) {
+          console.warn("fetchTransactionObjectChanges:", errorMessage(e));
+          return undefined;
+        }
+      }
+      await sleep(Math.min(600 * (attempt + 1), 5000));
     }
-    await sleep(Math.min(500 * (attempt + 1), 4000));
+  } catch (e) {
+    console.warn("fetchTransactionObjectChanges failed:", errorMessage(e));
   }
   return undefined;
 }

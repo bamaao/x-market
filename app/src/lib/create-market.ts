@@ -13,6 +13,11 @@ import { Transaction } from "@mysten/sui/transactions";
 import type { MarketKind } from "./markets";
 import { PACKAGE_ID } from "./markets";
 import { isValidSlug } from "./market-slug";
+import type { XMarketRpc } from "./rpc";
+import {
+  fetchTransactionObjectChanges,
+  parseCreatedObjectIdByTypeSuffix,
+} from "./tx-effects";
 import {
   appendCreatePoissonPoolWithFeed,
   ORACLE_CONFIG_ID,
@@ -22,6 +27,57 @@ import { SUI_CLOCK_ID } from "./trade";
 export { sanitizeSlug, slugifyTitle } from "./market-slug";
 
 export const MARKET_POOL_TYPE = `${PACKAGE_ID}::market_pool::MarketPool`;
+export const MARKET_POOL_TYPE_SUFFIX = "::market_pool::MarketPool";
+
+export type CreateMarketChainResult = {
+  digest?: string;
+  objectChanges?: readonly unknown[] | null;
+  effects?: {
+    created?: ReadonlyArray<{
+      owner?: unknown;
+      reference?: { objectId?: string };
+    }>;
+  } | null;
+};
+
+export function parseMarketPoolIdFromObjectChanges(
+  objectChanges?: readonly unknown[] | null,
+): string | null {
+  return parseCreatedObjectIdByTypeSuffix(
+    objectChanges ?? undefined,
+    MARKET_POOL_TYPE_SUFFIX,
+  );
+}
+
+/** Resolve MarketPool id from execute response, RPC poll, or created shared objects. */
+export async function resolveMarketPoolIdAfterCreate(
+  client: XMarketRpc,
+  digest: string,
+  txResult?: CreateMarketChainResult | null,
+): Promise<string | null> {
+  const direct = parseMarketPoolIdFromObjectChanges(txResult?.objectChanges);
+  if (direct) return direct;
+
+  const changes = await fetchTransactionObjectChanges(client, digest);
+  const fetched = parseMarketPoolIdFromObjectChanges(changes);
+  if (fetched) return fetched;
+
+  for (const entry of txResult?.effects?.created ?? []) {
+    const id = entry?.reference?.objectId;
+    const owner = entry?.owner as { Shared?: unknown } | undefined;
+    if (!id || !owner?.Shared) continue;
+    try {
+      const obj = await client.getObject({ id, options: { showType: true } });
+      const type =
+        (obj?.data?.type as string | undefined) ??
+        (obj?.data?.content as { type?: string } | undefined)?.type;
+      if (type?.includes(MARKET_POOL_TYPE_SUFFIX)) return id;
+    } catch {
+      // try next shared object
+    }
+  }
+  return null;
+}
 
 /** Minimum lead time before maturity when creating a market (frontend guard). */
 export const MIN_MATURITY_LEAD_SECS = 300;
