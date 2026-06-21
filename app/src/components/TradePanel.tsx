@@ -34,6 +34,7 @@ import {
   type PoolView,
 } from "@/lib/position-display";
 import { formatUsdcBaseUnits, parseUsdcAmount } from "@/lib/usdc";
+import { buildQuoteSearchParams, entryProbPpbForBuy } from "@/lib/entry-prob";
 import { buyWouldExceedMaxLoss, isMaxLossExceededError } from "@/lib/risk";
 import { useT } from "@/i18n/context";
 
@@ -67,49 +68,29 @@ export function TradePanel({ market, pool }: Props) {
   const [betaA, setBetaA] = useState("350");
   const [betaB, setBetaB] = useState("400");
 
-  const maxLossBlocked = useMemo(() => {
-    if (!pool || !quote?.entryProbPpb) return false;
-    try {
-      const stakeRaw = parseUsdcAmount(stakeUsdc);
-      const isDigital =
-        market.kind === "poisson" && mode === "digital";
-      const isDirichlet = market.kind === "dirichlet";
-      const intervalA = isDigital
-        ? Number(poissonK)
-        : isDirichlet
-          ? Number(dirichletOutcome)
-          : market.kind === "poisson"
-            ? Number(poissonA)
-            : market.kind === "beta"
-              ? Number(betaA)
-              : Number(normalA);
-      const intervalB = isDigital
-        ? Number(poissonK)
-        : isDirichlet
-          ? Number(dirichletOutcome)
-          : market.kind === "poisson"
-            ? Number(poissonB)
-            : market.kind === "beta"
-              ? Number(betaB)
-              : Number(normalB);
-      return buyWouldExceedMaxLoss({
-        liabilityByK: pool.liabilityByK,
-        stakeRaw,
-        entryProbPpb: BigInt(quote.entryProbPpb),
-        vaultUsdc: pool.collateralUsdc,
-        feeBps: pool.feeBps,
-        feeMultiplierBps: pool.feeMultiplierBps,
-        intervalA,
-        intervalB,
-        dirichlet: isDirichlet,
-      });
-    } catch {
-      return false;
-    }
+  const tradeIntervals = useMemo(() => {
+    const isDigital = market.kind === "poisson" && mode === "digital";
+    const isDirichlet = market.kind === "dirichlet";
+    const intervalA = isDigital
+      ? Number(poissonK)
+      : isDirichlet
+        ? Number(dirichletOutcome)
+        : market.kind === "poisson"
+          ? Number(poissonA)
+          : market.kind === "beta"
+            ? Number(betaA)
+            : Number(normalA);
+    const intervalB = isDigital
+      ? Number(poissonK)
+      : isDirichlet
+        ? Number(dirichletOutcome)
+        : market.kind === "poisson"
+          ? Number(poissonB)
+          : market.kind === "beta"
+            ? Number(betaB)
+            : Number(normalB);
+    return { intervalA, intervalB, dirichlet: isDirichlet };
   }, [
-    pool,
-    quote,
-    stakeUsdc,
     market.kind,
     mode,
     poissonA,
@@ -120,6 +101,50 @@ export function TradePanel({ market, pool }: Props) {
     normalB,
     betaA,
     betaB,
+  ]);
+
+  const maxLossBlocked = useMemo(() => {
+    if (!pool) return false;
+    try {
+      const entryProbPpb = entryProbPpbForBuy({
+        marketKind: market.kind,
+        mode,
+        pool,
+        marketParams: market.params,
+        poissonA: Number(poissonA),
+        poissonB: Number(poissonB),
+        poissonK: Number(poissonK),
+        dirichletOutcome: Number(dirichletOutcome),
+        normalThreshold: Number(normalThreshold),
+      });
+      if (entryProbPpb == null) return false;
+      const stakeRaw = parseUsdcAmount(stakeUsdc);
+      return buyWouldExceedMaxLoss({
+        liabilityByK: pool.liabilityByK,
+        stakeRaw,
+        entryProbPpb,
+        vaultUsdc: pool.collateralUsdc,
+        feeBps: pool.feeBps,
+        feeMultiplierBps: pool.feeMultiplierBps,
+        intervalA: tradeIntervals.intervalA,
+        intervalB: tradeIntervals.intervalB,
+        dirichlet: tradeIntervals.dirichlet,
+      });
+    } catch {
+      return false;
+    }
+  }, [
+    pool,
+    stakeUsdc,
+    market.kind,
+    market.params,
+    mode,
+    poissonA,
+    poissonB,
+    poissonK,
+    dirichletOutcome,
+    normalThreshold,
+    tradeIntervals,
   ]);
 
   const buyBlocked = vaultEmpty || maxLossBlocked;
@@ -137,26 +162,24 @@ export function TradePanel({ market, pool }: Props) {
   })();
 
   useEffect(() => {
-    const stakeBase = Math.max(1, Math.floor(Number(stakeUsdc || "1") * 1e6));
-    const q = new URLSearchParams({
-      kind: market.kind,
-      stake_usdc: String(stakeBase),
-      mode: market.kind === "poisson" && mode === "digital" ? "digital" : "interval",
-      lambda_tenths: String(market.params.lambda_tenths ?? 25),
-      poisson_a: poissonA,
-      poisson_b: poissonB,
-      poisson_k: poissonK,
-      alphas: "10,10,10",
-      outcome: dirichletOutcome,
-      mu_tenths: String(market.params.mu_tenths ?? 25),
-      sigma_tenths: String(market.params.sigma_tenths ?? 4),
-      threshold_tenths: normalThreshold,
+    const q = buildQuoteSearchParams({
+      marketKind: market.kind,
+      mode,
+      pool,
+      marketParams: market.params,
+      stakeUsdc,
+      poissonA: Number(poissonA),
+      poissonB: Number(poissonB),
+      poissonK: Number(poissonK),
+      dirichletOutcome: Number(dirichletOutcome),
+      normalThreshold: Number(normalThreshold),
     });
     void fetchQuotePreview(q).then(setQuote);
   }, [
     market.kind,
     market.params,
     mode,
+    pool,
     stakeUsdc,
     poissonA,
     poissonB,
@@ -260,6 +283,11 @@ export function TradePanel({ market, pool }: Props) {
           {t("trade.vaultLabel", {
             amount: formatUsdcBaseUnits(pool.collateralUsdc),
           })}
+          {market.kind === "poisson" &&
+          pool.lambdaTenths > 0 &&
+          pool.lambdaTenths !== Number(market.params.lambda_tenths ?? 0)
+            ? ` · λ=${(pool.lambdaTenths / 10).toFixed(1)}`
+            : null}
         </p>
       ) : null}
       {vaultEmpty ? (
