@@ -11,7 +11,7 @@
   distribution of the code under the BSL, whichever comes first, the code
   automatically becomes available under the Apache License 2.0.
 -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-label="?????">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-label="足球总进球">
   <defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#0d2818"/>
@@ -25,5 +25,5 @@
   <circle cx="520" cy="180" r="28" fill="#eef1f6" fill-opacity="0.9"/>
   <path d="M520 158l8 12-8 12-8-12z" fill="#0d2818"/>
   <text x="48" y="48" fill="#5eead4" font-family="system-ui,sans-serif" font-size="22" font-weight="700">Poisson</text>
-  <text x="48" y="330" fill="#8b95a8" font-family="system-ui,sans-serif" font-size="16">?????</text>
+  <text x="48" y="330" fill="#8b95a8" font-family="PingFang SC,Microsoft YaHei,system-ui,sans-serif" font-size="16">足球总进球</text>
 </svg>

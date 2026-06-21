@@ -11,7 +11,7 @@
   distribution of the code under the BSL, whichever comes first, the code
   automatically becomes available under the Apache License 2.0.
 -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-label="CPI ??">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-label="CPI 区间">
   <defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#1a1520"/>
@@ -23,5 +23,5 @@
   <line x1="80" y1="280" x2="560" y2="280" stroke="#232a38" stroke-width="1"/>
   <line x1="80" y1="100" x2="80" y2="280" stroke="#232a38" stroke-width="1"/>
   <text x="48" y="48" fill="#5eead4" font-family="system-ui,sans-serif" font-size="22" font-weight="700">Normal</text>
-  <text x="48" y="330" fill="#8b95a8" font-family="system-ui,sans-serif" font-size="16">CPI ??</text>
+  <text x="48" y="330" fill="#8b95a8" font-family="PingFang SC,Microsoft YaHei,system-ui,sans-serif" font-size="16">CPI 区间</text>
 </svg>
