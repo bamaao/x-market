@@ -71,14 +71,22 @@ export async function fetchTransactionObjectChanges(
     waitForTransaction?: (input: {
       digest: string;
       options?: { showObjectChanges?: boolean };
+      timeout?: number;
+    }) => Promise<{ objectChanges?: unknown[] }>;
+    waitForTransactionBlock?: (input: {
+      digest: string;
+      options?: { showObjectChanges?: boolean };
+      timeout?: number;
     }) => Promise<{ objectChanges?: unknown[] }>;
   };
 
-  if (clientEx.waitForTransaction) {
+  const waitFn = clientEx.waitForTransactionBlock ?? clientEx.waitForTransaction;
+  if (waitFn) {
     try {
-      const waited = await clientEx.waitForTransaction({
+      const waited = await waitFn({
         digest,
         options: { showObjectChanges: true },
+        timeout: 60_000,
       });
       if (waited.objectChanges?.length) return waited.objectChanges;
     } catch (e) {
@@ -88,18 +96,19 @@ export async function fetchTransactionObjectChanges(
 
   if (!client.getTransactionBlock) return undefined;
 
-  const maxAttempts = 12;
+  await sleep(300);
+  const maxAttempts = 24;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
       const tx = await client.getTransactionBlock({
         digest,
         options: { showObjectChanges: true },
       });
-      return tx.objectChanges;
+      if (tx.objectChanges?.length) return tx.objectChanges;
     } catch (e) {
-      if (!isTxNotFoundError(e) || attempt === maxAttempts - 1) throw e;
-      await sleep(Math.min(400 * (attempt + 1), 3000));
+      if (!isTxNotFoundError(e)) throw e;
     }
+    await sleep(Math.min(500 * (attempt + 1), 4000));
   }
   return undefined;
 }

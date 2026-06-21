@@ -200,6 +200,8 @@ export const zh = {
     failed: "失败: {message}",
     emptyVault:
       "池 Vault 为 0，无法买入（链上 max-loss 校验 abort 7）。请先在下方「LP 注入」存入 USDC，再交易。",
+    maxLossExceeded:
+      "Vault 不足以覆盖该笔买入的最坏赔付（链上 abort 7）。请先在下方 LP 注入更多 USDC、减小下注金额，或选择概率更高的区间/结果。",
     vaultLabel: "Vault 抵押: {amount} USDC",
     preset: "预设: {json}",
   },

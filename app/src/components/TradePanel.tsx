@@ -11,7 +11,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   useCurrentAccount,
   useSignAndExecuteTransaction,
@@ -33,7 +33,8 @@ import {
   poolNeedsLiquidity,
   type PoolView,
 } from "@/lib/position-display";
-import { formatUsdcBaseUnits } from "@/lib/usdc";
+import { formatUsdcBaseUnits, parseUsdcAmount } from "@/lib/usdc";
+import { buyWouldExceedMaxLoss, isMaxLossExceededError } from "@/lib/risk";
 import { useT } from "@/i18n/context";
 
 type Props = { market: SeedMarket; pool?: PoolView };
@@ -65,6 +66,63 @@ export function TradePanel({ market, pool }: Props) {
   const [normalBarrier, setNormalBarrier] = useState("26");
   const [betaA, setBetaA] = useState("350");
   const [betaB, setBetaB] = useState("400");
+
+  const maxLossBlocked = useMemo(() => {
+    if (!pool || !quote?.entryProbPpb) return false;
+    try {
+      const stakeRaw = parseUsdcAmount(stakeUsdc);
+      const isDigital =
+        market.kind === "poisson" && mode === "digital";
+      const isDirichlet = market.kind === "dirichlet";
+      const intervalA = isDigital
+        ? Number(poissonK)
+        : isDirichlet
+          ? Number(dirichletOutcome)
+          : market.kind === "poisson"
+            ? Number(poissonA)
+            : market.kind === "beta"
+              ? Number(betaA)
+              : Number(normalA);
+      const intervalB = isDigital
+        ? Number(poissonK)
+        : isDirichlet
+          ? Number(dirichletOutcome)
+          : market.kind === "poisson"
+            ? Number(poissonB)
+            : market.kind === "beta"
+              ? Number(betaB)
+              : Number(normalB);
+      return buyWouldExceedMaxLoss({
+        liabilityByK: pool.liabilityByK,
+        stakeRaw,
+        entryProbPpb: BigInt(quote.entryProbPpb),
+        vaultUsdc: pool.collateralUsdc,
+        feeBps: pool.feeBps,
+        feeMultiplierBps: pool.feeMultiplierBps,
+        intervalA,
+        intervalB,
+        dirichlet: isDirichlet,
+      });
+    } catch {
+      return false;
+    }
+  }, [
+    pool,
+    quote,
+    stakeUsdc,
+    market.kind,
+    mode,
+    poissonA,
+    poissonB,
+    poissonK,
+    dirichletOutcome,
+    normalA,
+    normalB,
+    betaA,
+    betaB,
+  ]);
+
+  const buyBlocked = vaultEmpty || maxLossBlocked;
 
   const modeHint = (() => {
     if (market.kind !== "normal") return null;
@@ -120,6 +178,10 @@ export function TradePanel({ market, pool }: Props) {
       setStatus(t("trade.emptyVault"));
       return;
     }
+    if (maxLossBlocked) {
+      setStatus(t("trade.maxLossExceeded"));
+      return;
+    }
     if (market.kind === "normal" && mode === "structured_note") {
       if (Number(normalCap) <= Number(normalStrike)) {
         setStatus(t("trade.errStructuredNote"));
@@ -133,8 +195,8 @@ export function TradePanel({ market, pool }: Props) {
       }
     }
     try {
-      const { parseUsdcAmount } = await import("@/lib/usdc");
-      const stakeBase = parseUsdcAmount(stakeUsdc);
+      const { parseUsdcAmount: parseAmount } = await import("@/lib/usdc");
+      const stakeBase = parseAmount(stakeUsdc);
       const tx = new Transaction();
       const payment = await prepareUsdcPayment(
         tx,
@@ -170,7 +232,12 @@ export function TradePanel({ market, pool }: Props) {
             setStatus(t("trade.success", { digest: r.digest?.slice(0, 20) ?? "" }));
             setBalanceKey((k) => k + 1);
           },
-          onError: (e) => setStatus(t("trade.failed", { message: e.message })),
+          onError: (e) =>
+            setStatus(
+              isMaxLossExceededError(e.message)
+                ? t("trade.maxLossExceeded")
+                : t("trade.failed", { message: e.message }),
+            ),
         },
       );
     } catch (e) {
@@ -197,6 +264,8 @@ export function TradePanel({ market, pool }: Props) {
       ) : null}
       {vaultEmpty ? (
         <p className="hint">{t("trade.emptyVault")}</p>
+      ) : maxLossBlocked ? (
+        <p className="hint">{t("trade.maxLossExceeded")}</p>
       ) : null}
       {account && (
         <>
@@ -376,7 +445,7 @@ export function TradePanel({ market, pool }: Props) {
       <button
         type="button"
         className="primary"
-        disabled={!account || isPending || vaultEmpty}
+        disabled={!account || isPending || buyBlocked}
         onClick={() => void buildBuyTx()}
       >
         {isPending ? t("trade.signing") : t("trade.buyUsdc")}

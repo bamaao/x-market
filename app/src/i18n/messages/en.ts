@@ -201,6 +201,8 @@ export const en = {
     failed: "Failed: {message}",
     emptyVault:
       "Pool vault is empty — buys fail on-chain max-loss check (abort 7). LP-deposit USDC below first, then trade.",
+    maxLossExceeded:
+      "Vault cannot cover worst-case payout for this buy (on-chain abort 7). LP-deposit more USDC below, reduce stake, or pick a higher-probability interval/outcome.",
     vaultLabel: "Vault collateral: {amount} USDC",
     preset: "Preset: {json}",
   },

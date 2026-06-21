@@ -11,7 +11,7 @@
 
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -63,21 +63,31 @@ const KIND_OPTIONS: { value: MarketKind; label: string }[] = [
   { value: "beta", label: "Beta" },
 ];
 
+type ChainExecuteResult = {
+  digest?: string;
+  objectChanges?: readonly unknown[] | null;
+};
+
 export default function CreateMarketPage() {
   const t = useT();
   const router = useRouter();
   const account = useCurrentAccount();
   const client = useSuiClient();
+  const lastChainResultRef = useRef<ChainExecuteResult | null>(null);
   const { mutate: signAndExecute, isPending } = useSignAndExecuteTransaction({
-    execute: async ({ bytes, signature }) =>
-      client.executeTransactionBlock({
+    execute: async ({ bytes, signature }) => {
+      const result = await client.executeTransactionBlock({
         transactionBlock: bytes,
         signature,
         options: {
           showRawEffects: true,
           showObjectChanges: true,
+          showEffects: true,
         },
-      }),
+      });
+      lastChainResultRef.current = result;
+      return result;
+    },
   });
 
   const [title, setTitle] = useState("");
@@ -268,11 +278,14 @@ export default function CreateMarketPage() {
                 setStep("idle");
                 return;
               }
+              const objectChanges =
+                result.objectChanges ??
+                lastChainResultRef.current?.objectChanges;
               const poolId = await extractCreatedObjectIdFromTx(
                 client,
                 result.digest,
                 MARKET_POOL_TYPE,
-                result.objectChanges,
+                objectChanges,
               );
               if (!poolId) {
                 setStatus(t("createMarket.errPoolIdParse", { digest: result.digest.slice(0, 18) }));

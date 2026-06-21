@@ -57,6 +57,7 @@ export interface PoolView {
   muTenths: number;
   sigmaTenths: number;
   collateralUsdc: bigint;
+  liabilityByK: bigint[];
   feeBps: number;
   feeMultiplierBps: number;
   sigmaVirtualTenths: number;
@@ -147,6 +148,10 @@ export function parsePoolView(
   const dirichletAlphas = Array.isArray(alphasRaw)
     ? alphasRaw.map((v) => Number(v))
     : [];
+  const liabilityRaw = fields.liability_by_k;
+  const liabilityByK = Array.isArray(liabilityRaw)
+    ? liabilityRaw.map((v) => BigInt(String(v)))
+    : [];
   return {
     poolId,
     kind: Number(fields.kind ?? 0),
@@ -159,6 +164,7 @@ export function parsePoolView(
     muTenths: Number(fields.mu_tenths ?? 0),
     sigmaTenths: Number(fields.sigma_tenths ?? 0),
     collateralUsdc: BigInt(String(fields.collateral_usdc ?? 0)),
+    liabilityByK,
     feeBps: Number(fields.fee_bps ?? 0),
     feeMultiplierBps: Number(fields.fee_multiplier_bps ?? 0),
     sigmaVirtualTenths: Number(fields.sigma_virtual_tenths ?? 0),

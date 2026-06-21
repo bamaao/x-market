@@ -20,6 +20,7 @@ export const PRICING_ENGINE_URL =
   "http://localhost:8801";
 
 export interface QuotePreview {
+  entryProbPpb: string;
   entryProbPercent: number;
   payoutUsdc: string;
   impliedRoiBps: number;

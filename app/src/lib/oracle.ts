@@ -13,6 +13,7 @@ import { Transaction } from "@mysten/sui/transactions";
 import type { XMarketRpc } from "./rpc";
 import {
   fetchTransactionObjectChanges,
+  parseCreatedObjectIdByTypeSuffix,
   parseCreatedObjectIdFromChanges,
 } from "./tx-effects";
 import { PACKAGE_ID, GLOBAL_CONFIG_ID, SEED_MARKETS, type MarketKind } from "./markets";
@@ -328,6 +329,22 @@ export function workflowStepLabel(step: OracleWorkflowStep): string {
   }
 }
 
+function parseCreatedObjectIdFromAnyChanges(
+  objectChanges: readonly unknown[] | undefined,
+  objectType: string,
+): string | null {
+  const exact = parseCreatedObjectIdFromChanges(objectChanges, objectType);
+  if (exact) return exact;
+  const suffixIdx = objectType.indexOf("::");
+  if (suffixIdx >= 0) {
+    return parseCreatedObjectIdByTypeSuffix(
+      objectChanges,
+      objectType.slice(suffixIdx),
+    );
+  }
+  return null;
+}
+
 /** Parse a newly created object id from transaction effects. */
 export async function extractCreatedObjectIdFromTx(
   client: XMarketRpc,
@@ -335,11 +352,14 @@ export async function extractCreatedObjectIdFromTx(
   objectType: string,
   objectChanges?: readonly unknown[] | null,
 ): Promise<string | null> {
-  const fromResult = parseCreatedObjectIdFromChanges(objectChanges ?? undefined, objectType);
+  const fromResult = parseCreatedObjectIdFromAnyChanges(
+    objectChanges ?? undefined,
+    objectType,
+  );
   if (fromResult) return fromResult;
 
   const changes = await fetchTransactionObjectChanges(client, digest);
-  return parseCreatedObjectIdFromChanges(changes, objectType);
+  return parseCreatedObjectIdFromAnyChanges(changes, objectType);
 }
 
 function normalizeId(value: unknown): string {
